@@ -89,8 +89,8 @@ export default function MergePage() {
                 <CardContent>
                     <Accordion type="single" collapsible className="w-full">
                        {group.files.map(file => (
-                           <AccordionItem value={file.name} key={file.name}>
-                               <AccordionTrigger>
+                           <AccordionItem value={file.name} key={file.name} disabled={file.status === 'resolved'}>
+                               <AccordionTrigger disabled={file.status === 'resolved'}>
                                    <div className="flex items-center justify-between w-full">
                                        <div className="flex items-center gap-2">
                                             <FileText className="h-4 w-4" />
@@ -102,7 +102,11 @@ export default function MergePage() {
                                    </div>
                                </AccordionTrigger>
                                <AccordionContent>
-                                   <ConflictResolver />
+                                   {file.status === 'resolved' ? (
+                                      <div className="p-4 text-sm text-muted-foreground">This conflict has already been resolved.</div>
+                                   ) : (
+                                     <ConflictResolver />
+                                   )}
                                </AccordionContent>
                            </AccordionItem>
                        ))}
