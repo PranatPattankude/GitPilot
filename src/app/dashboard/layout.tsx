@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitPilotLogo } from "@/components/icons"
+import { onAuthStateChanged, signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 const menuItems = [
   {
@@ -56,6 +58,23 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [user, setUser] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        router.push('/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
 
   return (
     <SidebarProvider>
@@ -85,16 +104,16 @@ export default function DashboardLayout({
         <SidebarFooter>
           <div className="flex items-center gap-3 p-2 rounded-md transition-colors hover:bg-sidebar-accent">
             <Avatar className="size-8">
-              <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-              <AvatarFallback>CN</AvatarFallback>
+              <AvatarImage src={user?.photoURL} alt={user?.displayName} />
+              <AvatarFallback>{user?.displayName?.[0]}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col text-sm overflow-hidden">
-              <span className="font-semibold truncate">Jane Doe</span>
+              <span className="font-semibold truncate">{user?.displayName}</span>
               <span className="text-muted-foreground truncate">
-                jane.doe@example.com
+                {user?.email}
               </span>
             </div>
-            <LogOut className="ml-auto size-5 text-muted-foreground cursor-pointer" />
+            <LogOut onClick={handleSignOut} className="ml-auto size-5 text-muted-foreground cursor-pointer" />
           </div>
         </SidebarFooter>
       </Sidebar>
