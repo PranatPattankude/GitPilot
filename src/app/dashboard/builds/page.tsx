@@ -30,16 +30,16 @@ const bulkBuild = {
   sourceBranch: 'feature/new-auth',
   targetBranch: 'main',
   repos: [
-    { name: 'gitpilot-ui', status: 'Success', commit: 'a1b2c3d' },
-    { name: 'firebase-functions-sdk', status: 'Success', commit: 'e4f5g6h' },
-    { name: 'project-phoenix', status: 'In Progress', commit: 'i7j8k9l' },
-    { name: 'react-fire-hooks', status: 'Success', commit: 'm0n1o2p' },
-    { name: 'quantum-leap-engine', status: 'Failed', commit: 'q3r4s5t' },
-    { name: 'nomad-travel-app', status: 'Success', commit: 'u6v7w8x' },
-    { name: 'recipe-finder-api', status: 'Success', commit: 'y9z0a1b' },
-    { name: 'crypto-tracker', status: 'Queued', commit: 'c2d3e4f' },
-    { name: 'portfolio-generator', status: 'Queued', commit: 'g5h6i7j' },
-    { name: 'data-viz-library', status: 'Queued', commit: 'k8l9m0n' },
+    { name: 'gitpilot-ui', status: 'Success', commit: 'a1b2c3d', duration: '1m 2s' },
+    { name: 'firebase-functions-sdk', status: 'Success', commit: 'e4f5g6h', duration: '1m 15s' },
+    { name: 'project-phoenix', status: 'In Progress', commit: 'i7j8k9l', duration: '45s' },
+    { name: 'react-fire-hooks', status: 'Success', commit: 'm0n1o2p', duration: '58s' },
+    { name: 'quantum-leap-engine', status: 'Failed', commit: 'q3r4s5t', duration: '32s' },
+    { name: 'nomad-travel-app', status: 'Success', commit: 'u6v7w8x', duration: '1m 5s' },
+    { name: 'recipe-finder-api', status: 'Success', commit: 'y9z0a1b', duration: '1m 20s' },
+    { name: 'crypto-tracker', status: 'Queued', commit: 'c2d3e4f', duration: '-' },
+    { name: 'portfolio-generator', status: 'Queued', commit: 'g5h6i7j', duration: '-' },
+    { name: 'data-viz-library', status: 'Queued', commit: 'k8l9m0n', duration: '-' },
   ],
   status: 'In Progress',
   duration: '1m 10s',
@@ -104,11 +104,17 @@ export default function BuildsPage() {
                           <span className="text-muted-foreground w-6 text-right">{index + 1}.</span>
                           <div className="flex flex-col gap-1">
                             <span>{repo.name}</span>
-                            <div className="flex items-center gap-1.5">
-                              <GitCommit className="size-3 text-muted-foreground" />
-                              <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
-                                {repo.commit}
-                              </span>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <GitCommit className="size-3 text-muted-foreground" />
+                                <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
+                                  {repo.commit}
+                                </span>
+                              </div>
+                               <div className="flex items-center gap-1.5">
+                                <Clock className="size-3 text-muted-foreground" />
+                                <span className="text-xs">{repo.duration}</span>
+                               </div>
                             </div>
                           </div>
                         </div>
