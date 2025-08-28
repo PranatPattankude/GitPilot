@@ -74,7 +74,7 @@ export const getReleaseHistory = ai.defineFlow(
       });
 
       const rows = response.data.values;
-      if (!rows || rows.length <= 1) { // Changed to <= 1 to account for only header
+      if (!rows || rows.length <= 1) { 
         console.log('No data found in Google Sheet (or only a header row). The sheet might be empty.');
         return [];
       }
