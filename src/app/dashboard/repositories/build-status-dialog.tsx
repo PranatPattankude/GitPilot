@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle, MoreHorizontal, RefreshCw } from "lucide-react"
+import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle, MoreHorizontal, RefreshCw, Ban } from "lucide-react"
 import type { Repository } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 
@@ -68,6 +68,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
             const progressValue = (build.currentStep / build.totalSteps) * 100;
             const isFailed = build.status === "Failed";
             const isSuccess = build.status === "Success";
+            const isInProgress = build.status === "In Progress";
 
             return (
               <Card key={build.id}>
@@ -78,7 +79,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                    <div className="flex items-center gap-2">
                     <SvgIcon className={`size-5 ${color} ${animation}`} />
                     <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
-                    {isFailed && (
+                    {(isFailed || isInProgress) && (
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -87,14 +88,24 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              <span>Rerun failed jobs</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              <span>Rerun all jobs</span>
-                            </DropdownMenuItem>
+                            {isFailed && (
+                              <>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  <span>Rerun failed jobs</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  <span>Rerun all jobs</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {isInProgress && (
+                               <DropdownMenuItem>
+                                <Ban className="mr-2 h-4 w-4" />
+                                <span>Cancel build</span>
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                     )}

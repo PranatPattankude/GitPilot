@@ -163,13 +163,48 @@ export default function BuildsPage() {
           const color = statusInfo[build.status as keyof typeof statusInfo]?.color
           const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation
           if (!SvgIcon) return null;
+          const isFailed = build.status === 'Failed';
+          const isRunning = build.status === 'Running';
+
 
           return (
             <Card key={build.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">{build.repo}</CardTitle>
-                  <SvgIcon className={`size-6 ${color} ${animation}`} />
+                  <div className="flex items-center gap-2">
+                    <SvgIcon className={`size-6 ${color} ${animation}`} />
+                     {(isFailed || isRunning) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">More actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {isFailed && (
+                              <>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  <span>Rerun failed jobs</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  <span>Rerun all jobs</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {isRunning && (
+                              <DropdownMenuItem>
+                                <Ban className="mr-2 h-4 w-4" />
+                                <span>Cancel build</span>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                     )}
+                  </div>
                 </div>
                 <CardDescription>Branch: {build.branch}</CardDescription>
               </CardHeader>
