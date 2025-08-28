@@ -72,7 +72,7 @@ export default function RepositoriesPage() {
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Your Repositories</CardTitle>
+          <CardTitle>Repository Management</CardTitle>
           <CardDescription>
             Select repositories to perform bulk operations like merging branches.
           </CardDescription>
