@@ -208,7 +208,7 @@ export default function RepositoriesPage() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-[200px]">
                 <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <ScrollArea className="h-48">
