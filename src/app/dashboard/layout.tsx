@@ -25,8 +25,6 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitPilotLogo } from "@/components/icons"
-import { onAuthStateChanged, signOut } from "firebase/auth"
-import { auth } from "@/lib/firebase"
 
 const menuItems = [
   {
@@ -58,22 +56,11 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [user, setUser] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
-
-  const handleSignOut = async () => {
-    await signOut(auth);
-    router.push('/login');
+  
+  const user = {
+    displayName: "Guest User",
+    email: "guest@example.com",
+    photoURL: ""
   };
 
   return (
@@ -113,7 +100,6 @@ export default function DashboardLayout({
                 {user?.email}
               </span>
             </div>
-            <LogOut onClick={handleSignOut} className="ml-auto size-5 text-muted-foreground cursor-pointer" />
           </div>
         </SidebarFooter>
       </Sidebar>

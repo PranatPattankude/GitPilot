@@ -20,31 +20,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState } from "react"
-import { onAuthStateChanged } from "firebase/auth"
-import { auth } from "@/lib/firebase"
 import { Skeleton } from "@/components/ui/skeleton"
 
-async function fetchRepos(token: string): Promise<Repository[]> {
-    const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100', {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        }
-    });
-
-    if (!response.ok) {
-        console.error("Failed to fetch repos from GitHub, status:", response.status);
-        throw new Error("Failed to fetch repos from GitHub");
-    }
-
-    const data = await response.json();
-    return data.map((repo: any) => ({
-        id: repo.id.toString(),
-        name: repo.name,
-        owner: repo.owner.login,
-        url: repo.html_url,
-        lastUpdated: new Date(repo.updated_at).toLocaleDateString(),
-    }));
-}
+const staticRepos: Repository[] = [
+    { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago' },
+    { id: '2', name: 'firebase-functions-sdk', owner: 'acme-corp', url: '', lastUpdated: '3 days ago' },
+    { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: '', lastUpdated: '5 days ago' },
+    { id: '4', name: 'project-phoenix', owner: 'acme-corp', url: '', lastUpdated: '1 week ago' },
+];
 
 
 export default function RepositoriesPage() {
@@ -54,35 +37,17 @@ export default function RepositoriesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const token = localStorage.getItem('github-token');
-        if (token) {
-          try {
-            const userRepos = await fetchRepos(token);
-            setLocalRepos(userRepos);
-          } catch (e) {
-            console.error("Could not fetch repos, logging out.", e);
-            // Optional: maybe clear the token and log out if it's invalid
-            localStorage.removeItem('github-token');
-            auth.signOut();
-          } finally {
-            setLoading(false);
-          }
-        } else {
-           // No token, redirect to login
-           router.push('/login');
-        }
-      } else {
-        router.push("/login")
-      }
-    })
-
+    setLoading(true);
+    // Simulate fetching data
+    setTimeout(() => {
+        setLocalRepos(staticRepos);
+        setLoading(false);
+    }, 1000);
+    
     return () => {
-      unsubscribe();
       clearRepos(); // Clear repo selection on unmount
     }
-  }, [router, clearRepos])
+  }, [clearRepos])
 
   const handleSelectRepo = (repo: Repository) => {
     if (selectedRepos.some((r) => r.id === repo.id)) {
