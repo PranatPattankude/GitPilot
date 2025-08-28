@@ -1,3 +1,6 @@
+
+"use client"
+
 import {
   Card,
   CardContent,
@@ -13,16 +16,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { formatDistanceToNow } from 'date-fns'
 
 const builds = [
-  { id: 1, repo: 'gitpilot-ui', branch: 'main', commit: 'a1b2c3d', status: 'Success', duration: '5m 32s' },
-  { id: 2, repo: 'firebase-functions-sdk', branch: 'main', commit: 'e4f5g6h', status: 'Running', duration: '2m 15s' },
-  { id: 3, repo: 'project-phoenix', branch: 'main', commit: 'i7j8k9l', status: 'Failed', duration: '1m 45s' },
-  { id: 4, repo: 'react-fire-hooks', branch: 'main', commit: 'm0n1o2p', status: 'Success', duration: '8m 02s' },
+  { id: 1, repo: 'gitpilot-ui', branch: 'main', commit: 'a1b2c3d', status: 'Success', duration: '5m 32s', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+  { id: 2, repo: 'firebase-functions-sdk', branch: 'main', commit: 'e4f5g6h', status: 'Running', duration: '2m 15s', timestamp: new Date(Date.now() - 10 * 60 * 1000) },
+  { id: 3, repo: 'project-phoenix', branch: 'main', commit: 'i7j8k9l', status: 'Failed', duration: '1m 45s', timestamp: new Date(Date.now() - 30 * 60 * 1000) },
+  { id: 4, repo: 'react-fire-hooks', branch: 'main', commit: 'm0n1o2p', status: 'Success', duration: '8m 02s', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
 ]
 
 const bulkBuild = {
@@ -30,19 +34,20 @@ const bulkBuild = {
   sourceBranch: 'feature/new-auth',
   targetBranch: 'main',
   repos: [
-    { name: 'gitpilot-ui', status: 'Success', commit: 'a1b2c3d', duration: '1m 2s' },
-    { name: 'firebase-functions-sdk', status: 'Success', commit: 'e4f5g6h', duration: '1m 15s' },
-    { name: 'project-phoenix', status: 'In Progress', commit: 'i7j8k9l', duration: '45s' },
-    { name: 'react-fire-hooks', status: 'Success', commit: 'm0n1o2p', duration: '58s' },
-    { name: 'quantum-leap-engine', status: 'Failed', commit: 'q3r4s5t', duration: '32s' },
-    { name: 'nomad-travel-app', status: 'Success', commit: 'u6v7w8x', duration: '1m 5s' },
-    { name: 'recipe-finder-api', status: 'Success', commit: 'y9z0a1b', duration: '1m 20s' },
-    { name: 'crypto-tracker', status: 'Queued', commit: 'c2d3e4f', duration: '-' },
-    { name: 'portfolio-generator', status: 'Queued', commit: 'g5h6i7j', duration: '-' },
-    { name: 'data-viz-library', status: 'Queued', commit: 'k8l9m0n', duration: '-' },
+    { name: 'gitpilot-ui', status: 'Success', commit: 'a1b2c3d', duration: '1m 2s', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+    { name: 'firebase-functions-sdk', status: 'Success', commit: 'e4f5g6h', duration: '1m 15s', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+    { name: 'project-phoenix', status: 'In Progress', commit: 'i7j8k9l', duration: '45s', timestamp: new Date(Date.now() - 45 * 1000) },
+    { name: 'react-fire-hooks', status: 'Success', commit: 'm0n1o2p', duration: '58s', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+    { name: 'quantum-leap-engine', status: 'Failed', commit: 'q3r4s5t', duration: '32s', timestamp: new Date(Date.now() - 2 * 60 * 1000) },
+    { name: 'nomad-travel-app', status: 'Success', commit: 'u6v7w8x', duration: '1m 5s', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+    { name: 'recipe-finder-api', status: 'Success', commit: 'y9z0a1b', duration: '1m 20s', timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+    { name: 'crypto-tracker', status: 'Queued', commit: 'c2d3e4f', duration: '-', timestamp: new Date(Date.now() - 10 * 1000) },
+    { name: 'portfolio-generator', status: 'Queued', commit: 'g5h6i7j', duration: '-', timestamp: new Date(Date.now() - 10 * 1000) },
+    { name: 'data-viz-library', status: 'Queued', commit: 'k8l9m0n', duration: '-', timestamp: new Date(Date.now() - 10 * 1000) },
   ],
   status: 'In Progress',
   duration: '1m 10s',
+  timestamp: new Date(Date.now() - 70 * 1000)
 }
 
 const statusInfo = {
@@ -51,6 +56,15 @@ const statusInfo = {
   Running: { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   Queued: { icon: Clock, color: "text-muted-foreground" },
+}
+
+const formatTimestamp = (date: Date) => {
+    const now = new Date();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (now.getTime() - date.getTime() < oneDay) {
+        return `${formatDistanceToNow(date)} ago`;
+    }
+    return date.toLocaleString();
 }
 
 export default function BuildsPage() {
@@ -78,14 +92,18 @@ export default function BuildsPage() {
                 })()}
               </div>
             </div>
-            <CardDescription className="flex items-center gap-2">
-              Merging <Badge variant="secondary">{bulkBuild.sourceBranch}</Badge> into <Badge variant="secondary">{bulkBuild.targetBranch}</Badge>
+            <CardDescription className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>Merging <Badge variant="secondary">{bulkBuild.sourceBranch}</Badge> into <Badge variant="secondary">{bulkBuild.targetBranch}</Badge></span>
+                <div className="flex items-center gap-1.5">
+                    <Calendar className="size-4" />
+                    <span>Triggered {formatTimestamp(bulkBuild.timestamp)}</span>
+                </div>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
              <div className="flex items-center gap-2">
               <Clock className="size-4 text-muted-foreground" />
-              <span>{bulkBuild.duration}</span>
+              <span>Total duration: {bulkBuild.duration}</span>
             </div>
             <Separator />
             <h4 className="font-medium">Repository Statuses</h4>
@@ -104,7 +122,7 @@ export default function BuildsPage() {
                           <span className="text-muted-foreground w-6 text-right">{index + 1}.</span>
                           <div className="flex flex-col gap-1">
                             <span>{repo.name}</span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-4">
                               <div className="flex items-center gap-1.5">
                                 <GitCommit className="size-3 text-muted-foreground" />
                                 <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
@@ -114,6 +132,10 @@ export default function BuildsPage() {
                                <div className="flex items-center gap-1.5">
                                 <Clock className="size-3 text-muted-foreground" />
                                 <span className="text-xs">{repo.duration}</span>
+                               </div>
+                               <div className="flex items-center gap-1.5">
+                                <Calendar className="size-3 text-muted-foreground" />
+                                <span className="text-xs">{formatTimestamp(repo.timestamp)}</span>
                                </div>
                             </div>
                           </div>
@@ -212,7 +234,7 @@ export default function BuildsPage() {
                      )}
                   </div>
                 </div>
-                <CardDescription>Branch: {build.branch}</CardDescription>
+                <CardDescription>Branch: <Badge variant="secondary" className="font-medium">{build.branch}</Badge></CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -223,7 +245,11 @@ export default function BuildsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="size-4 text-muted-foreground" />
-                  <span>{build.duration}</span>
+                  <span>Duration: {build.duration}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="size-4 text-muted-foreground" />
+                  <span>Triggered {formatTimestamp(build.timestamp)}</span>
                 </div>
               </CardContent>
               <CardFooter>
@@ -236,3 +262,5 @@ export default function BuildsPage() {
     </>
   )
 }
+
+    

@@ -16,9 +16,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle, MoreHorizontal, RefreshCw, Ban } from "lucide-react"
+import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle, MoreHorizontal, RefreshCw, Ban, Calendar } from "lucide-react"
 import type { Repository } from "@/lib/store"
 import { Button } from "@/components/ui/button"
+import { formatDistanceToNow } from 'date-fns'
 
 interface BuildStatusDialogProps {
   repo: Repository
@@ -33,19 +34,28 @@ const steps = [
 ]
 
 const mockBuilds = [
-  { id: "build-1", branch: "main", commit: "a1b2c3d", status: "In Progress", currentStep: 2, totalSteps: 4, error: null },
-  { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4, error: null },
-  { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4, error: null },
-  { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4, error: "Unit tests failed: 12/15 passed." },
-  { id: "build-5", branch: "main", commit: "p3q4r5s", status: "Failed", currentStep: 2, totalSteps: 4, error: "Build command exited with code 1" },
-  { id: "build-6", branch: "feature/analytics", commit: "t6u7v8w", status: "Success", currentStep: 4, totalSteps: 4, error: null },
-  { id: "build-7", branch: "develop", commit: "x9y0z1a", status: "In Progress", currentStep: 3, totalSteps: 4, error: null },
+  { id: "build-1", branch: "main", commit: "a1b2c3d", status: "In Progress", currentStep: 2, totalSteps: 4, error: null, timestamp: new Date(Date.now() - 2 * 60 * 1000) },
+  { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4, error: null, timestamp: new Date(Date.now() - 5 * 60 * 1000) },
+  { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4, error: null, timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000) },
+  { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4, error: "Unit tests failed: 12/15 passed.", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+  { id: "build-5", branch: "main", commit: "p3q4r5s", status: "Failed", currentStep: 2, totalSteps: 4, error: "Build command exited with code 1", timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000) },
+  { id: "build-6", branch: "feature/analytics", commit: "t6u7v8w", status: "Success", currentStep: 4, totalSteps: 4, error: null, timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000) },
+  { id: "build-7", branch: "develop", commit: "x9y0z1a", status: "In Progress", currentStep: 3, totalSteps: 4, error: null, timestamp: new Date(Date.now() - 15 * 60 * 1000) },
 ]
 
 const statusInfo = {
   "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "Success": { icon: CheckCircle2, color: "text-accent" },
   "Failed": { icon: XCircle, color: "text-destructive" },
+}
+
+const formatTimestamp = (date: Date) => {
+    const now = new Date();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (now.getTime() - date.getTime() < oneDay) {
+        return `${formatDistanceToNow(date)} ago`;
+    }
+    return date.toLocaleString();
 }
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
@@ -72,10 +82,16 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
 
             return (
               <Card key={build.id}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-medium">
-                    <span className="font-mono bg-muted px-2 py-1 rounded">{build.commit}</span> on <span className="text-primary">{build.branch}</span>
-                  </CardTitle>
+                <CardHeader className="flex-row items-start justify-between pb-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <CardTitle className="text-base font-medium">
+                      <span className="font-mono bg-muted px-2 py-1 rounded">{build.commit}</span> on <span className="text-primary">{build.branch}</span>
+                    </CardTitle>
+                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="size-3.5" />
+                        <span>Triggered {formatTimestamp(build.timestamp)}</span>
+                    </div>
+                  </div>
                    <div className="flex items-center gap-2">
                     <SvgIcon className={`size-5 ${color} ${animation}`} />
                     <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
@@ -150,3 +166,5 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
+
+    
