@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { google } from 'googleapis';
 
 // Note: Ensure your environment is authenticated.
@@ -141,9 +141,9 @@ export const addReleaseToHistory = ai.defineFlow(
             });
             console.log(`Successfully added release for ${input.repos.join(', ')} to the sheet.`);
         } catch (error: any) {
-            console.error('Error writing to Google Sheets:', error.message);
+            console.error('Error writing to Google Sheets:', error);
             // We can throw here to let the caller know something went wrong.
-            throw new Error('Failed to add release to history.');
+            throw new Error(`Failed to add release to history: ${error.message}`);
         }
     }
 );
