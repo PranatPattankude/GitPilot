@@ -8,6 +8,8 @@ export type Repository = {
   owner: string
   url: string
   lastUpdated: string
+  language: string;
+  tags: string[];
 }
 
 type AppState = {
