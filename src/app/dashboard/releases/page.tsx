@@ -24,7 +24,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 
 const releases = [
   { id: 1, type: 'single', repo: 'gitpilot-ui', branch: 'feature/sidebar-v2', user: 'Jane Doe', timestamp: new Date('2023-10-26T10:00:00'), status: 'Success' },
@@ -43,13 +43,8 @@ const releases = [
   { id: 5, type: 'single', repo: 'quantum-leap-engine', branch: 'refactor/core-logic', user: 'Emily White', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), status: 'Success' },
 ]
 
-const formatTimestamp = (date: Date) => {
-    const now = new Date();
-    const oneDay = 24 * 60 * 60 * 1000;
-    if (now.getTime() - date.getTime() < oneDay) {
-        return `${formatDistanceToNow(date)} ago`;
-    }
-    return date.toLocaleString();
+const formatDate = (date: Date) => {
+    return format(date, 'PPP');
 }
 
 export default function ReleasesPage() {
@@ -69,7 +64,7 @@ export default function ReleasesPage() {
                 <TableHead>Repository</TableHead>
                 <TableHead>Branch Merged</TableHead>
                 <TableHead>User</TableHead>
-                <TableHead>Timestamp</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Build Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -102,7 +97,7 @@ export default function ReleasesPage() {
                   </TableCell>
                   <TableCell>{release.branch}</TableCell>
                   <TableCell>{release.user}</TableCell>
-                  <TableCell>{formatTimestamp(release.timestamp)}</TableCell>
+                  <TableCell>{formatDate(release.timestamp)}</TableCell>
                   <TableCell>
                     <Badge variant={release.status === 'Success' ? 'default' : 'destructive'} className={release.status === 'Success' ? 'bg-accent text-accent-foreground' : ''}>
                       {release.status}
