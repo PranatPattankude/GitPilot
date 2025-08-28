@@ -30,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { EditTagsDialog } from "./edit-tags-dialog"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12 },
@@ -74,6 +75,7 @@ export default function RepositoriesPage() {
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
 
   useEffect(() => {
     setLoading(true);
@@ -102,6 +104,14 @@ export default function RepositoriesPage() {
     } else {
       clearRepos()
     }
+  }
+
+  const handleUpdateTags = (repoId: string, newTags: string[]) => {
+    setLocalRepos(prevRepos => 
+      prevRepos.map(repo => 
+        repo.id === repoId ? { ...repo, tags: newTags } : repo
+      )
+    );
   }
   
   const filteredRepos = localRepos.filter((repo) =>
@@ -246,7 +256,7 @@ export default function RepositoriesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setEditingRepo(repo)}>
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit Tags</span>
                             </DropdownMenuItem>
@@ -271,6 +281,15 @@ export default function RepositoriesPage() {
             Proceed to Merge ({selectedRepos.length})
           </Button>
         </div>
+      )}
+      {editingRepo && (
+        <EditTagsDialog 
+          repo={editingRepo}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setEditingRepo(null)
+          }}
+          onSave={handleUpdateTags}
+        />
       )}
     </>
   )
