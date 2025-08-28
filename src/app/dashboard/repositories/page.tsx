@@ -24,67 +24,65 @@ import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Skeleton } from "@/components/ui/skeleton"
 
+async function fetchRepos(token: string): Promise<Repository[]> {
+    const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100', {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        }
+    });
+
+    if (!response.ok) {
+        console.error("Failed to fetch repos from GitHub, status:", response.status);
+        throw new Error("Failed to fetch repos from GitHub");
+    }
+
+    const data = await response.json();
+    return data.map((repo: any) => ({
+        id: repo.id.toString(),
+        name: repo.name,
+        owner: repo.owner.login,
+        url: repo.html_url,
+        lastUpdated: new Date(repo.updated_at).toLocaleDateString(),
+    }));
+}
+
+
 export default function RepositoriesPage() {
   const router = useRouter()
-  const { selectedRepos, addRepo, removeRepo, setRepos } = useAppStore()
-  const [repos, setLocalRepos] = useState<Repository[]>([])
+  const { selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
+  const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
-  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    setIsClient(true)
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const token = localStorage.getItem('github-token');
-
-        try {
-            if (!token) {
-              throw new Error("GitHub token not found.");
-            }
-            const response = await fetch('https://api.github.com/user/repos', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const userRepos = data.map((repo: any) => ({
-                    id: repo.id.toString(),
-                    name: repo.name,
-                    owner: repo.owner.login,
-                    url: repo.html_url,
-                    lastUpdated: new Date(repo.updated_at).toLocaleDateString(),
-                }));
-                setLocalRepos(userRepos);
-            } else {
-                 console.error("Failed to fetch repos from GitHub, status:", response.status);
-                 // Mock data if github auth fails
-                const mockRepos: Repository[] = [
-                  { id: '1', name: 'gitpilot-ui', owner: 'firebase', url: 'https://github.com/firebase/gitpilot-ui', lastUpdated: '2 hours ago' },
-                  { id: '2', name: 'firebase-functions-sdk', owner: 'firebase', url: 'https://github.com/firebase/firebase-functions-sdk', lastUpdated: '1 day ago' },
-                  { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' },
-                ];
-                setLocalRepos(mockRepos);
-            }
-        } catch (e) {
-            console.error("Could not fetch repos, using mock data.", e);
-            const mockRepos: Repository[] = [
-              { id: '1', name: 'gitpilot-ui', owner: 'firebase', url: 'https://github.com/firebase/gitpilot-ui', lastUpdated: '2 hours ago' },
-              { id: '2', name: 'firebase-functions-sdk', owner: 'firebase', url: 'https://github.com/firebase/firebase-functions-sdk', lastUpdated: '1 day ago' },
-              { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' },
-            ];
-            setLocalRepos(mockRepos);
+        if (token) {
+          try {
+            const userRepos = await fetchRepos(token);
+            setLocalRepos(userRepos);
+          } catch (e) {
+            console.error("Could not fetch repos, logging out.", e);
+            // Optional: maybe clear the token and log out if it's invalid
+            localStorage.removeItem('github-token');
+            auth.signOut();
+          } finally {
+            setLoading(false);
+          }
+        } else {
+           // No token, redirect to login
+           router.push('/login');
         }
-
-        setLoading(false)
       } else {
         router.push("/login")
       }
     })
 
-    return () => unsubscribe()
-  }, [router])
+    return () => {
+      unsubscribe();
+      clearRepos(); // Clear repo selection on unmount
+    }
+  }, [router, clearRepos])
 
   const handleSelectRepo = (repo: Repository) => {
     if (selectedRepos.some((r) => r.id === repo.id)) {
@@ -94,15 +92,16 @@ export default function RepositoriesPage() {
     }
   }
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setRepos(repos)
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setGlobalRepos(localRepos)
     } else {
-      setRepos([])
+      clearRepos()
     }
   }
   
-  const isAllSelected = isClient && repos.length > 0 && selectedRepos.length === repos.length
+  const isAllSelected = localRepos.length > 0 && selectedRepos.length === localRepos.length
+  const isIndeterminate = selectedRepos.length > 0 && selectedRepos.length < localRepos.length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -121,7 +120,7 @@ export default function RepositoriesPage() {
                   <TableHead className="w-[50px]">
                     <Checkbox 
                       onCheckedChange={handleSelectAll} 
-                      checked={isAllSelected}
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       aria-label="Select all"
                       disabled={loading}
                     />
@@ -143,7 +142,7 @@ export default function RepositoriesPage() {
                     </TableRow>
                   ))
                 ) : (
-                  repos.map((repo) => (
+                  localRepos.map((repo) => (
                     <TableRow key={repo.id}>
                       <TableCell>
                         <Checkbox
@@ -167,7 +166,7 @@ export default function RepositoriesPage() {
           </div>
         </CardContent>
       </Card>
-      {isClient && selectedRepos.length > 0 && (
+      {selectedRepos.length > 0 && (
         <div className="flex justify-end space-x-4">
           <p className="self-center text-sm text-muted-foreground">{selectedRepos.length} repositories selected</p>
           <Button onClick={() => router.push('/dashboard/merge')}>

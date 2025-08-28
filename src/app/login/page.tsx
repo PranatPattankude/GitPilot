@@ -1,8 +1,9 @@
 "use client"
 
 import { Github } from "lucide-react"
-import { signInWithPopup, GithubAuthProvider } from "firebase/auth"
+import { signInWithPopup, GithubAuthProvider, onAuthStateChanged } from "firebase/auth"
 import { useRouter } from "next/navigation"
+import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +12,20 @@ import { GitPilotLogo } from "@/components/icons"
 
 export default function LoginPage() {
   const router = useRouter()
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push("/dashboard");
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+  
 
   const handleGitHubLogin = async () => {
     try {
@@ -19,8 +34,6 @@ export default function LoginPage() {
       const token = credential?.accessToken;
 
       if (token) {
-        // In a real app, you would probably want to store the token securely,
-        // maybe in an http-only cookie. For this demo, we'll use localStorage.
         localStorage.setItem('github-token', token);
         router.push("/dashboard")
       } else {
@@ -31,6 +44,14 @@ export default function LoginPage() {
       console.error("Authentication failed:", error)
       // You can display an error message to the user here.
     }
+  }
+  
+  if (loading) {
+    return (
+       <div className="flex min-h-screen items-center justify-center bg-background">
+         <p>Loading...</p>
+       </div>
+    );
   }
 
   return (

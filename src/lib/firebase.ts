@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GithubAuthProvider } from 'firebase/auth';
 
@@ -11,9 +10,9 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('repo');
 
 export { app, auth, githubProvider };
