@@ -29,7 +29,7 @@ interface MergeDialogProps {
 }
 
 // Statically defined branches for demonstration purposes.
-const availableBranches = ["main", "develop", "feature/new-auth", "fix/caching-issue", "hotfix/prod-login"]
+const availableBranches = ["main", "develop", "feature/new-auth", "fix/caching-issue", "hotfix/prod-login", "dev-k8s", "MSRMH-TRN", "qa-k8s", "KPMC-UAT", "perf-k8s", "Selgate-SIT", "Sriphat-SIT", "UCSI-UAT", "HUMS-DEV"]
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
@@ -76,7 +76,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                 <SelectValue placeholder="Select a branch" />
               </SelectTrigger>
               <SelectContent>
-                {availableBranches.map((branch) => (
+                {(repo.branches || availableBranches).map((branch) => (
                   <SelectItem key={branch} value={branch} disabled={branch === targetBranch}>
                     {branch}
                   </SelectItem>
@@ -91,7 +91,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                 <SelectValue placeholder="Select a branch" />
               </SelectTrigger>
               <SelectContent>
-                {availableBranches.map((branch) => (
+                {(repo.branches || availableBranches).map((branch) => (
                   <SelectItem key={branch} value={branch} disabled={branch === sourceBranch}>
                     {branch}
                   </SelectItem>
