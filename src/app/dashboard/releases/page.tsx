@@ -44,9 +44,11 @@ export default function ReleasesPage() {
       setLoading(true);
       try {
         const releaseData = await getReleaseHistory();
-        setReleases(releaseData);
+        // Ensure data is always an array
+        setReleases(Array.isArray(releaseData) ? releaseData : []);
       } catch (error) {
         console.error("Failed to fetch release history:", error);
+        setReleases([]);
         // Handle error, maybe show a toast
       } finally {
         setLoading(false);
@@ -69,7 +71,8 @@ export default function ReleasesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Repository</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Repositories</TableHead>
                 <TableHead>Branch Merged</TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>Date</TableHead>
@@ -80,6 +83,7 @@ export default function ReleasesPage() {
               {loading ? (
                  Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -89,13 +93,16 @@ export default function ReleasesPage() {
                   ))
               ) : releases.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No release history found. Make sure your Google Sheet is set up correctly.
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No release history found. Make sure your Google Sheet is set up correctly and has a header row.
                   </TableCell>
                 </TableRow>
               ) : (
                 releases.map((release) => (
                   <TableRow key={release.id}>
+                     <TableCell>
+                      <Badge variant={release.type === 'bulk' ? "secondary" : "outline"}>{release.type}</Badge>
+                    </TableCell>
                     <TableCell className="font-medium">
                       {release.type === 'single' ? (
                         release.repos[0]

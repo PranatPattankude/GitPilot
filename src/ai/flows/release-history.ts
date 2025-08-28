@@ -64,6 +64,7 @@ export const getReleaseHistory = ai.defineFlow(
       );
       return [];
     }
+    console.log(`Fetching release history from sheet: ${SPREADSHEET_ID}`);
 
     try {
       const sheets = await getSheetsService();
@@ -74,21 +75,30 @@ export const getReleaseHistory = ai.defineFlow(
 
       const rows = response.data.values;
       if (!rows || rows.length === 0) {
+        console.log('No data found in Google Sheet. The sheet might be empty.');
         return [];
       }
+      
+      console.log(`Found ${rows.length} rows in the sheet.`);
 
       // Skip header row and map to Release objects
       return rows.slice(1).map((row, index): Release => ({
         id: (index + 1).toString(),
         type: row[0] === 'bulk' ? 'bulk' : 'single',
-        repos: row[1].split(', '),
+        repos: row[1] ? row[1].split(', ') : [],
         branch: row[2],
         user: row[3],
         timestamp: new Date(row[4]),
         status: row[5],
       }));
-    } catch (error) {
-      console.error('Error fetching from Google Sheets:', error);
+    } catch (error: any) {
+      console.error('Error fetching from Google Sheets:', error.message);
+      if (error.code === 403) {
+        console.error('Permission denied. Please ensure the service account has viewer/editor access to the Google Sheet.');
+      }
+      if (error.code === 404) {
+        console.error(`Sheet not found. Please verify the SPREADSHEET_ID is correct: ${SPREADSHEET_ID}`);
+      }
       // In case of error (e.g., sheet not found, permissions issue), return empty
       return [];
     }
@@ -129,8 +139,8 @@ export const addReleaseToHistory = ai.defineFlow(
                     values,
                 },
             });
-        } catch (error) {
-            console.error('Error writing to Google Sheets:', error);
+        } catch (error: any) {
+            console.error('Error writing to Google Sheets:', error.message);
             // We can throw here to let the caller know something went wrong.
             throw new Error('Failed to add release to history.');
         }
