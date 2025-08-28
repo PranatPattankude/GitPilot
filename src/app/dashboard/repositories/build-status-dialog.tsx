@@ -30,6 +30,9 @@ const mockBuilds = [
   { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4 },
   { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4 },
   { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4 },
+  { id: "build-5", branch: "main", commit: "p3q4r5s", status: "Failed", currentStep: 2, totalSteps: 4 },
+  { id: "build-6", branch: "feature/analytics", commit: "t6u7v8w", status: "Success", currentStep: 4, totalSteps: 4 },
+  { id: "build-7", branch: "develop", commit: "x9y0z1a", status: "In Progress", currentStep: 3, totalSteps: 4 },
 ]
 
 const statusInfo = {
@@ -39,15 +42,15 @@ const statusInfo = {
 }
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
-  const buildsForRepo = mockBuilds.slice(0, repo.activeBuilds > 0 ? repo.activeBuilds : 1);
+  const buildsForRepo = mockBuilds.filter(build => build.status === "In Progress" || build.status === "Failed");
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Active Builds for {repo.name}</DialogTitle>
+          <DialogTitle>Build Status for {repo.name}</DialogTitle>
           <DialogDescription>
-            Live status of CI/CD pipelines for this repository.
+            Live status of active and recent failed builds for this repository.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
