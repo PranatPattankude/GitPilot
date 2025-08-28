@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -9,7 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { GitMerge, GitPullRequest, AlertTriangle, XCircle } from "lucide-react"
-import { useAppStore } from "@/lib/store"
+import { useAppStore, type Repository } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -49,13 +50,23 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     }, 1500)
   }
 
-  const reposMissingBranch = comparisonDone ? selectedRepos.filter(repo => {
+  const getSkippedRepoInfo = (repo: Repository) => {
     const repoBranches = repo.branches || [];
-    return !repoBranches.includes(sourceBranch) || !repoBranches.includes(targetBranch);
-  }) : [];
+    const hasSource = repoBranches.includes(sourceBranch);
+    const hasTarget = repoBranches.includes(targetBranch);
+    if (!hasSource && !hasTarget) return `Source & Target branch not found`;
+    if (!hasSource) return `Source branch not found`;
+    if (!hasTarget) return `Target branch not found`;
+    return null;
+  }
 
-  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingBranch.find(r => r.id === repo.id)) : [];
-  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingBranch.find(r => r.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
+  const reposMissingBranch = comparisonDone ? selectedRepos.map(repo => ({
+      repo,
+      reason: getSkippedRepoInfo(repo)
+  })).filter(item => item.reason !== null) : [];
+
+  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingBranch.find(r => r.repo.id === repo.id)) : [];
+  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingBranch.find(r => r.repo.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
 
 
   const hasConflicts = (repoId: string) => reposWithConflicts.some(r => r.id === repoId);
@@ -144,7 +155,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         {reposMissingBranch.length > 0 && (
                           <>
                            <h3 className="text-lg font-semibold text-muted-foreground">Skipped Repositories</h3>
-                            {reposMissingBranch.map((repo) => (
+                            {reposMissingBranch.map(({ repo, reason }) => (
                                 <li key={repo.id} className="p-4 border rounded-lg bg-muted/50">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -153,7 +164,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                     </div>
                                     <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
                                         <XCircle className="size-4" />
-                                        Branch not found
+                                        {reason}
                                     </Badge>
                                 </div>
                                 </li>
