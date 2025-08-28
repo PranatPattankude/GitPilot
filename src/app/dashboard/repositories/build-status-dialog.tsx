@@ -7,10 +7,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle } from "lucide-react"
+import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle, MoreHorizontal, RefreshCw } from "lucide-react"
 import type { Repository } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 
@@ -60,6 +66,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
             const color = statusInfo[build.status as keyof typeof statusInfo].color;
             const animation = statusInfo[build.status as keyof typeof statusInfo].animation || '';
             const progressValue = (build.currentStep / build.totalSteps) * 100;
+            const isFailed = build.status === "Failed";
 
             return (
               <Card key={build.id}>
@@ -69,7 +76,27 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                   </CardTitle>
                    <div className="flex items-center gap-2">
                     <SvgIcon className={`size-5 ${color} ${animation}`} />
-                    <Badge variant={build.status === "Success" ? "default" : build.status === "Failed" ? "destructive" : "secondary"} className={build.status === "Success" ? "bg-accent" : ""}>{build.status}</Badge>
+                    <Badge variant={isFailed ? "destructive" : build.status === "Success" ? "default" : "secondary"} className={build.status === "Success" ? "bg-accent" : ""}>{build.status}</Badge>
+                    {isFailed && (
+                       <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">More actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              <span>Rerun failed jobs</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              <span>Rerun all jobs</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                    </div>
                 </CardHeader>
                 <CardContent>
@@ -91,22 +118,14 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                       })}
                     </div>
                   </div>
-                  {build.status === "Failed" && (
-                    <div className="mt-4 space-y-3">
-                      {build.error && (
-                        <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="size-4 mt-0.5" />
-                            <div>
-                              <p className="font-semibold">Failure Reason:</p>
-                              <p>{build.error}</p>
-                            </div>
-                          </div>
+                  {isFailed && build.error && (
+                    <div className="mt-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="size-4 mt-0.5" />
+                        <div>
+                          <p className="font-semibold">Failure Reason:</p>
+                          <p>{build.error}</p>
                         </div>
-                      )}
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">Rerun failed jobs</Button>
-                        <Button variant="outline" size="sm">Rerun all jobs</Button>
                       </div>
                     </div>
                   )}
