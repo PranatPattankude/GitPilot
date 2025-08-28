@@ -10,6 +10,11 @@ export type Repository = {
   lastUpdated: string
   language: string;
   tags: string[];
+  stars: number;
+  forks: number;
+  openIssues: number;
+  pullRequests: number;
+  contributors: number;
 }
 
 type AppState = {
