@@ -1,7 +1,7 @@
 "use client"
 
 import { Github } from "lucide-react"
-import { signInWithPopup } from "firebase/auth"
+import { signInWithPopup, GithubAuthProvider } from "firebase/auth"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -20,9 +20,8 @@ export default function LoginPage() {
 
       if (token) {
         // In a real app, you would probably want to store the token securely,
-        // maybe in a cookie or session storage, to make authenticated API requests.
-        // For this demo, we'll just log it and redirect.
-        console.log("GitHub Access Token:", token)
+        // maybe in an http-only cookie. For this demo, we'll use localStorage.
+        localStorage.setItem('github-token', token);
         router.push("/dashboard")
       } else {
         throw new Error("Could not retrieve GitHub access token.");

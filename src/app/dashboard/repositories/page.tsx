@@ -21,8 +21,7 @@ import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState } from "react"
 import { onAuthStateChanged } from "firebase/auth"
-import { auth, githubProvider } from "@/lib/firebase"
-import { GithubAuthProvider } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function RepositoriesPage() {
@@ -36,26 +35,18 @@ export default function RepositoriesPage() {
     setIsClient(true)
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // This is a simplified way to get the token.
-        // In a real app, you might need to handle token refresh.
-        const idTokenResult = await user.getIdTokenResult();
-        // The credential can be retrieved from the IdTokenResult
-        // but it requires a bit more setup with session cookies.
-        // For this client-side example, we'll fetch repos directly.
+        const token = localStorage.getItem('github-token');
 
-        // A better approach for serverside rendering would be to get the access token from a signIn result.
-        // Since we are client-side, we'll re-authenticate popup to get the credential and token for the API call.
         try {
-            const result = await auth.currentUser?.getIdToken(true);
+            if (!token) {
+              throw new Error("GitHub token not found.");
+            }
             const response = await fetch('https://api.github.com/user/repos', {
                 headers: {
-                    // This is not the right way to get the token,
-                    // but for the sake of the demo, we are doing a trick.
-                    // In a real app, you would get this from the credential object on sign-in
-                    // and store it securely (e.g., in an http-only cookie).
-                    // This is a placeholder and will not work without a valid token.
+                    Authorization: `Bearer ${token}`,
                 }
             });
+
             if (response.ok) {
                 const data = await response.json();
                 const userRepos = data.map((repo: any) => ({
@@ -67,6 +58,7 @@ export default function RepositoriesPage() {
                 }));
                 setLocalRepos(userRepos);
             } else {
+                 console.error("Failed to fetch repos from GitHub, status:", response.status);
                  // Mock data if github auth fails
                 const mockRepos: Repository[] = [
                   { id: '1', name: 'gitpilot-ui', owner: 'firebase', url: 'https://github.com/firebase/gitpilot-ui', lastUpdated: '2 hours ago' },
