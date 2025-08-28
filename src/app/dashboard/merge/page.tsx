@@ -34,6 +34,12 @@ export default function MergePage() {
       setComparisonDone(true)
     }, 1500)
   }
+  
+  const handleMerge = () => {
+    // Here you would typically trigger the actual merge process
+    // For now, we'll just navigate to the build status page
+    router.push("/dashboard/builds")
+  }
 
   const hasConflicts = (repoId: string) => comparisonDone && repoId === conflictRepo.id
 
@@ -128,7 +134,7 @@ export default function MergePage() {
               ))}
             </ul>
              <div className="flex justify-end mt-6">
-              <Button size="lg" className="bg-accent hover:bg-accent/90">
+              <Button size="lg" className="bg-accent hover:bg-accent/90" onClick={handleMerge}>
                 <GitPullRequest className="mr-2 size-4" />
                 Merge All Clean Branches
               </Button>
