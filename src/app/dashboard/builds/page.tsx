@@ -24,16 +24,16 @@ const bulkBuild = {
   sourceBranch: 'feature/new-auth',
   targetBranch: 'main',
   repos: [
-    { name: 'gitpilot-ui', status: 'Success', tags: ['frontend', 'nextjs'] },
-    { name: 'firebase-functions-sdk', status: 'Success', tags: ['backend', 'firebase'] },
-    { name: 'project-phoenix', status: 'In Progress', tags: ['monorepo'] },
-    { name: 'react-fire-hooks', status: 'Success', tags: ['frontend', 'react'] },
-    { name: 'quantum-leap-engine', status: 'Failed', tags: ['ml', 'ai'] },
-    { name: 'nomad-travel-app', status: 'Success', tags: ['backend', 'api'] },
-    { name: 'recipe-finder-api', status: 'Success', tags: ['backend', 'api'] },
-    { name: 'crypto-tracker', status: 'Queued', tags: ['backend', 'crypto'] },
-    { name: 'portfolio-generator', status: 'Queued', tags: ['frontend', 'react'] },
-    { name: 'data-viz-library', status: 'Queued', tags: ['dataviz', 'charts'] },
+    { name: 'gitpilot-ui', status: 'Success', commit: 'a1b2c3d' },
+    { name: 'firebase-functions-sdk', status: 'Success', commit: 'e4f5g6h' },
+    { name: 'project-phoenix', status: 'In Progress', commit: 'i7j8k9l' },
+    { name: 'react-fire-hooks', status: 'Success', commit: 'm0n1o2p' },
+    { name: 'quantum-leap-engine', status: 'Failed', commit: 'q3r4s5t' },
+    { name: 'nomad-travel-app', status: 'Success', commit: 'u6v7w8x' },
+    { name: 'recipe-finder-api', status: 'Success', commit: 'y9z0a1b' },
+    { name: 'crypto-tracker', status: 'Queued', commit: 'c2d3e4f' },
+    { name: 'portfolio-generator', status: 'Queued', commit: 'g5h6i7j' },
+    { name: 'data-viz-library', status: 'Queued', commit: 'k8l9m0n' },
   ],
   status: 'In Progress',
   duration: '1m 10s',
@@ -94,10 +94,10 @@ export default function BuildsPage() {
                         <div className="flex flex-col gap-1">
                           <span>{repo.name}</span>
                            <div className="flex items-center gap-1.5">
-                            <Tag className="size-3 text-muted-foreground" />
-                            {repo.tags.map(tag => (
-                               <Badge key={tag} variant="secondary" className="text-xs font-normal">{tag}</Badge>
-                            ))}
+                            <GitCommit className="size-3 text-muted-foreground" />
+                            <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
+                              {repo.commit}
+                            </span>
                           </div>
                         </div>
                         <span className={`flex items-center gap-2 font-medium ${color}`}>
