@@ -13,6 +13,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from 'date-fns'
 
@@ -22,7 +32,7 @@ const releases = [
   {
     id: 6,
     type: 'bulk',
-    repos: ['gitpilot-ui', 'firebase-functions-sdk', 'project-phoenix', 'react-fire-hooks', 'quantum-leap-engine'],
+    repos: ['gitpilot-ui', 'firebase-functions-sdk', 'project-phoenix', 'react-fire-hooks', 'quantum-leap-engine', 'nomad-travel-app', 'recipe-finder-api', 'crypto-tracker'],
     branch: 'feature/new-auth',
     user: 'Jane Doe',
     timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000),
@@ -70,11 +80,24 @@ export default function ReleasesPage() {
                     {release.type === 'single' ? (
                       release.repo
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {(release.repos || []).map(repo => (
-                          <Badge key={repo} variant="secondary" className="font-normal">{repo}</Badge>
-                        ))}
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="link" className="p-0 h-auto font-medium">
+                            {release.repos?.length || 0} repositories
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuLabel>Merged Repositories</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <ScrollArea className="h-48">
+                            {(release.repos || []).map(repo => (
+                              <DropdownMenuItem key={repo} disabled>
+                                {repo}
+                              </DropdownMenuItem>
+                            ))}
+                          </ScrollArea>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </TableCell>
                   <TableCell>{release.branch}</TableCell>
