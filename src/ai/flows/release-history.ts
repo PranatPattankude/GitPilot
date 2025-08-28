@@ -142,6 +142,13 @@ export const addReleaseToHistory = ai.defineFlow(
             console.log(`Successfully added release for ${input.repos.join(', ')} to the sheet.`);
         } catch (error: any) {
             console.error('Error writing to Google Sheets:', error);
+            if (error.message.includes('Could not refresh access token')) {
+              const helpfulError = new Error(
+                'Authentication failed. Please ensure the Google Sheets API is enabled for your project and that the service account has "Editor" permissions on the sheet. It may take a few minutes for changes to take effect.'
+              );
+              console.error('Detailed error:', helpfulError.message);
+              throw helpfulError;
+            }
             // We can throw here to let the caller know something went wrong.
             throw new Error(`Failed to add release to history: ${error.message}`);
         }
