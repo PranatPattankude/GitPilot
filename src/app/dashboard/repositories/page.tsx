@@ -31,7 +31,7 @@ import { useAppStore, type Repository, type Build } from "@/lib/store"
 import { useEffect, useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter } from "lucide-react"
+import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
@@ -171,7 +171,7 @@ export default function RepositoriesPage() {
     <>
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Repository Management</h1>
           <div className="text-sm text-muted-foreground mt-1">
             {loading ? (
               <Skeleton className="h-4 w-48" />
@@ -341,9 +341,27 @@ export default function RepositoriesPage() {
                           </Button>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {repo.tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}
-                        </div>
+                          {repo.tags.length > 0 ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-auto p-1 text-xs flex items-center gap-1">
+                                  <Tag className="size-3.5" />
+                                  {repo.tags.length} Tag{repo.tags.length > 1 ? 's' : ''}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuLabel>Tags</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {repo.tags.map(tag => (
+                                  <DropdownMenuItem key={tag} disabled>
+                                    <Badge variant="secondary" className="font-normal w-full justify-center">{tag}</Badge>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No tags</span>
+                          )}
                       </TableCell>
                        <TableCell className="text-right pr-4">
                         <DropdownMenu>
