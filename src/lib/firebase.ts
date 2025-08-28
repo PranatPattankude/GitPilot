@@ -1,13 +1,14 @@
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GithubAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
-  projectId: "gitpilot-8qubd",
-  appId: "1:881264771425:web:d2abc7497c39f380ef8520",
-  storageBucket: "gitpilot-8qubd.appspot.com",
-  apiKey: "AIzaSyAfCLUkK1Bsz9PcRWrCZO6JjBpKuWIhRJs",
-  authDomain: "gitpilot-8qubd.firebaseapp.com",
-  messagingSenderId: "881264771425",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
 // Initialize Firebase
