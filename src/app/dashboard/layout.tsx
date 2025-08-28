@@ -102,11 +102,12 @@ export default function DashboardLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="flex flex-col">
-          <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6">
-            <SidebarTrigger className="md:hidden" />
+        <div className="flex flex-col min-h-screen">
+          <header className="flex h-14 items-center gap-4 border-b bg-background px-4 md:hidden">
+            <SidebarTrigger />
+            <span className="font-semibold">GitPilot</span>
           </header>
-          <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+          <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
             {children}
           </main>
         </div>

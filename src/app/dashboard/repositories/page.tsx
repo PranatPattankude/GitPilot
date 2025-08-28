@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation"
 import {
   Card,
   CardContent,
-  CardHeader,
 } from "@/components/ui/card"
 import {
   Table,
@@ -103,7 +102,10 @@ export default function RepositoriesPage() {
   }
   
   const filteredRepos = localRepos.filter((repo) =>
-    repo.name.toLowerCase().includes(searchQuery.toLowerCase())
+    repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    repo.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    repo.language.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    repo.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const isAllSelected = filteredRepos.length > 0 && selectedRepos.length === filteredRepos.length
@@ -111,23 +113,34 @@ export default function RepositoriesPage() {
 
   return (
     <>
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
-        <div className="text-sm text-muted-foreground">
-          {loading ? (
-            <Skeleton className="h-4 w-48" />
-          ) : (
-            <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
-          )}
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
+          <div className="text-sm text-muted-foreground mt-1">
+            {loading ? (
+              <Skeleton className="h-4 w-48" />
+            ) : (
+              <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
+            )}
+          </div>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search repositories..."
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="border-t">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">
+                  <TableHead className="w-[50px] px-4">
                     <Checkbox 
                       onCheckedChange={handleSelectAll} 
                       checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
@@ -139,14 +152,14 @@ export default function RepositoriesPage() {
                   <TableHead>Language</TableHead>
                   <TableHead>Activity</TableHead>
                   <TableHead>Tags</TableHead>
-                  <TableHead className="w-[50px]">Actions</TableHead>
+                  <TableHead className="w-[50px] text-right pr-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell className="px-4"><Skeleton className="h-4 w-4" /></TableCell>
                       <TableCell>
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2 mt-1" />
@@ -163,14 +176,14 @@ export default function RepositoriesPage() {
                            <Skeleton className="h-3 w-20" />
                         </div>
                       </TableCell>
-                      <TableCell><div className="flex gap-2"><Skeleton className="h-4 w-16" /><Skeleton className="h-4 w-16" /></div></TableCell>
-                      <TableCell><Skeleton className="h-6 w-6" /></TableCell>
+                      <TableCell><div className="flex gap-2"><Skeleton className="h-6 w-16" /><Skeleton className="h-6 w-16" /></div></TableCell>
+                      <TableCell className="text-right pr-4"><Skeleton className="h-6 w-6" /></TableCell>
                     </TableRow>
                   ))
                 ) : (
                   filteredRepos.map((repo) => (
                     <TableRow key={repo.id}>
-                      <TableCell>
+                      <TableCell className="px-4">
                         <Checkbox
                           checked={selectedRepos.some((r) => r.id === repo.id)}
                           onCheckedChange={() => handleSelectRepo(repo)}
@@ -190,20 +203,20 @@ export default function RepositoriesPage() {
                             <Calendar className="size-3" />
                             <span>{repo.lastUpdated}</span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <div className="flex items-center gap-1">
                               <Star className="size-3" />
                               <span>{repo.stars.toLocaleString()}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <GitFork className="size-3" />
                               <span>{repo.forks.toLocaleString()}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <AlertCircle className="size-3" />
                               <span>{repo.openIssues.toLocaleString()}</span>
                             </div>
-                             <div className="flex items-center gap-1.5">
+                             <div className="flex items-center gap-1">
                               <GitPullRequest className="size-3" />
                               <span>{repo.pullRequests.toLocaleString()}</span>
                             </div>
@@ -219,7 +232,7 @@ export default function RepositoriesPage() {
                           {repo.tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}
                         </div>
                       </TableCell>
-                       <TableCell>
+                       <TableCell className="text-right pr-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
