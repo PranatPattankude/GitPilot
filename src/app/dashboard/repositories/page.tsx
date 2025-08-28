@@ -262,8 +262,8 @@ export default function RepositoriesPage() {
                       </TableCell>
                       <TableCell>
                         {repo.activeBuilds > 0 ? (
-                           <Button variant="outline" size="sm" onClick={() => setViewingBuildsRepo(repo)}>
-                            <Rocket className="mr-2 size-4 animate-pulse text-primary" />
+                           <Button variant="outline" size="sm" className="h-auto px-2 py-0.5 text-xs" onClick={() => setViewingBuildsRepo(repo)}>
+                            <Rocket className="mr-1.5 size-3.5 animate-pulse text-primary" />
                             {repo.activeBuilds} In Progress
                           </Button>
                         ) : (
