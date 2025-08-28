@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect } from "react"
 import { useFormState, useFormStatus } from "react-dom"
 import { Wand2 } from "lucide-react"
 
@@ -50,24 +50,17 @@ function SubmitButton() {
 }
 
 export default function ConflictResolver() {
-  const [enhancedSuggestion, setEnhancedSuggestion] = useState("")
+  const [state, formAction] = useFormState(resolveConflict, { success: false, data: null, error: null })
   const { toast } = useToast()
 
-  const handleAction = async (prevState: any, formData: FormData) => {
-    const result = await resolveConflict(formData)
-    if (result.success) {
+  useEffect(() => {
+    if (state.success) {
       toast({ title: "Resolution Suggested", description: "AI has generated an enhanced suggestion." })
-      // In a real app, this would be a more complex object.
-      // We simulate the output format here.
-      const simulatedOutput = `// AI Enhanced Suggestion:\n${result.data.enhancedSuggestion}\n// Applied to similar unseen lines:\nimport { SecondaryButton as MainButton } from './components/Buttons';`
-      setEnhancedSuggestion(simulatedOutput)
-    } else {
-      toast({ variant: "destructive", title: "Error", description: result.error })
+    } else if (state.error) {
+      toast({ variant: "destructive", title: "Error", description: state.error })
     }
-    return result
-  }
-  
-  const [state, formAction] = useFormState(handleAction, { success: false, data: null, error: null })
+  }, [state, toast])
+
 
   return (
     <Card className="bg-background/50">
@@ -93,18 +86,25 @@ export default function ConflictResolver() {
               <Textarea id="unseen-lines" name="unseenLines" rows={10} defaultValue={initialUnseenLines} className="font-mono" />
             </div>
           </div>
-          {enhancedSuggestion && (
+          {state.success && state.data?.enhancedSuggestion && (
             <div className="space-y-2">
               <Label>AI Enhanced Suggestion</Label>
               <pre className="p-4 rounded-md bg-muted text-sm font-mono overflow-x-auto">
-                <code>{enhancedSuggestion}</code>
+                <code>{state.data.enhancedSuggestion}</code>
               </pre>
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-end gap-4">
-          <Button variant="outline">Save Manual Resolution</Button>
-          <SubmitButton />
+        <CardFooter className="flex justify-between items-center">
+          <div>
+            {state.success && (
+              <Button>Confirm and Commit</Button>
+            )}
+          </div>
+          <div className="flex gap-4">
+            <Button variant="outline">Save Manual Resolution</Button>
+            <SubmitButton />
+          </div>
         </CardFooter>
       </form>
     </Card>

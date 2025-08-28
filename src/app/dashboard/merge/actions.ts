@@ -20,9 +20,7 @@ type State = {
   error: string | null
 }
 
-export async function resolveConflict(
-  formData: FormData
-): Promise<State> {
+export async function resolveConflict(prevState: State, formData: FormData): Promise<State> {
   const parsed = FormSchema.safeParse({
     fileDiff: formData.get("fileDiff"),
     selectedSuggestion: formData.get("selectedSuggestion"),
