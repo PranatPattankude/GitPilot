@@ -92,7 +92,10 @@ export default function BuildsPage() {
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
                         <span>{repo.name}</span>
-                        <span className={`font-medium ${color}`}>{repo.status}</span>
+                        <span className={`flex items-center gap-2 font-medium ${color}`}>
+                          <Icon className={`size-4 ${animation || ''}`} />
+                          {repo.status}
+                        </span>
                       </li>
                    )
                 })}
