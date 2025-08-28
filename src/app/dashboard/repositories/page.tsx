@@ -342,33 +342,24 @@ export default function RepositoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
+                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
                           onClick={() => setViewingBuildsRepo(repo)}
                         >
-                           {buildCounts['In Progress'] > 0 && (
-                            <div className="flex items-center gap-1 text-primary">
-                              <Loader className="size-3 animate-spin" />
-                              <span>{buildCounts['In Progress']}</span>
-                            </div>
-                          )}
-                          {buildCounts['Success'] > 0 && (
-                            <div className="flex items-center gap-1 text-accent">
-                              <CheckCircle2 className="size-3" />
-                              <span>{buildCounts['Success']}</span>
-                            </div>
-                          )}
-                          {buildCounts['Failed'] > 0 && (
-                             <div className="flex items-center gap-1 text-destructive">
-                              <XCircle className="size-3" />
-                              <span>{buildCounts['Failed']}</span>
-                            </div>
-                          )}
-                          {recentBuilds.length === 0 && (
-                             <span className="text-muted-foreground">No recent builds</span>
-                          )}
+                          <div className="flex items-center gap-1 text-primary">
+                            <Loader className={`size-3 ${buildCounts['In Progress'] > 0 ? 'animate-spin' : ''}`} />
+                            <span>{buildCounts['In Progress'] || 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-accent">
+                            <CheckCircle2 className="size-3" />
+                            <span>{buildCounts['Success'] || 0}</span>
+                          </div>
+                           <div className="flex items-center gap-1 text-destructive">
+                            <XCircle className="size-3" />
+                            <span>{buildCounts['Failed'] || 0}</span>
+                          </div>
                         </Button>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
