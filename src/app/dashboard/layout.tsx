@@ -28,6 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/icons"
+import { ThemeToggle } from "./theme-toggle"
 
 const sidebarItems = [
   {
@@ -106,12 +107,13 @@ export default function DashboardLayout({
         </SidebarContent>
       </Sidebar>
       <SidebarInset className="flex flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm lg:h-[60px] lg:px-6">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
           <SidebarTrigger className="hidden md:flex" />
           <div className="w-full flex-1">
              {/* Future top nav search can go here */}
           </div>
           <div className="flex items-center gap-4">
+             <ThemeToggle />
              <div className="relative">
                 <Button variant="ghost" size="icon" className="relative rounded-full">
                     <Bell className="h-5 w-5" />
