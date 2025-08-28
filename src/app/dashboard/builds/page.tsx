@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { format, formatDistanceToNow } from 'date-fns'
+import { useAppStore } from "@/lib/store"
+import React from "react"
 
 const builds = [
   { id: 1, repo: 'gitpilot-ui', branch: 'main', commit: 'a1b2c3d', status: 'Success', duration: '5m 32s', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
@@ -69,6 +71,13 @@ const formatTimestamp = (date: Date) => {
 }
 
 export default function BuildsPage() {
+  const { setSearchQuery } = useAppStore();
+
+  React.useEffect(() => {
+    // Clear search when navigating to this page
+    setSearchQuery('');
+  }, [setSearchQuery]);
+
   return (
     <>
       <header>

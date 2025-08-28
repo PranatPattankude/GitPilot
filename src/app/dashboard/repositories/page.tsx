@@ -92,10 +92,9 @@ const buildStatusInfo = {
 export default function RepositoriesPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
+  const { searchQuery, setSearchQuery, selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
   const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
@@ -111,10 +110,12 @@ export default function RepositoriesPage() {
         setLoading(false);
     }, 1000);
     
+    // Clear search when navigating away
     return () => {
-      clearRepos(); // Clear repo selection on unmount
+      setSearchQuery('');
+      clearRepos();
     }
-  }, [clearRepos])
+  }, [clearRepos, setSearchQuery])
 
   const allTags = useMemo(() => {
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
@@ -194,28 +195,18 @@ export default function RepositoriesPage() {
             {loading ? (
               <Skeleton className="h-4 w-48" />
             ) : (
-              <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
+              <span>{filteredRepos.length} of {localRepos.length} repositories shown • {selectedRepos.length} selected</span>
             )}
           </div>
         </div>
       </div>
       <Card>
         <CardHeader className="border-b">
-          <div className="flex flex-col sm:flex-row items-center gap-2">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search repositories..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1 w-full sm:w-auto">
+                <Button variant="outline" className="gap-1 w-full sm:w-auto max-w-xs ml-auto">
                   <ListFilter className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Tags</span>
+                  <span className="hidden sm:inline">Filter by Tags</span>
                   {selectedTags.length > 0 && (
                     <>
                       <Separator orientation="vertical" className="mx-1 h-4" />
@@ -250,7 +241,6 @@ export default function RepositoriesPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">

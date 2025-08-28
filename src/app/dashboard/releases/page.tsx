@@ -1,3 +1,4 @@
+
 "use client"
 
 import {
@@ -30,6 +31,7 @@ import { format } from 'date-fns'
 import { getReleaseHistory, type Release } from "@/ai/flows/release-history"
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAppStore } from "@/lib/store"
 
 const formatDate = (date: Date) => {
     return format(date, 'dd/MM/yyyy');
@@ -39,8 +41,12 @@ export default function ReleasesPage() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { setSearchQuery } = useAppStore();
 
   useEffect(() => {
+    // Clear search when navigating to this page
+    setSearchQuery('');
+    
     const fetchReleases = async () => {
       setLoading(true);
       setError(null);
@@ -57,7 +63,7 @@ export default function ReleasesPage() {
       }
     };
     fetchReleases();
-  }, []);
+  }, [setSearchQuery]);
 
 
   return (

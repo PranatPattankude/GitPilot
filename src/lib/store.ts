@@ -25,6 +25,8 @@ export type Repository = {
 }
 
 type AppState = {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   selectedRepos: Repository[]
   addRepo: (repo: Repository) => void
   removeRepo: (repoId: string) => void
@@ -33,6 +35,8 @@ type AppState = {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  searchQuery: '',
+  setSearchQuery: (query) => set({ searchQuery: query }),
   selectedRepos: [],
   addRepo: (repo) => set((state) => ({ selectedRepos: [...state.selectedRepos, repo] })),
   removeRepo: (repoId) => set((state) => ({ selectedRepos: state.selectedRepos.filter((r) => r.id !== repoId) })),

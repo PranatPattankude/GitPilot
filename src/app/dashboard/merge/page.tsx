@@ -1,9 +1,18 @@
 
 "use client"
 
+import { useAppStore } from "@/lib/store";
 import { Wand2 } from "lucide-react"
+import React from "react";
 
 export default function MergePage() {
+    const { setSearchQuery } = useAppStore();
+
+    React.useEffect(() => {
+      // Clear search when navigating to this page
+      setSearchQuery('');
+    }, [setSearchQuery]);
+
   return (
     <div className="space-y-6">
        <header>

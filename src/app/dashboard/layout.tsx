@@ -9,7 +9,6 @@ import {
   GitMerge,
   Package,
   Rocket,
-  Users,
   Wand2,
   Shield,
   Search,
@@ -33,27 +32,32 @@ import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/icons"
 import { ThemeToggle } from "./theme-toggle"
 import { Input } from "@/components/ui/input"
+import { useAppStore } from "@/lib/store"
 
 const sidebarItems = [
   {
     href: "/dashboard/repositories",
     icon: Package,
     label: "Repositories",
+    searchPlaceholder: "Search repositories, branches, commits...",
   },
   {
     href: "/dashboard/merge",
     icon: Wand2,
     label: "Conflict Resolution",
+    searchPlaceholder: "Search conflicts...",
   },
   {
     href: "/dashboard/releases",
     icon: GitMerge,
     label: "Release History",
+    searchPlaceholder: "Search releases...",
   },
   {
     href: "/dashboard/builds",
     icon: Rocket,
     label: "Build Status",
+    searchPlaceholder: "Search builds...",
   },
 ]
 
@@ -90,6 +94,14 @@ export default function DashboardLayout({
     photoURL: "https://i.pravatar.cc/150?u=a042581f4e29026704d"
   };
 
+  const { searchQuery, setSearchQuery } = useAppStore();
+  const pathname = usePathname();
+
+  const searchPlaceholder =
+    sidebarItems.find((item) => pathname.startsWith(item.href))
+      ?.searchPlaceholder || "Search...";
+
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -113,12 +125,14 @@ export default function DashboardLayout({
       <SidebarInset className="flex flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
           <SidebarTrigger className="hidden md:flex" />
-          <div className="w-full flex-1">
-             <div className="relative">
+          <div className="w-full flex-1 flex justify-center">
+             <div className="relative w-full max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Search repositories, branches, commits..."
-                  className="pl-9 w-full max-w-md bg-background"
+                  placeholder={searchPlaceholder}
+                  className="pl-9 w-full bg-background"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
           </div>
