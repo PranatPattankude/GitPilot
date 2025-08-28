@@ -7,7 +7,7 @@ import {
   CardFooter,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -24,16 +24,16 @@ const bulkBuild = {
   sourceBranch: 'feature/new-auth',
   targetBranch: 'main',
   repos: [
-    { name: 'gitpilot-ui', status: 'Success' },
-    { name: 'firebase-functions-sdk', status: 'Success' },
-    { name: 'project-phoenix', status: 'In Progress' },
-    { name: 'react-fire-hooks', status: 'Success' },
-    { name: 'quantum-leap-engine', status: 'Failed' },
-    { name: 'nomad-travel-app', status: 'Success' },
-    { name: 'recipe-finder-api', status: 'Success' },
-    { name: 'crypto-tracker', status: 'Queued' },
-    { name: 'portfolio-generator', status: 'Queued' },
-    { name: 'data-viz-library', status: 'Queued' },
+    { name: 'gitpilot-ui', status: 'Success', tags: ['frontend', 'nextjs'] },
+    { name: 'firebase-functions-sdk', status: 'Success', tags: ['backend', 'firebase'] },
+    { name: 'project-phoenix', status: 'In Progress', tags: ['monorepo'] },
+    { name: 'react-fire-hooks', status: 'Success', tags: ['frontend', 'react'] },
+    { name: 'quantum-leap-engine', status: 'Failed', tags: ['ml', 'ai'] },
+    { name: 'nomad-travel-app', status: 'Success', tags: ['backend', 'api'] },
+    { name: 'recipe-finder-api', status: 'Success', tags: ['backend', 'api'] },
+    { name: 'crypto-tracker', status: 'Queued', tags: ['backend', 'crypto'] },
+    { name: 'portfolio-generator', status: 'Queued', tags: ['frontend', 'react'] },
+    { name: 'data-viz-library', status: 'Queued', tags: ['dataviz', 'charts'] },
   ],
   status: 'In Progress',
   duration: '1m 10s',
@@ -91,7 +91,15 @@ export default function BuildsPage() {
                    const { icon: Icon, color, animation } = Info
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
-                        <span>{repo.name}</span>
+                        <div className="flex flex-col gap-1">
+                          <span>{repo.name}</span>
+                           <div className="flex items-center gap-1.5">
+                            <Tag className="size-3 text-muted-foreground" />
+                            {repo.tags.map(tag => (
+                               <Badge key={tag} variant="secondary" className="text-xs font-normal">{tag}</Badge>
+                            ))}
+                          </div>
+                        </div>
                         <span className={`flex items-center gap-2 font-medium ${color}`}>
                           <Icon className={`size-4 ${animation || ''}`} />
                           {repo.status}
