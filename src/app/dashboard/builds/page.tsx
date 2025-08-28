@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -96,6 +96,7 @@ export default function BuildsPage() {
                   if (!Info) return null;
                    const { icon: Icon, color, animation } = Info
                    const isFailed = repo.status === 'Failed';
+                   const isInProgress = repo.status === 'In Progress';
 
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
@@ -116,7 +117,7 @@ export default function BuildsPage() {
                             <Icon className={`size-4 ${animation || ''}`} />
                             {repo.status}
                           </span>
-                           {isFailed && (
+                           {(isFailed || isInProgress) && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -125,14 +126,24 @@ export default function BuildsPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    <span>Rerun failed jobs</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    <span>Rerun all jobs</span>
-                                  </DropdownMenuItem>
+                                  {isFailed && (
+                                    <>
+                                      <DropdownMenuItem>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        <span>Rerun failed jobs</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        <span>Rerun all jobs</span>
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {isInProgress && (
+                                    <DropdownMenuItem>
+                                      <Ban className="mr-2 h-4 w-4" />
+                                      <span>Cancel build</span>
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                            )}
