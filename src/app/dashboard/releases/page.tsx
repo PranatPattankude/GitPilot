@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -25,35 +27,41 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { format } from 'date-fns'
-
-const releases = [
-  { id: 1, type: 'single', repo: 'gitpilot-ui', branch: 'feature/sidebar-v2', user: 'Jane Doe', timestamp: new Date('2023-10-26T10:00:00'), status: 'Success' },
-  { id: 2, type: 'single', repo: 'firebase-functions-sdk', branch: 'fix/caching-issue', user: 'Jane Doe', timestamp: new Date('2023-10-26T09:30:00'), status: 'Success' },
-  {
-    id: 6,
-    type: 'bulk',
-    repos: ['gitpilot-ui', 'firebase-functions-sdk', 'project-phoenix', 'react-fire-hooks', 'quantum-leap-engine', 'nomad-travel-app', 'recipe-finder-api', 'crypto-tracker'],
-    branch: 'feature/new-auth',
-    user: 'Jane Doe',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000),
-    status: 'Success',
-  },
-  { id: 3, type: 'single', repo: 'project-phoenix', branch: 'hotfix/prod-login', user: 'John Smith', timestamp: new Date('2023-10-25T16:15:00'), status: 'Success' },
-  { id: 4, type: 'single', repo: 'react-fire-hooks', branch: 'feature/new-auth', user: 'Jane Doe', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), status: 'Failed' },
-  { id: 5, type: 'single', repo: 'quantum-leap-engine', branch: 'refactor/core-logic', user: 'Emily White', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), status: 'Success' },
-]
+import { getReleaseHistory, type Release } from "@/ai/flows/release-history"
+import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const formatDate = (date: Date) => {
     return format(date, 'dd/MM/yyyy');
 }
 
 export default function ReleasesPage() {
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReleases = async () => {
+      setLoading(true);
+      try {
+        const releaseData = await getReleaseHistory();
+        setReleases(releaseData);
+      } catch (error) {
+        console.error("Failed to fetch release history:", error);
+        // Handle error, maybe show a toast
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReleases();
+  }, []);
+
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Release History</CardTitle>
         <CardDescription>
-          A log of all merges and releases triggered from GitPilot.
+          A log of all merges and releases triggered from GitPilot, stored in Google Sheets.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -69,42 +77,60 @@ export default function ReleasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {releases.map((release) => (
-                <TableRow key={release.id}>
-                  <TableCell className="font-medium">
-                    {release.type === 'single' ? (
-                      release.repo
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="link" className="p-0 h-auto font-medium">
-                            {release.repos?.length || 0} repositories
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuLabel>Merged Repositories</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <ScrollArea className="h-48">
-                            {(release.repos || []).map(repo => (
-                              <DropdownMenuItem key={repo} disabled>
-                                {repo}
-                              </DropdownMenuItem>
-                            ))}
-                          </ScrollArea>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                  <TableCell>{release.branch}</TableCell>
-                  <TableCell>{release.user}</TableCell>
-                  <TableCell>{formatDate(release.timestamp)}</TableCell>
-                  <TableCell>
-                    <Badge variant={release.status === 'Success' ? 'default' : 'destructive'} className={release.status === 'Success' ? 'bg-accent text-accent-foreground' : ''}>
-                      {release.status}
-                    </Badge>
+              {loading ? (
+                 Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    </TableRow>
+                  ))
+              ) : releases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    No release history found. Make sure your Google Sheet is set up correctly.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                releases.map((release) => (
+                  <TableRow key={release.id}>
+                    <TableCell className="font-medium">
+                      {release.type === 'single' ? (
+                        release.repos[0]
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="link" className="p-0 h-auto font-medium">
+                              {release.repos?.length || 0} repositories
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuLabel>Merged Repositories</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <ScrollArea className="h-48">
+                              {(release.repos || []).map(repo => (
+                                <DropdownMenuItem key={repo} disabled>
+                                  {repo}
+                                </DropdownMenuItem>
+                              ))}
+                            </ScrollArea>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
+                    <TableCell>{release.branch}</TableCell>
+                    <TableCell>{release.user}</TableCell>
+                    <TableCell>{formatDate(release.timestamp)}</TableCell>
+                    <TableCell>
+                      <Badge variant={release.status === 'Success' ? 'default' : 'destructive'} className={release.status === 'Success' ? 'bg-accent text-accent-foreground' : ''}>
+                        {release.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
