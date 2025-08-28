@@ -91,11 +91,11 @@ export default function BuildsPage() {
                    const { icon: Icon, color, animation } = Info
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
-                        <span>{repo.name}</span>
                         <div className="flex items-center gap-2">
-                          <span className={`font-medium ${color}`}>{repo.status}</span>
-                          <Icon className={`size-4 ${color} ${animation || ''}`} />
+                           <Icon className={`size-4 ${color} ${animation || ''}`} />
+                           <span>{repo.name}</span>
                         </div>
+                        <span className={`font-medium ${color}`}>{repo.status}</span>
                       </li>
                    )
                 })}
