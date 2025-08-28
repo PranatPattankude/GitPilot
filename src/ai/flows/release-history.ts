@@ -75,11 +75,11 @@ export const getReleaseHistory = ai.defineFlow(
 
       const rows = response.data.values;
       if (!rows || rows.length <= 1) { 
-        console.log('No data found in Google Sheet (or only a header row). The sheet might be empty.');
+        console.log('No data found in Google Sheet (or only a header row). The sheet might be empty or missing data.');
         return [];
       }
       
-      console.log(`Found ${rows.length} rows in the sheet (including header).`);
+      console.log(`Found ${rows.length - 1} data rows in the sheet.`);
 
       // Skip header row and map to Release objects
       return rows.slice(1).map((row, index): Release => ({
@@ -94,7 +94,7 @@ export const getReleaseHistory = ai.defineFlow(
     } catch (error: any) {
       console.error('Error fetching from Google Sheets:', error.message);
       if (error.code === 403) {
-        console.error('Permission denied. Please ensure the service account has viewer/editor access to the Google Sheet.');
+        console.error(`Permission denied. Please ensure the service account has 'Viewer' access to the Google Sheet with ID: ${SPREADSHEET_ID}`);
       }
       if (error.code === 404) {
         console.error(`Sheet not found. Please verify the SPREADSHEET_ID is correct: ${SPREADSHEET_ID}`);
@@ -141,13 +141,20 @@ export const addReleaseToHistory = ai.defineFlow(
             });
             console.log(`Successfully added release for ${input.repos.join(', ')} to the sheet.`);
         } catch (error: any) {
-            console.error('Error writing to Google Sheets:', error);
+             console.error('Error writing to Google Sheets:', error);
             if (error.message.includes('Could not refresh access token')) {
               const helpfulError = new Error(
                 'Authentication failed. Please ensure the Google Sheets API is enabled for your project and that the service account has "Editor" permissions on the sheet. It may take a few minutes for changes to take effect.'
               );
               console.error('Detailed error:', helpfulError.message);
               throw helpfulError;
+            }
+             if (error.message.includes('Insufficient Permission')) {
+                const helpfulError = new Error(
+                    `Authorization failed. Please ensure the service account has 'Editor' permissions on the Google Sheet with ID: ${SPREADSHEET_ID}.`
+                );
+                console.error('Detailed error:', helpfulError.message);
+                throw helpfulError;
             }
             // We can throw here to let the caller know something went wrong.
             throw new Error(`Failed to add release to history: ${error.message}`);
