@@ -77,6 +77,27 @@ export default function MergePage() {
     }
   }
 
+  const handleAddDummyData = async () => {
+    try {
+        await addReleaseToHistory({ type: 'bulk', repos: ['gitpilot-ui', 'firebase-functions-sdk'], branch: 'develop -> main', user: 'jane@example.com', status: 'Success' });
+        await addReleaseToHistory({ type: 'single', repos: ['react-fire-hooks'], branch: 'hotfix/login-bug -> main', user: 'john@example.com', status: 'Failed' });
+        await addReleaseToHistory({ type: 'bulk', repos: ['project-phoenix', 'quantum-leap-engine', 'nomad-travel-app'], branch: 'feature/new-analytics -> main', user: 'jane@example.com', status: 'Success' });
+        toast({
+            title: "Dummy Data Added",
+            description: "Sample release history has been added to your Google Sheet.",
+        });
+        // Optionally, refresh the page or navigate to releases to see the data
+        router.push('/dashboard/releases');
+    } catch (error) {
+        console.error("Failed to add dummy data:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not add dummy data to the release history.",
+        });
+    }
+  }
+
   const hasConflicts = (repoId: string) => comparisonDone && repoId === conflictRepo.id
 
   if (!isClient) {
@@ -91,9 +112,14 @@ export default function MergePage() {
         <p className="text-muted-foreground mt-2">
           Please go back to the repositories page and select at least one repository to merge.
         </p>
-        <Button onClick={() => router.push('/dashboard/repositories')} className="mt-4">
-          Select Repositories
-        </Button>
+        <div className="flex items-center gap-4 mt-4">
+            <Button onClick={() => router.push('/dashboard/repositories')}>
+            Select Repositories
+            </Button>
+            <Button onClick={handleAddDummyData} variant="secondary">
+                Add Sample Data
+            </Button>
+        </div>
       </div>
     )
   }
