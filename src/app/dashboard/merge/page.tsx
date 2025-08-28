@@ -11,7 +11,6 @@ import ConflictResolver from "./conflict-resolver";
 
 const summaryCards = [
   { title: "Total Conflicts", value: 3, icon: AlertTriangle, color: "text-destructive" },
-  { title: "Resolved", value: 1, icon: CheckCircle, color: "text-green-500" },
   { title: "Files Affected", value: 2, icon: FileText, color: "text-blue-500" },
   { title: "Auto-Resolvable", value: 0, icon: Zap, color: "text-yellow-500" },
 ]
@@ -58,7 +57,7 @@ export default function MergePage() {
         <p className="text-muted-foreground mt-1">Intelligent merge conflict detection and resolution across repositories.</p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {summaryCards.map(card => (
             <Card key={card.title}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
