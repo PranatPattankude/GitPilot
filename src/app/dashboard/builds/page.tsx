@@ -6,8 +6,14 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -89,6 +95,8 @@ export default function BuildsPage() {
                   const Info = statusInfo[repo.status as keyof typeof statusInfo]
                   if (!Info) return null;
                    const { icon: Icon, color, animation } = Info
+                   const isFailed = repo.status === 'Failed';
+
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
                         <div className="flex items-center gap-2">
@@ -103,10 +111,32 @@ export default function BuildsPage() {
                             </div>
                           </div>
                         </div>
-                        <span className={`flex items-center gap-2 font-medium ${color}`}>
-                          <Icon className={`size-4 ${animation || ''}`} />
-                          {repo.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`flex items-center gap-2 font-medium ${color}`}>
+                            <Icon className={`size-4 ${animation || ''}`} />
+                            {repo.status}
+                          </span>
+                           {isFailed && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">More actions</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    <span>Rerun failed jobs</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    <span>Rerun all jobs</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                           )}
+                        </div>
                       </li>
                    )
                 })}
