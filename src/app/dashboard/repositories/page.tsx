@@ -37,6 +37,7 @@ import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
 import { BuildStatusDialog } from "./build-status-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { Separator } from "@/components/ui/separator"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12, recentBuild: { status: 'In Progress' } },
