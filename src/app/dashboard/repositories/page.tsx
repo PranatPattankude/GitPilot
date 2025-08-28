@@ -38,6 +38,7 @@ import { MergeDialog } from "./merge-dialog"
 import { BuildStatusDialog } from "./build-status-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12, recentBuild: { status: 'In Progress' } },
@@ -210,15 +211,17 @@ export default function RepositoriesPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {allTags.map(tag => (
-                   <DropdownMenuCheckboxItem
-                    key={tag}
-                    checked={selectedTags.includes(tag)}
-                    onCheckedChange={(checked) => handleTagFilterChange(tag, Boolean(checked))}
-                   >
-                     {tag}
-                   </DropdownMenuCheckboxItem>
-                ))}
+                <ScrollArea className="h-48">
+                  {allTags.map(tag => (
+                     <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={selectedTags.includes(tag)}
+                      onCheckedChange={(checked) => handleTagFilterChange(tag, Boolean(checked))}
+                     >
+                       {tag}
+                     </DropdownMenuCheckboxItem>
+                  ))}
+                </ScrollArea>
                 {selectedTags.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
