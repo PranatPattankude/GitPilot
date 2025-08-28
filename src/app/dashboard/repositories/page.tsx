@@ -39,6 +39,7 @@ import { BuildStatusDialog } from "./build-status-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { BulkMergeDialog } from "./bulk-merge-dialog"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12, recentBuild: { status: 'In Progress' } },
@@ -94,6 +95,7 @@ export default function RepositoriesPage() {
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
   const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
+  const [isBulkMerging, setIsBulkMerging] = useState(false)
 
   useEffect(() => {
     setLoading(true);
@@ -393,7 +395,7 @@ export default function RepositoriesPage() {
       </Card>
       {selectedRepos.length > 0 && !loading && (
         <div className="fixed bottom-6 right-6 z-10">
-          <Button onClick={() => router.push('/dashboard/merge')} size="lg" className="shadow-lg">
+           <Button onClick={() => setIsBulkMerging(true)} size="lg" className="shadow-lg">
             Proceed to Merge ({selectedRepos.length})
           </Button>
         </div>
@@ -422,6 +424,11 @@ export default function RepositoriesPage() {
           onOpenChange={(isOpen) => {
             if (!isOpen) setViewingBuildsRepo(null)
           }}
+        />
+      )}
+       {isBulkMerging && (
+        <BulkMergeDialog
+          onOpenChange={setIsBulkMerging}
         />
       )}
     </>

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import ConflictResolver from "./conflict-resolver"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
 
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
 
@@ -20,6 +21,7 @@ export default function MergePage() {
   const [isComparing, setIsComparing] = useState(false)
   const [comparisonDone, setComparisonDone] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const router = useRouter();
 
   useEffect(() => {
     setIsClient(true)
@@ -47,7 +49,7 @@ export default function MergePage() {
         <p className="text-muted-foreground mt-2">
           Please go back to the repositories page and select at least one repository to merge.
         </p>
-        <Button onClick={() => window.location.href = '/dashboard/repositories'} className="mt-4">
+        <Button onClick={() => router.push('/dashboard/repositories')} className="mt-4">
           Select Repositories
         </Button>
       </div>
@@ -137,5 +139,3 @@ export default function MergePage() {
     </div>
   )
 }
-
-    
