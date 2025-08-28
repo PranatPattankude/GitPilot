@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
+import { RebuildDialog } from "./rebuild-dialog"
 
 const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
 const testingBranches = ["dev-k8s", "MSRMH-TRN", "qa-k8s", "KPMC-UAT", "perf-k8s", "Selgate-SIT", "Sriphat-SIT", "UCSI-UAT", "HUMS-DEV"];
@@ -98,6 +99,7 @@ export default function RepositoriesPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
   const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
+  const [rebuildingRepo, setRebuildingRepo] = useState<Repository | null>(null)
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
@@ -152,12 +154,14 @@ export default function RepositoriesPage() {
     }
   };
 
-  const handleRebuild = (repo: Repository) => {
-    toast({
-      title: "Rebuild Initiated",
-      description: `A new build has been started for ${repo.name}.`,
-    });
-    // In a real app, you would trigger a build here.
+  const handleRebuild = (repoId: string, branch: string) => {
+    const repo = localRepos.find(r => r.id === repoId);
+    if (repo) {
+      toast({
+        title: "Rebuild Initiated",
+        description: `A new build has been started for the ${branch} branch in ${repo.name}.`,
+      });
+    }
   };
 
   const handleTagFilterChange = (tag: string, checked: boolean) => {
@@ -412,7 +416,7 @@ export default function RepositoriesPage() {
                               <GitMerge className="mr-2 h-4 w-4" />
                               <span>Merge</span>
                             </DropdownMenuItem>
-                             <DropdownMenuItem onSelect={() => handleRebuild(repo)}>
+                             <DropdownMenuItem onSelect={() => setRebuildingRepo(repo)}>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               <span>Rebuild</span>
                             </DropdownMenuItem>
@@ -452,6 +456,15 @@ export default function RepositoriesPage() {
           onMerge={handleMerge}
         />
       )}
+      {rebuildingRepo && (
+        <RebuildDialog
+          repo={rebuildingRepo}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setRebuildingRepo(null)
+          }}
+          onRebuild={handleRebuild}
+        />
+      )}
       {viewingBuildsRepo && (
         <BuildStatusDialog
           repo={viewingBuildsRepo}
@@ -468,5 +481,3 @@ export default function RepositoriesPage() {
     </>
   )
 }
-
-    
