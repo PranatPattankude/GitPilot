@@ -2,6 +2,10 @@
 
 import { create } from 'zustand'
 
+export type Build = {
+  status: 'In Progress' | 'Success' | 'Failed';
+}
+
 export type Repository = {
   id: string
   name: string
@@ -15,7 +19,7 @@ export type Repository = {
   openIssues: number;
   pullRequests: number;
   contributors: number;
-  activeBuilds: number;
+  recentBuild: Build;
 }
 
 type AppState = {
