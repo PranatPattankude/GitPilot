@@ -183,8 +183,8 @@ export default function RepositoriesPage() {
       </div>
       <Card>
         <CardHeader className="border-b">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search repositories..."
@@ -195,7 +195,7 @@ export default function RepositoriesPage() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1">
+                <Button variant="outline" className="gap-1 w-full sm:w-auto">
                   <ListFilter className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Tags</span>
                   {selectedTags.length > 0 && (
@@ -248,10 +248,10 @@ export default function RepositoriesPage() {
                     />
                   </TableHead>
                   <TableHead>Repository</TableHead>
-                  <TableHead>Language</TableHead>
-                  <TableHead>Activity</TableHead>
+                  <TableHead className="hidden md:table-cell">Language</TableHead>
+                  <TableHead className="hidden lg:table-cell">Activity</TableHead>
                   <TableHead>Builds</TableHead>
-                  <TableHead>Tags</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tags</TableHead>
                   <TableHead className="w-[50px] text-right pr-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -264,8 +264,8 @@ export default function RepositoriesPage() {
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2 mt-1" />
                       </TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-col gap-2">
                            <Skeleton className="h-3 w-24" />
                            <div className="flex gap-4">
@@ -277,7 +277,7 @@ export default function RepositoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell><Skeleton className="h-8 w-24" /></TableCell>
-                      <TableCell><div className="flex gap-2"><Skeleton className="h-6 w-16" /><Skeleton className="h-6 w-16" /></div></TableCell>
+                      <TableCell className="hidden sm:table-cell"><div className="flex gap-2"><Skeleton className="h-6 w-16" /><Skeleton className="h-6 w-16" /></div></TableCell>
                       <TableCell className="text-right pr-4"><Skeleton className="h-6 w-6" /></TableCell>
                     </TableRow>
                   ))
@@ -303,8 +303,8 @@ export default function RepositoriesPage() {
                           {repo.owner}
                         </div>
                       </TableCell>
-                      <TableCell>{repo.language}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{repo.language}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="size-3" />
@@ -340,7 +340,7 @@ export default function RepositoriesPage() {
                             {repo.recentBuild.status}
                           </Button>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {repo.tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{tag}</Badge>)}
                         </div>
@@ -374,7 +374,7 @@ export default function RepositoriesPage() {
         </CardContent>
       </Card>
       {selectedRepos.length > 0 && !loading && (
-        <div className="fixed bottom-6 right-6">
+        <div className="fixed bottom-6 right-6 z-10">
           <Button onClick={() => router.push('/dashboard/merge')} size="lg" className="shadow-lg">
             Proceed to Merge ({selectedRepos.length})
           </Button>
