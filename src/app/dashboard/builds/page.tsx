@@ -85,19 +85,22 @@ export default function BuildsPage() {
             <h4 className="font-medium">Repository Statuses</h4>
             <ScrollArea className="h-48">
               <ul className="space-y-2 pr-4">
-                {bulkBuild.repos.map((repo) => {
+                {bulkBuild.repos.map((repo, index) => {
                   const Info = statusInfo[repo.status as keyof typeof statusInfo]
                   if (!Info) return null;
                    const { icon: Icon, color, animation } = Info
                    return (
                       <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
-                        <div className="flex flex-col gap-1">
-                          <span>{repo.name}</span>
-                           <div className="flex items-center gap-1.5">
-                            <GitCommit className="size-3 text-muted-foreground" />
-                            <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
-                              {repo.commit}
-                            </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground w-6 text-right">{index + 1}.</span>
+                          <div className="flex flex-col gap-1">
+                            <span>{repo.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              <GitCommit className="size-3 text-muted-foreground" />
+                              <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
+                                {repo.commit}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <span className={`flex items-center gap-2 font-medium ${color}`}>
