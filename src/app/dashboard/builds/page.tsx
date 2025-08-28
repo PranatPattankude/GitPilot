@@ -20,7 +20,7 @@ import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullReque
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 
 const builds = [
   { id: 1, repo: 'gitpilot-ui', branch: 'main', commit: 'a1b2c3d', status: 'Success', duration: '5m 32s', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
@@ -64,7 +64,8 @@ const formatTimestamp = (date: Date) => {
     if (now.getTime() - date.getTime() < oneDay) {
         return `${formatDistanceToNow(date)} ago`;
     }
-    return date.toLocaleString();
+    // Use a consistent format to avoid hydration errors
+    return format(date, 'MMM d, yyyy');
 }
 
 export default function BuildsPage() {
@@ -262,5 +263,3 @@ export default function BuildsPage() {
     </>
   )
 }
-
-    
