@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,7 +7,6 @@ import { usePathname } from "next/navigation"
 import {
   Bell,
   GitMerge,
-  Menu,
   Package,
   Rocket,
   Users,
@@ -15,13 +15,18 @@ import {
 
 import { cn } from "@/lib/utils"
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet"
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { GithubIcon } from "@/components/icons"
 
 const sidebarItems = [
@@ -47,26 +52,25 @@ const sidebarItems = [
   },
 ]
 
-function SidebarNav({ className }: { className?: string }) {
+function SidebarNav() {
   const pathname = usePathname()
   return (
-    <nav className={cn("grid items-start gap-2 px-2 text-sm font-medium lg:px-4", className)}>
+    <SidebarMenu>
       {sidebarItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-            {
-              "bg-muted text-primary": pathname.startsWith(item.href),
-            }
-          )}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </Link>
+        <SidebarMenuItem key={item.href}>
+          <SidebarMenuButton
+            asChild
+            isActive={pathname.startsWith(item.href)}
+            tooltip={item.label}
+          >
+            <Link href={item.href}>
+              <item.icon />
+              <span>{item.label}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       ))}
-    </nav>
+    </SidebarMenu>
   )
 }
 
@@ -82,47 +86,28 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <div className="hidden border-r bg-muted/40 md:block">
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <GitMerge className="h-6 w-6" />
-              <span className="">GitPilot</span>
-            </Link>
-            <Button variant="outline" size="icon" className="ml-auto h-8 w-8">
-              <Bell className="h-4 w-4" />
-              <span className="sr-only">Toggle notifications</span>
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarHeader>
+          <div className="flex items-center gap-2 p-2">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/">
+                <GitMerge />
+                <span className="sr-only">GitPilot</span>
+              </Link>
             </Button>
+            <span className="text-lg font-semibold group-data-[collapsible=icon]:hidden">
+              GitPilot
+            </span>
           </div>
-          <div className="flex-1">
-            <SidebarNav />
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0 md:hidden"
-              >
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-                <Link href="/" className="flex items-center gap-2 font-semibold">
-                  <GitMerge className="h-6 w-6" />
-                  <span className="">GitPilot</span>
-                </Link>
-              </div>
-              <SidebarNav className="mt-5" />
-            </SheetContent>
-          </Sheet>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarNav />
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset className="flex flex-col">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm lg:h-[60px] lg:px-6">
+          <SidebarTrigger className="md:flex" />
           <div className="w-full flex-1">
              {/* Future top nav search can go here */}
           </div>
@@ -147,7 +132,7 @@ export default function DashboardLayout({
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           {children}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
