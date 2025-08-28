@@ -44,7 +44,7 @@ const releases = [
 ]
 
 const formatDate = (date: Date) => {
-    return format(date, 'PPP');
+    return format(date, 'dd/MM/yyyy');
 }
 
 export default function ReleasesPage() {
