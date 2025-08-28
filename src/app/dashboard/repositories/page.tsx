@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useRouter } from "next/navigation"
@@ -31,7 +32,7 @@ import { useAppStore, type Repository, type Build } from "@/lib/store"
 import { useEffect, useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag } from "lucide-react"
+import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
@@ -149,6 +150,14 @@ export default function RepositoriesPage() {
         description: `Merging ${sourceBranch} into ${targetBranch} for ${repo.name}.`,
       });
     }
+  };
+
+  const handleRebuild = (repo: Repository) => {
+    toast({
+      title: "Rebuild Initiated",
+      description: `A new build has been started for ${repo.name}.`,
+    });
+    // In a real app, you would trigger a build here.
   };
 
   const handleTagFilterChange = (tag: string, checked: boolean) => {
@@ -403,6 +412,10 @@ export default function RepositoriesPage() {
                               <GitMerge className="mr-2 h-4 w-4" />
                               <span>Merge</span>
                             </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => handleRebuild(repo)}>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              <span>Rebuild</span>
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -455,3 +468,5 @@ export default function RepositoriesPage() {
     </>
   )
 }
+
+    
