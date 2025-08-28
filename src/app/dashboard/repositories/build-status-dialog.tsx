@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle } from "lucide-react"
 import type { Repository } from "@/lib/store"
+import { Button } from "@/components/ui/button"
 
 interface BuildStatusDialogProps {
   repo: Repository
@@ -90,14 +91,22 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                       })}
                     </div>
                   </div>
-                  {build.status === "Failed" && build.error && (
-                    <div className="mt-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="size-4 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Failure Reason:</p>
-                          <p>{build.error}</p>
+                  {build.status === "Failed" && (
+                    <div className="mt-4 space-y-3">
+                      {build.error && (
+                        <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="size-4 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">Failure Reason:</p>
+                              <p>{build.error}</p>
+                            </div>
+                          </div>
                         </div>
+                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm">Rerun failed jobs</Button>
+                        <Button variant="outline" size="sm">Rerun all jobs</Button>
                       </div>
                     </div>
                   )}
