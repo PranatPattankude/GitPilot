@@ -7,6 +7,7 @@ import {
   Bell,
   GitMerge,
   Home,
+  Menu,
   Package,
   Rocket,
   Users,
@@ -14,11 +15,10 @@ import {
 } from "lucide-react"
 
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -61,41 +61,69 @@ export default function DashboardLayout({
   };
 
   return (
-    <TooltipProvider>
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
-        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
+    <div className="flex min-h-screen w-full flex-col">
+      <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+          <Link
+            href="#"
+            className="flex items-center gap-2 text-lg font-semibold md:text-base"
+          >
+            <GitMerge className="h-6 w-6" />
+            <span className="sr-only">GitPilot</span>
+          </Link>
+          {sidebarItems.map((item) => (
             <Link
+              key={item.href}
+              href={item.href}
+              className={`transition-colors hover:text-foreground ${
+                pathname.startsWith(item.href)
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0 md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle navigation menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left">
+            <nav className="grid gap-6 text-lg font-medium">
+              <Link
                 href="#"
-                className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+                className="flex items-center gap-2 text-lg font-semibold"
               >
-                <GitMerge className="h-4 w-4 transition-all group-hover:scale-110" />
+                <GitMerge className="h-6 w-6" />
                 <span className="sr-only">GitPilot</span>
               </Link>
-          {sidebarItems.map((item) => (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
+              {sidebarItems.map((item) => (
                 <Link
+                  key={item.href}
                   href={item.href}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:h-8 md:w-8 ${
+                  className={`flex items-center gap-4 rounded-xl px-3 py-2 transition-all hover:text-primary ${
                     pathname.startsWith(item.href)
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-muted text-primary"
+                      : "text-muted-foreground"
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span className="sr-only">{item.label}</span>
+                  {item.label}
                 </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </nav>
-      </aside>
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-            <div className="flex items-center gap-2">
-                <GitMerge className="size-5" />
+              ))}
+            </nav>
+          </SheetContent>
+        </Sheet>
+        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
+           <div className="ml-auto flex items-center gap-2">
                 <Users className="size-5 text-muted-foreground" />
                 <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Connected to GitHub</Badge>
             </div>
@@ -117,10 +145,11 @@ export default function DashboardLayout({
               <AvatarFallback>{user?.displayName?.[0]}</AvatarFallback>
             </Avatar>
           </div>
-        </header>
-        <main className="flex-1 p-4 sm:px-6 sm:py-0">{children}</main>
-      </div>
+        </div>
+      </header>
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        {children}
+      </main>
     </div>
-    </TooltipProvider>
   )
 }
