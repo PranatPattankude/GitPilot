@@ -87,7 +87,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Button variant="ghost" size="icon" asChild>
@@ -107,7 +107,7 @@ export default function DashboardLayout({
       </Sidebar>
       <SidebarInset className="flex flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm lg:h-[60px] lg:px-6">
-          <SidebarTrigger className="md:flex" />
+          <SidebarTrigger className="hidden md:flex" />
           <div className="w-full flex-1">
              {/* Future top nav search can go here */}
           </div>
