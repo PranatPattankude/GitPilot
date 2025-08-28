@@ -113,6 +113,13 @@ export default function RepositoriesPage() {
       )
     );
   }
+
+  const handleMergeClick = (repo: Repository) => {
+    if (!selectedRepos.some((r) => r.id === repo.id)) {
+      addRepo(repo);
+    }
+    router.push('/dashboard/merge');
+  }
   
   const filteredRepos = localRepos.filter((repo) =>
     repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -260,7 +267,7 @@ export default function RepositoriesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit Tags</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleMergeClick(repo)}>
                               <GitMerge className="mr-2 h-4 w-4" />
                               <span>Merge</span>
                             </DropdownMenuItem>
@@ -294,3 +301,5 @@ export default function RepositoriesPage() {
     </>
   )
 }
+
+    
