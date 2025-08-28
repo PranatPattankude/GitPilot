@@ -3,10 +3,10 @@
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  GitMerge,
   History,
   Package,
   Rocket,
+  Wand2,
 } from "lucide-react"
 
 import {
@@ -32,7 +32,7 @@ const menuItems = [
   },
   {
     href: "/dashboard/merge",
-    icon: GitMerge,
+    icon: Wand2,
     label: "Conflict Resolution",
   },
   {
