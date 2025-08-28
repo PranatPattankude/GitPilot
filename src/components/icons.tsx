@@ -12,9 +12,18 @@ export function GitPilotLogo(props: SVGProps<SVGSVGElement>) {
       strokeLinejoin="round"
       {...props}
     >
-      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2" />
-      <path d="m2 2 7.5 7.5" />
-      <path d="M12 12 9 22l4-9 4 9-3-9" />
+      <path d="M12 2v4" />
+      <path d="M12 18v4" />
+      <path d="M22 12h-4" />
+      <path d="M6 12H2" />
+      <path d="m19.07 4.93-3.12 3.12" />
+      <path d="m8.05 15.95-3.12 3.12" />
+      <path d="m19.07 19.07-3.12-3.12" />
+      <path d="m8.05 8.05-3.12-3.12" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M15.2 15.2 18 18" />
+      <path d="m12 8-2.5 2.5" />
+      <path d="m8 12 2.5 2.5" />
     </svg>
   );
 }
