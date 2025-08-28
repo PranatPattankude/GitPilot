@@ -20,6 +20,7 @@ export type Repository = {
   pullRequests: number;
   contributors: number;
   recentBuild: Build;
+  branches?: string[];
 }
 
 type AppState = {

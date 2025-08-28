@@ -8,12 +8,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { GitMerge, GitPullRequest, AlertTriangle } from "lucide-react"
+import { GitMerge, GitPullRequest, AlertTriangle, XCircle } from "lucide-react"
 import { useAppStore } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import ConflictResolver from "../merge/conflict-resolver"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
   } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
@@ -50,7 +49,16 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     }, 1500)
   }
 
-  const hasConflicts = (repoId: string) => comparisonDone && repoId === conflictRepo.id
+  const reposMissingBranch = comparisonDone ? selectedRepos.filter(repo => {
+    const repoBranches = repo.branches || [];
+    return !repoBranches.includes(sourceBranch) || !repoBranches.includes(targetBranch);
+  }) : [];
+
+  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingBranch.find(r => r.id === repo.id)) : [];
+  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingBranch.find(r => r.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
+
+
+  const hasConflicts = (repoId: string) => reposWithConflicts.some(r => r.id === repoId);
 
   if (selectedRepos.length === 0) {
     return (
@@ -133,33 +141,59 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-4">
-                        {selectedRepos.map((repo) => (
-                            <li key={repo.id} className="p-4 border rounded-lg">
+                        {reposMissingBranch.length > 0 && (
+                          <>
+                           <h3 className="text-lg font-semibold text-muted-foreground">Skipped Repositories</h3>
+                            {reposMissingBranch.map((repo) => (
+                                <li key={repo.id} className="p-4 border rounded-lg bg-muted/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                    <h4 className="font-semibold">{repo.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{repo.owner}</p>
+                                    </div>
+                                    <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
+                                        <XCircle className="size-4" />
+                                        Branch not found
+                                    </Badge>
+                                </div>
+                                </li>
+                            ))}
+                          </>
+                        )}
+                        
+                        {(cleanRepos.length > 0 || reposWithConflicts.length > 0) && <h3 className="text-lg font-semibold text-muted-foreground mt-4">Ready for Merge</h3>}
+
+                        {cleanRepos.map((repo) => (
+                           <li key={repo.id} className="p-4 border rounded-lg">
                             <div className="flex items-center justify-between">
                                 <div>
-                                <h3 className="font-semibold">{repo.name}</h3>
+                                <h4 className="font-semibold">{repo.name}</h4>
                                 <p className="text-sm text-muted-foreground">{repo.owner}</p>
                                 </div>
-                                {hasConflicts(repo.id) ? (
-                                <Badge variant="destructive" className="flex items-center gap-2">
-                                    <AlertTriangle className="size-4" />
-                                    Conflicts found
-                                </Badge>
-                                ) : (
-                                <Badge variant="secondary" className="bg-accent/20 text-accent-foreground border-accent/50">Can be merged cleanly</Badge>
-                                )}
+                               <Badge variant="secondary" className="bg-accent/20 text-accent-foreground border-accent/50">Can be merged cleanly</Badge>
                             </div>
-                            {hasConflicts(repo.id) && (
-                                <>
+                            </li>
+                        ))}
+
+                        {reposWithConflicts.map((repo) => (
+                             <li key={repo.id} className="p-4 border rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                    <h4 className="font-semibold">{repo.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{repo.owner}</p>
+                                    </div>
+                                    <Badge variant="destructive" className="flex items-center gap-2">
+                                        <AlertTriangle className="size-4" />
+                                        Conflicts found
+                                    </Badge>
+                                </div>
                                 <Separator className="my-4" />
                                 <ConflictResolver />
-                                </>
-                            )}
-                            </li>
+                                </li>
                         ))}
                         </ul>
                         <div className="flex justify-end mt-6">
-                        <Button size="lg" className="bg-accent hover:bg-accent/90">
+                        <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={cleanRepos.length === 0 && reposWithConflicts.length === 0}>
                             <GitPullRequest className="mr-2 size-4" />
                             Merge All Clean Branches
                         </Button>
