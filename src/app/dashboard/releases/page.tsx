@@ -25,47 +25,45 @@ const releases = [
 
 export default function ReleasesPage() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Release History</CardTitle>
-          <CardDescription>
-            A log of all merges and releases triggered from GitPilot.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Repository</TableHead>
-                  <TableHead>Branch Merged</TableHead>
-                  <TableHead>Commit</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Build Status</TableHead>
+    <Card>
+      <CardHeader>
+        <CardTitle>Release History</CardTitle>
+        <CardDescription>
+          A log of all merges and releases triggered from GitPilot.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Repository</TableHead>
+                <TableHead>Branch Merged</TableHead>
+                <TableHead>Commit</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Timestamp</TableHead>
+                <TableHead>Build Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {releases.map((release) => (
+                <TableRow key={release.id}>
+                  <TableCell className="font-medium">{release.repo}</TableCell>
+                  <TableCell>{release.branch}</TableCell>
+                  <TableCell><code className="text-sm bg-muted p-1 rounded">{release.commit}</code></TableCell>
+                  <TableCell>{release.user}</TableCell>
+                  <TableCell>{release.timestamp}</TableCell>
+                  <TableCell>
+                    <Badge variant={release.status === 'Success' ? 'default' : 'destructive'} className={release.status === 'Success' ? 'bg-accent text-accent-foreground' : ''}>
+                      {release.status}
+                    </Badge>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {releases.map((release) => (
-                  <TableRow key={release.id}>
-                    <TableCell className="font-medium">{release.repo}</TableCell>
-                    <TableCell>{release.branch}</TableCell>
-                    <TableCell><code className="text-sm bg-muted p-1 rounded">{release.commit}</code></TableCell>
-                    <TableCell>{release.user}</TableCell>
-                    <TableCell>{release.timestamp}</TableCell>
-                    <TableCell>
-                      <Badge variant={release.status === 'Success' ? 'default' : 'destructive'} className={release.status === 'Success' ? 'bg-accent text-accent-foreground' : ''}>
-                        {release.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -110,30 +110,18 @@ export default function RepositoriesPage() {
   const isIndeterminate = selectedRepos.length > 0 && selectedRepos.length < filteredRepos.length;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <>
       <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
-          <div className="text-sm text-muted-foreground">
-            {loading ? (
-              <Skeleton className="h-4 w-48" />
-            ) : (
-              <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
-            )}
-          </div>
+        <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
+        <div className="text-sm text-muted-foreground">
+          {loading ? (
+            <Skeleton className="h-4 w-48" />
+          ) : (
+            <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
+          )}
         </div>
+      </div>
       <Card>
-        <CardHeader className="p-4">
-           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search repositories..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-        </CardHeader>
         <CardContent className="p-0">
           <div className="border-t">
             <Table>
@@ -266,6 +254,6 @@ export default function RepositoriesPage() {
           </Button>
         </div>
       )}
-    </div>
+    </>
   )
 }

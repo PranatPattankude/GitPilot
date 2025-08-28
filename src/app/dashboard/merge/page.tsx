@@ -55,7 +55,7 @@ export default function MergePage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Bulk Branch Merging</CardTitle>
