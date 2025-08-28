@@ -31,6 +31,8 @@ import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTagsDialog } from "./edit-tags-dialog"
+import { MergeDialog } from "./merge-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12 },
@@ -71,11 +73,13 @@ const staticRepos: Repository[] = [
 
 export default function RepositoriesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const { selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
+  const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
 
   useEffect(() => {
     setLoading(true);
@@ -114,12 +118,15 @@ export default function RepositoriesPage() {
     );
   }
 
-  const handleMergeClick = (repo: Repository) => {
-    if (!selectedRepos.some((r) => r.id === repo.id)) {
-      addRepo(repo);
+  const handleMerge = (repoId: string, sourceBranch: string, targetBranch: string) => {
+    const repo = localRepos.find(r => r.id === repoId);
+    if (repo) {
+      toast({
+        title: "Merge Initiated",
+        description: `Merging ${sourceBranch} into ${targetBranch} for ${repo.name}.`,
+      });
     }
-    router.push('/dashboard/merge');
-  }
+  };
   
   const filteredRepos = localRepos.filter((repo) =>
     repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -267,7 +274,7 @@ export default function RepositoriesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit Tags</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleMergeClick(repo)}>
+                            <DropdownMenuItem onSelect={() => setMergingRepo(repo)}>
                               <GitMerge className="mr-2 h-4 w-4" />
                               <span>Merge</span>
                             </DropdownMenuItem>
@@ -298,8 +305,15 @@ export default function RepositoriesPage() {
           onSave={handleUpdateTags}
         />
       )}
+      {mergingRepo && (
+        <MergeDialog
+          repo={mergingRepo}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setMergingRepo(null)
+          }}
+          onMerge={handleMerge}
+        />
+      )}
     </>
   )
 }
-
-    
