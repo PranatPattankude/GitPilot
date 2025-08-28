@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import {
   Table,
@@ -20,6 +19,8 @@ import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
 
 const staticRepos: Repository[] = [
     { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago' },
@@ -34,6 +35,7 @@ export default function RepositoriesPage() {
   const { selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     setLoading(true);
@@ -58,14 +60,18 @@ export default function RepositoriesPage() {
 
   const handleSelectAll = (checked: boolean | 'indeterminate') => {
     if (checked === true) {
-      setGlobalRepos(localRepos)
+      setGlobalRepos(filteredRepos)
     } else {
       clearRepos()
     }
   }
   
-  const isAllSelected = localRepos.length > 0 && selectedRepos.length === localRepos.length
-  const isIndeterminate = selectedRepos.length > 0 && selectedRepos.length < localRepos.length;
+  const filteredRepos = localRepos.filter((repo) =>
+    repo.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const isAllSelected = filteredRepos.length > 0 && selectedRepos.length === filteredRepos.length
+  const isIndeterminate = selectedRepos.length > 0 && selectedRepos.length < filteredRepos.length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -73,15 +79,27 @@ export default function RepositoriesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Repository Management</h1>
           <div className="text-sm text-muted-foreground">
             {loading ? (
-              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-48" />
             ) : (
               <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
             )}
           </div>
         </div>
       <Card>
+        <CardHeader className="p-4">
+           <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search repositories..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
-          <div className="border rounded-lg">
+          <div className="border-t">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -110,7 +128,7 @@ export default function RepositoriesPage() {
                     </TableRow>
                   ))
                 ) : (
-                  localRepos.map((repo) => (
+                  filteredRepos.map((repo) => (
                     <TableRow key={repo.id}>
                       <TableCell>
                         <Checkbox
