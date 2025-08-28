@@ -17,12 +17,23 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import ConflictResolver from "../merge/conflict-resolver"
 import { Badge } from "@/components/ui/badge"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
+
+// Statically defined branches for demonstration purposes.
+const availableBranches = ["main", "develop", "feature/new-auth", "fix/caching-issue", "hotfix/prod-login", "feature/new-ui", "feature/analytics", "feature/sidebar-v2"]
+
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   const { selectedRepos } = useAppStore()
@@ -76,25 +87,37 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                         <div className="space-y-2">
-                        <Label htmlFor="source-branch">Source Branch</Label>
-                        <Input
-                            id="source-branch"
-                            value={sourceBranch}
-                            onChange={(e) => setSourceBranch(e.target.value)}
-                            placeholder="e.g., feature/new-login"
-                        />
+                            <Label htmlFor="source-branch">Source Branch</Label>
+                            <Select value={sourceBranch} onValueChange={setSourceBranch}>
+                                <SelectTrigger id="source-branch">
+                                    <SelectValue placeholder="Select a branch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableBranches.map((branch) => (
+                                    <SelectItem key={branch} value={branch} disabled={branch === targetBranch}>
+                                        {branch}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
-                        <Label htmlFor="target-branch">Target Branch</Label>
-                        <Input
-                            id="target-branch"
-                            value={targetBranch}
-                            onChange={(e) => setTargetBranch(e.target.value)}
-                            placeholder="e.g., main"
-                        />
+                            <Label htmlFor="target-branch">Target Branch</Label>
+                            <Select value={targetBranch} onValueChange={setTargetBranch}>
+                            <SelectTrigger id="target-branch">
+                                <SelectValue placeholder="Select a branch" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableBranches.map((branch) => (
+                                <SelectItem key={branch} value={branch} disabled={branch === sourceBranch}>
+                                    {branch}
+                                </SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
                         </div>
                     </div>
-                    <Button onClick={handleCompare} disabled={isComparing}>
+                    <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch}>
                         {isComparing ? "Comparing..." : "Compare Branches"}
                     </Button>
                     </CardContent>
