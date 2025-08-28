@@ -38,18 +38,20 @@ const formatDate = (date: Date) => {
 export default function ReleasesPage() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReleases = async () => {
       setLoading(true);
+      setError(null);
       try {
         const releaseData = await getReleaseHistory();
         // Ensure data is always an array
         setReleases(Array.isArray(releaseData) ? releaseData : []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch release history:", error);
+        setError("Failed to fetch release history. Please check the logs for more details.");
         setReleases([]);
-        // Handle error, maybe show a toast
       } finally {
         setLoading(false);
       }
@@ -91,6 +93,12 @@ export default function ReleasesPage() {
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     </TableRow>
                   ))
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-destructive">
+                    {error}
+                  </TableCell>
+                </TableRow>
               ) : releases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">

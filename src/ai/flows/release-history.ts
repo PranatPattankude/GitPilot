@@ -74,12 +74,12 @@ export const getReleaseHistory = ai.defineFlow(
       });
 
       const rows = response.data.values;
-      if (!rows || rows.length === 0) {
-        console.log('No data found in Google Sheet. The sheet might be empty.');
+      if (!rows || rows.length <= 1) { // Changed to <= 1 to account for only header
+        console.log('No data found in Google Sheet (or only a header row). The sheet might be empty.');
         return [];
       }
       
-      console.log(`Found ${rows.length} rows in the sheet.`);
+      console.log(`Found ${rows.length} rows in the sheet (including header).`);
 
       // Skip header row and map to Release objects
       return rows.slice(1).map((row, index): Release => ({
@@ -139,6 +139,7 @@ export const addReleaseToHistory = ai.defineFlow(
                     values,
                 },
             });
+            console.log(`Successfully added release for ${input.repos.join(', ')} to the sheet.`);
         } catch (error: any) {
             console.error('Error writing to Google Sheets:', error.message);
             // We can throw here to let the caller know something went wrong.
