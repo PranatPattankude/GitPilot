@@ -21,14 +21,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository, type Build } from "@/lib/store"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader } from "lucide-react"
+import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
@@ -85,6 +88,7 @@ export default function RepositoriesPage() {
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
   const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
@@ -101,6 +105,10 @@ export default function RepositoriesPage() {
       clearRepos(); // Clear repo selection on unmount
     }
   }, [clearRepos])
+
+  const allTags = useMemo(() => {
+    return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
+  }, [localRepos])
 
   const handleSelectRepo = (repo: Repository) => {
     if (selectedRepos.some((r) => r.id === repo.id)) {
@@ -135,13 +143,24 @@ export default function RepositoriesPage() {
       });
     }
   };
+
+  const handleTagFilterChange = (tag: string, checked: boolean) => {
+    setSelectedTags(prev => 
+      checked ? [...prev, tag] : prev.filter(t => t !== tag)
+    )
+  }
   
-  const filteredRepos = localRepos.filter((repo) =>
-    repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    repo.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    repo.language.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    repo.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredRepos = localRepos.filter((repo) => {
+    const searchMatch =
+      repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.language.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    const tagMatch = selectedTags.length === 0 || selectedTags.every(tag => repo.tags.includes(tag))
+    
+    return searchMatch && tagMatch
+  });
 
   const isAllSelected = filteredRepos.length > 0 && selectedRepos.length === filteredRepos.length
   const isIndeterminate = selectedRepos.length > 0 && selectedRepos.length < filteredRepos.length;
@@ -162,7 +181,8 @@ export default function RepositoriesPage() {
       </div>
       <Card>
         <CardHeader className="border-b">
-            <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search repositories..."
@@ -171,6 +191,44 @@ export default function RepositoriesPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-1">
+                  <ListFilter className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tags</span>
+                  {selectedTags.length > 0 && (
+                    <>
+                      <Separator orientation="vertical" className="mx-1 h-4" />
+                      <Badge variant="secondary" className="rounded-sm px-1.5 font-normal">
+                        {selectedTags.length}
+                      </Badge>
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {allTags.map(tag => (
+                   <DropdownMenuCheckboxItem
+                    key={tag}
+                    checked={selectedTags.includes(tag)}
+                    onCheckedChange={(checked) => handleTagFilterChange(tag, Boolean(checked))}
+                   >
+                     {tag}
+                   </DropdownMenuCheckboxItem>
+                ))}
+                {selectedTags.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setSelectedTags([])} className="justify-center text-center">
+                      Clear filters
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
