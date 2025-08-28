@@ -49,7 +49,7 @@ const statusInfo = {
 }
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
-  const buildsForRepo = mockBuilds.filter(build => build.status === "In Progress" || build.status === "Failed");
+  const buildsForRepo = mockBuilds;
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
@@ -67,6 +67,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
             const animation = statusInfo[build.status as keyof typeof statusInfo].animation || '';
             const progressValue = (build.currentStep / build.totalSteps) * 100;
             const isFailed = build.status === "Failed";
+            const isSuccess = build.status === "Success";
 
             return (
               <Card key={build.id}>
@@ -76,7 +77,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                   </CardTitle>
                    <div className="flex items-center gap-2">
                     <SvgIcon className={`size-5 ${color} ${animation}`} />
-                    <Badge variant={isFailed ? "destructive" : build.status === "Success" ? "default" : "secondary"} className={build.status === "Success" ? "bg-accent" : ""}>{build.status}</Badge>
+                    <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
                     {isFailed && (
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -104,7 +105,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                     <Progress value={progressValue} className="h-2" />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       {steps.map((step, index) => {
-                        const isCompleted = index < build.currentStep;
+                        const isCompleted = index < build.currentStep || isSuccess;
                         const isCurrent = index + 1 === build.currentStep && build.status === "In Progress";
                         
                         return (
