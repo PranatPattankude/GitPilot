@@ -4,6 +4,7 @@
  * @fileOverview A Genkit flow for managing release history in Google Sheets.
  *
  * - getReleaseHistory - Fetches the release history from Google Sheets.
+ * - addReleaseToHistory - Adds a new release entry to Google Sheets.
  * - Release - The type for a single release entry.
  */
 
@@ -29,6 +30,17 @@ const ReleaseSchema = z.object({
 });
 
 export type Release = z.infer<typeof ReleaseSchema>;
+
+const AddReleaseHistoryInputSchema = z.object({
+    type: z.enum(['single', 'bulk']),
+    repos: z.array(z.string()),
+    branch: z.string(),
+    user: z.string(),
+    status: z.string(),
+});
+
+export type AddReleaseHistoryInput = z.infer<typeof AddReleaseHistoryInputSchema>;
+
 
 const GetReleaseHistoryOutputSchema = z.array(ReleaseSchema);
 
@@ -81,4 +93,46 @@ export const getReleaseHistory = ai.defineFlow(
       return [];
     }
   }
+);
+
+
+export const addReleaseToHistory = ai.defineFlow(
+    {
+        name: 'addReleaseToHistory',
+        inputSchema: AddReleaseHistoryInputSchema,
+        outputSchema: z.void(),
+    },
+    async (input) => {
+        if (!SPREADSHEET_ID) {
+            console.error('GOOGLE_SHEET_ID environment variable not set. Cannot add release to history.');
+            return;
+        }
+
+        try {
+            const sheets = await getSheetsService();
+            const values = [
+                [
+                    input.type,
+                    input.repos.join(', '),
+                    input.branch,
+                    input.user,
+                    new Date().toISOString(),
+                    input.status,
+                ],
+            ];
+
+            await sheets.spreadsheets.values.append({
+                spreadsheetId: SPREADSHEET_ID,
+                range: RANGE,
+                valueInputOption: 'USER_ENTERED',
+                requestBody: {
+                    values,
+                },
+            });
+        } catch (error) {
+            console.error('Error writing to Google Sheets:', error);
+            // We can throw here to let the caller know something went wrong.
+            throw new Error('Failed to add release to history.');
+        }
+    }
 );
