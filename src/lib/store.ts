@@ -15,6 +15,7 @@ export type Repository = {
   openIssues: number;
   pullRequests: number;
   contributors: number;
+  activeBuilds: number;
 }
 
 type AppState = {

@@ -1,0 +1,98 @@
+"use client"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle } from "lucide-react"
+import type { Repository } from "@/lib/store"
+
+interface BuildStatusDialogProps {
+  repo: Repository
+  onOpenChange: (open: boolean) => void
+}
+
+const steps = [
+  { name: "Setup", icon: Package },
+  { name: "Build", icon: GitCommit },
+  { name: "Test", icon: TestTube },
+  { name: "Deploy", icon: CheckCircle2 },
+]
+
+const mockBuilds = [
+  { id: "build-1", branch: "main", commit: "a1b2c3d", status: "In Progress", currentStep: 2, totalSteps: 4 },
+  { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4 },
+  { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4 },
+  { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4 },
+]
+
+const statusInfo = {
+  "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
+  "Success": { icon: CheckCircle2, color: "text-accent" },
+  "Failed": { icon: XCircle, color: "text-destructive" },
+}
+
+export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
+  const buildsForRepo = mockBuilds.slice(0, repo.activeBuilds > 0 ? repo.activeBuilds : 1);
+
+  return (
+    <Dialog open={true} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Active Builds for {repo.name}</DialogTitle>
+          <DialogDescription>
+            Live status of CI/CD pipelines for this repository.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {buildsForRepo.map((build) => {
+            const SvgIcon = statusInfo[build.status as keyof typeof statusInfo].icon;
+            const color = statusInfo[build.status as keyof typeof statusInfo].color;
+            const animation = statusInfo[build.status as keyof typeof statusInfo].animation || '';
+            const progressValue = (build.currentStep / build.totalSteps) * 100;
+
+            return (
+              <Card key={build.id}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-medium">
+                    <span className="font-mono bg-muted px-2 py-1 rounded">{build.commit}</span> on <span className="text-primary">{build.branch}</span>
+                  </CardTitle>
+                   <div className="flex items-center gap-2">
+                    <SvgIcon className={`size-5 ${color} ${animation}`} />
+                    <Badge variant={build.status === "Success" ? "default" : build.status === "Failed" ? "destructive" : "secondary"} className={build.status === "Success" ? "bg-accent" : ""}>{build.status}</Badge>
+                   </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Progress value={progressValue} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      {steps.map((step, index) => {
+                        const isCompleted = index < build.currentStep;
+                        const isCurrent = index + 1 === build.currentStep && build.status === "In Progress";
+                        
+                        return (
+                          <div key={step.name} className="flex flex-col items-center text-center">
+                            <div className={`flex items-center justify-center size-8 rounded-full border-2 ${isCompleted || isCurrent ? 'border-primary' : 'border-border'} ${isCompleted ? 'bg-primary text-primary-foreground' : ''}`}>
+                              {isCompleted ? <CheckCircle2 className="size-4" /> : <step.icon className={`size-4 ${isCurrent ? 'animate-pulse' : ''}`} />}
+                            </div>
+                            <span className={`mt-1 font-medium ${isCurrent ? 'text-primary' : ''}`}>{step.name}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
