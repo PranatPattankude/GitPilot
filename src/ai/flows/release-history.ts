@@ -17,7 +17,7 @@ import { google } from 'googleapis';
 // For production, use Application Default Credentials.
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID || '';
-const RANGE = 'Sheet1!A:F'; // Adjust if your sheet has a different name or structure
+const DATA_RANGE = 'A:F'; // We'll prepend the sheet name dynamically
 
 const ReleaseSchema = z.object({
   id: z.string(),
@@ -52,6 +52,20 @@ async function getSheetsService() {
   return google.sheets({ version: 'v4', auth: authClient });
 }
 
+async function getFirstSheetName(sheets: any): Promise<string> {
+    const response = await sheets.spreadsheets.get({
+        spreadsheetId: SPREADSHEET_ID,
+    });
+    const firstSheet = response.data.sheets?.[0];
+    const sheetTitle = firstSheet?.properties?.title;
+    if (!sheetTitle) {
+        throw new Error("Could not find any sheets in the spreadsheet. Please ensure there is at least one sheet.");
+    }
+    console.log(`Found first sheet with name: "${sheetTitle}"`);
+    return sheetTitle;
+}
+
+
 export const getReleaseHistory = ai.defineFlow(
   {
     name: 'getReleaseHistory',
@@ -64,13 +78,16 @@ export const getReleaseHistory = ai.defineFlow(
       );
       return [];
     }
-    console.log(`Fetching release history from sheet: ${SPREADSHEET_ID}`);
-
+    
     try {
       const sheets = await getSheetsService();
+      const sheetName = await getFirstSheetName(sheets);
+      const range = `${sheetName}!${DATA_RANGE}`;
+      console.log(`Fetching release history from sheet: ${SPREADSHEET_ID}, range: ${range}`);
+      
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: RANGE,
+        range: range,
       });
 
       const rows = response.data.values;
@@ -94,7 +111,7 @@ export const getReleaseHistory = ai.defineFlow(
     } catch (error: any) {
       console.error('Error fetching from Google Sheets:', error.message);
       if (error.code === 403) {
-        console.error(`Permission denied. Please ensure the service account has 'Viewer' access to the Google Sheet with ID: ${SPREADSHEET_ID}`);
+        console.error(`Permission denied. Please ensure the service account has at least 'Viewer' access to the Google Sheet with ID: ${SPREADSHEET_ID}`);
       }
       if (error.code === 404) {
         console.error(`Sheet not found. Please verify the SPREADSHEET_ID is correct: ${SPREADSHEET_ID}`);
@@ -120,6 +137,9 @@ export const addReleaseToHistory = ai.defineFlow(
 
         try {
             const sheets = await getSheetsService();
+            const sheetName = await getFirstSheetName(sheets);
+            const range = `${sheetName}!${DATA_RANGE}`;
+
             const values = [
                 [
                     input.type,
@@ -133,7 +153,7 @@ export const addReleaseToHistory = ai.defineFlow(
 
             await sheets.spreadsheets.values.append({
                 spreadsheetId: SPREADSHEET_ID,
-                range: RANGE,
+                range: range,
                 valueInputOption: 'USER_ENTERED',
                 requestBody: {
                     values,
