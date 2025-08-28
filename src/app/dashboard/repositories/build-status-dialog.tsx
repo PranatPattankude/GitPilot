@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle } from "lucide-react"
+import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTriangle } from "lucide-react"
 import type { Repository } from "@/lib/store"
 
 interface BuildStatusDialogProps {
@@ -26,13 +26,13 @@ const steps = [
 ]
 
 const mockBuilds = [
-  { id: "build-1", branch: "main", commit: "a1b2c3d", status: "In Progress", currentStep: 2, totalSteps: 4 },
-  { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4 },
-  { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4 },
-  { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4 },
-  { id: "build-5", branch: "main", commit: "p3q4r5s", status: "Failed", currentStep: 2, totalSteps: 4 },
-  { id: "build-6", branch: "feature/analytics", commit: "t6u7v8w", status: "Success", currentStep: 4, totalSteps: 4 },
-  { id: "build-7", branch: "develop", commit: "x9y0z1a", status: "In Progress", currentStep: 3, totalSteps: 4 },
+  { id: "build-1", branch: "main", commit: "a1b2c3d", status: "In Progress", currentStep: 2, totalSteps: 4, error: null },
+  { id: "build-2", branch: "feature/new-ui", commit: "b4e5f6g", status: "In Progress", currentStep: 1, totalSteps: 4, error: null },
+  { id: "build-3", branch: "hotfix/login-bug", commit: "h7i8j9k", status: "Success", currentStep: 4, totalSteps: 4, error: null },
+  { id: "build-4", branch: "develop", commit: "l0m1n2o", status: "Failed", currentStep: 3, totalSteps: 4, error: "Unit tests failed: 12/15 passed." },
+  { id: "build-5", branch: "main", commit: "p3q4r5s", status: "Failed", currentStep: 2, totalSteps: 4, error: "Build command exited with code 1" },
+  { id: "build-6", branch: "feature/analytics", commit: "t6u7v8w", status: "Success", currentStep: 4, totalSteps: 4, error: null },
+  { id: "build-7", branch: "develop", commit: "x9y0z1a", status: "In Progress", currentStep: 3, totalSteps: 4, error: null },
 ]
 
 const statusInfo = {
@@ -90,6 +90,17 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                       })}
                     </div>
                   </div>
+                  {build.status === "Failed" && build.error && (
+                    <div className="mt-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="size-4 mt-0.5" />
+                        <div>
+                          <p className="font-semibold">Failure Reason:</p>
+                          <p>{build.error}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )
