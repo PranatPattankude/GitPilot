@@ -12,6 +12,8 @@ import { Separator } from "@/components/ui/separator"
 import ConflictResolver from "./conflict-resolver"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { addReleaseToHistory } from "@/ai/flows/release-history"
+import { useToast } from "@/hooks/use-toast"
 
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
 
@@ -21,8 +23,10 @@ export default function MergePage() {
   const [targetBranch, setTargetBranch] = useState("main")
   const [isComparing, setIsComparing] = useState(false)
   const [comparisonDone, setComparisonDone] = useState(false)
+  const [isMerging, setIsMerging] = useState(false);
   const [isClient, setIsClient] = useState(false)
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsClient(true)
@@ -36,10 +40,41 @@ export default function MergePage() {
     }, 1500)
   }
   
-  const handleMerge = () => {
-    // Here you would typically trigger the actual merge process
-    // For now, we'll just navigate to the build status page
-    router.push("/dashboard/builds")
+  const handleMerge = async () => {
+    setIsMerging(true);
+    try {
+      // In a real scenario, we would filter to only mergeable repos.
+      const reposToMerge = selectedRepos
+        .filter(repo => !hasConflicts(repo.id))
+        .map(repo => repo.name);
+      
+      if(reposToMerge.length > 0) {
+        await addReleaseToHistory({
+            type: reposToMerge.length > 1 ? 'bulk' : 'single',
+            repos: reposToMerge,
+            branch: `${sourceBranch} -> ${targetBranch}`,
+            user: "guest@example.com", // In a real app, this would be the logged-in user.
+            status: "Success", // This would come from the actual build result.
+        });
+        toast({
+            title: "Merge Successful",
+            description: "Release history has been updated in Google Sheets.",
+        });
+      }
+
+      // Here you would typically trigger the actual merge process
+      // For now, we'll just navigate to the build status page
+      router.push("/dashboard/builds")
+    } catch (error) {
+        console.error("Failed to add release to history:", error);
+        toast({
+            variant: "destructive",
+            title: "Merge Failed",
+            description: "Could not update the release history.",
+        });
+    } finally {
+        setIsMerging(false);
+    }
   }
 
   const hasConflicts = (repoId: string) => comparisonDone && repoId === conflictRepo.id
@@ -135,9 +170,13 @@ export default function MergePage() {
               ))}
             </ul>
              <div className="flex justify-end mt-6">
-              <Button size="lg" className="bg-accent hover:bg-accent/90" onClick={handleMerge}>
-                <GitPullRequest className="mr-2 size-4" />
-                Merge All Clean Branches
+              <Button size="lg" className="bg-accent hover:bg-accent/90" onClick={handleMerge} disabled={isMerging}>
+                {isMerging ? "Merging..." : (
+                    <>
+                        <GitPullRequest className="mr-2 size-4" />
+                        Merge All Clean Branches
+                    </>
+                )}
               </Button>
             </div>
           </CardContent>
