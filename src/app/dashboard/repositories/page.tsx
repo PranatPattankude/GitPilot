@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -73,9 +72,13 @@ export default function RepositoriesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Repository Management</CardTitle>
-          <CardDescription>
-            Select repositories to perform bulk operations like merging branches.
-          </CardDescription>
+          <div className="text-sm text-muted-foreground pt-1">
+            {loading ? (
+              <Skeleton className="h-4 w-32" />
+            ) : (
+              <span>{localRepos.length} repositories • {selectedRepos.length} selected</span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg">
@@ -96,7 +99,7 @@ export default function RepositoriesPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                       <TableCell>
@@ -131,11 +134,10 @@ export default function RepositoriesPage() {
           </div>
         </CardContent>
       </Card>
-      {selectedRepos.length > 0 && (
-        <div className="flex justify-end space-x-4">
-          <p className="self-center text-sm text-muted-foreground">{selectedRepos.length} repositories selected</p>
-          <Button onClick={() => router.push('/dashboard/merge')}>
-            Proceed to Merge
+      {selectedRepos.length > 0 && !loading && (
+        <div className="fixed bottom-6 right-6">
+          <Button onClick={() => router.push('/dashboard/merge')} size="lg" className="shadow-lg">
+            Proceed to Merge ({selectedRepos.length})
           </Button>
         </div>
       )}
