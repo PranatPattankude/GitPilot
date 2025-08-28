@@ -33,7 +33,7 @@ const menuItems = [
   {
     href: "/dashboard/merge",
     icon: GitMerge,
-    label: "Merge & Conflict Resolution",
+    label: "Conflict Resolution",
   },
   {
     href: "/dashboard/releases",
