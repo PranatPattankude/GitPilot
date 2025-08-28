@@ -14,13 +14,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users } from "lucide-react"
+import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 const staticRepos: Repository[] = [
@@ -226,10 +232,24 @@ export default function RepositoriesPage() {
                         </div>
                       </TableCell>
                        <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">More actions</span>
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">More actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Edit Tags</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <GitMerge className="mr-2 h-4 w-4" />
+                              <span>Merge</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
