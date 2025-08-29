@@ -127,7 +127,7 @@ function usePageLoading() {
 
 function UserMenu({ user }: { user: { name?: string | null, email?: string | null, image?: string | null } }) {
   const displayName = user?.name || "User";
-  const displayEmail = user?.email ? `@${user.email.split('@')[0]}` : "";
+  const displayEmail = user?.email ? user.email.split('@')[0] : "";
   const displayAvatar = user?.image || `https://i.pravatar.cc/150?u=${displayName}`;
 
   return (

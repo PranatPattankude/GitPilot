@@ -11,18 +11,20 @@ export type Build = {
 export type Repository = {
   id: string
   name: string
-  owner: string
-  url: string
-  lastUpdated: string
-  language: string;
-  tags: string[];
-  stars: number;
-  forks: number;
-  openIssues: number;
-  pullRequests: number;
-  contributors: number;
-  recentBuilds: Build[];
-  branches?: string[];
+  owner: {
+    login: string
+    avatar_url: string
+  }
+  html_url: string
+  description: string | null
+  language: string | null
+  stargazers_count: number
+  forks_count: number
+  open_issues_count: number
+  updated_at: string
+  tags: string[]
+  recentBuilds: Build[]
+  branches: string[]
 }
 
 type AppState = {

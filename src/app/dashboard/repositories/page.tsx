@@ -1,13 +1,10 @@
 
 "use client"
 
-import { useRouter } from "next/navigation"
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
+  CardHeader
 } from "@/components/ui/card"
 import {
   Table,
@@ -28,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { useAppStore, type Repository, type Build } from "@/lib/store"
+import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
@@ -42,59 +39,18 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-
-const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-const testingBranches = ["dev-k8s", "MSRMH-TRN", "qa-k8s", "KPMC-UAT", "perf-k8s", "Selgate-SIT", "Sriphat-SIT", "UCSI-UAT", "HUMS-DEV"];
-
-const staticRepos: Repository[] = [
-    { id: '1', name: 'gitpilot-ui', owner: 'acme-corp', url: '', lastUpdated: '2 days ago', language: 'TypeScript', tags: ['frontend', 'nextjs'], stars: 124, forks: 23, openIssues: 8, pullRequests: 3, contributors: 12, recentBuilds: [{ status: 'In Progress', timestamp: new Date() }], branches: ["main", "develop", "feature/new-ui", "feature/sidebar-v2", ...testingBranches] },
-    { id: '2', name: 'firebase-functions-sdk', owner: 'acme-corp', url: '', lastUpdated: '3 days ago', language: 'TypeScript', tags: ['backend', 'firebase'], stars: 256, forks: 45, openIssues: 12, pullRequests: 5, contributors: 23, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", "fix/caching-issue", ...testingBranches] },
-    { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: '', lastUpdated: '5 days ago', language: 'TypeScript', tags: ['frontend', 'react'], stars: 512, forks: 89, openIssues: 23, pullRequests: 11, contributors: 34, recentBuilds: [{ status: 'Failed', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) }], branches: ["main", "develop", "feature/new-auth", "hotfix/prod-login"] },
-    { id: '4', name: 'project-phoenix', owner: 'acme-corp', url: '', lastUpdated: '1 week ago', language: 'JavaScript', tags: ['monorepo'], stars: 1024, forks: 123, openIssues: 34, pullRequests: 17, contributors: 45, recentBuilds: [{ status: 'Success', timestamp: new Date(Date.now() - 14 * 60 * 60 * 1000) }], branches: ["main", "develop", ...testingBranches] },
-    { id: '5', name: 'quantum-leap-engine', owner: 'acme-corp', url: '', lastUpdated: '2 weeks ago', language: 'Python', tags: ['ml', 'ai'], stars: 2048, forks: 256, openIssues: 45, pullRequests: 23, contributors: 56, recentBuilds: [{ status: 'In Progress', timestamp: new Date() }, { status: 'Success', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000) }], branches: ["main", "develop", "feature/analytics", ...testingBranches] },
-    { id: '6', name: 'nomad-travel-app', owner: 'globex-inc', url: '', lastUpdated: '1 day ago', language: 'Go', tags: ['backend', 'api'], stars: 4096, forks: 512, openIssues: 56, pullRequests: 29, contributors: 67, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '7', name: 'recipe-finder-api', owner: 'globex-inc', url: '', lastUpdated: '4 days ago', language: 'Python', tags: ['backend', 'api'], stars: 8192, forks: 1024, openIssues: 67, pullRequests: 35, contributors: 78, recentBuilds: [{ status: 'Failed', timestamp: new Date() }, { status: 'Failed', timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000) }], branches: ["main", "develop"] },
-    { id: '8', name: 'crypto-tracker', owner: 'acme-corp', url: '', lastUpdated: '6 days ago', language: 'Rust', tags: ['backend', 'crypto'], stars: 16384, forks: 2048, openIssues: 78, pullRequests: 41, contributors: 89, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '9', name: 'portfolio-generator', owner: 'acme-corp', url: '', lastUpdated: '1 week ago', language: 'JavaScript', tags: ['frontend', 'react'], stars: 32768, forks: 4096, openIssues: 89, pullRequests: 47, contributors: 100, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", "feature/new-ui", ...testingBranches] },
-    { id: '10', name: 'data-viz-library', owner: 'stark-industries', url: '', lastUpdated: '2 weeks ago', language: 'TypeScript', tags: ['dataviz', 'charts'], stars: 65536, forks: 8192, openIssues: 100, pullRequests: 53, contributors: 111, recentBuilds: [{ status: 'In Progress', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '11', name: 'e-commerce-storefront', owner: 'stark-industries', url: '', lastUpdated: '3 weeks ago', language: 'TypeScript', tags: ['frontend', 'e-commerce'], stars: 131072, forks: 16384, openIssues: 111, pullRequests: 59, contributors: 122, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", "feature/new-ui", "feature/analytics", ...testingBranches] },
-    { id: '12', name: 'realtime-chat-app', owner: 'acme-corp', url: '', lastUpdated: '1 month ago', language: 'Go', tags: ['backend', 'websockets'], stars: 262144, forks: 32768, openIssues: 122, pullRequests: 65, contributors: 133, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '13', name: 'iot-dashboard', owner: 'acme-corp', url: '', lastUpdated: '1 month ago', language: 'TypeScript', tags: ['iot', 'dashboard'], stars: 524288, forks: 65536, openIssues: 133, pullRequests: 71, contributors: 144, recentBuilds: [{ status: 'Failed', timestamp: new Date() }], branches: ["main", "develop", "fix/caching-issue", ...testingBranches] },
-    { id: '14', name: 'machine-learning-model', owner: 'wayne-enterprises', url: '', lastUpdated: '2 days ago', language: 'Python', tags: ['ml', 'ai'], stars: 1048576, forks: 131072, openIssues: 144, pullRequests: 77, contributors: 155, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '15', name: 'cybersecurity-toolkit', owner: 'wayne-enterprises', url: '', lastUpdated: '5 days ago', language: 'Rust', tags: ['security'], stars: 2097152, forks: 262144, openIssues: 155, pullRequests: 83, contributors: 166, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '16', name: 'cloud-storage-solution', owner: 'acme-corp', url: '', lastUpdated: '1 week ago', language: 'Go', tags: ['backend', 'storage'], stars: 4194304, forks: 524288, openIssues: 166, pullRequests: 89, contributors: 177, recentBuilds: [{ status: 'In Progress', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '17', name: 'mobile-game-engine', owner: 'acme-corp', url: '', lastUpdated: '2 weeks ago', language: 'C++', tags: ['gaming', 'mobile'], stars: 8388608, forks: 1048576, openIssues: 177, pullRequests: 95, contributors: 188, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '18', name: 'video-streaming-service', owner: 'globex-inc', url: '', lastUpdated: '3 weeks ago', language: 'Go', tags: ['backend', 'video'], stars: 16777216, forks: 2097152, openIssues: 188, pullRequests: 101, contributors: 199, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '19', name: 'automated-testing-framework', owner: 'globex-inc', url: '', lastUpdated: '1 month ago', language: 'Python', tags: ['testing', 'devops'], stars: 33554432, forks: 4194304, openIssues: 199, pullRequests: 107, contributors: 210, recentBuilds: [{ status: 'Failed', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '20', name: 'social-media-aggregator', owner: 'acme-corp', url: '', lastUpdated: '1 month ago', language: 'JavaScript', tags: ['frontend', 'api'], stars: 67108864, forks: 8388608, openIssues: 210, pullRequests: 113, contributors: 221, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", "feature/new-ui", ...testingBranches] },
-    { id: '21', name: 'blogging-platform', owner: 'stark-industries', url: '', lastUpdated: '1 day ago', language: 'Go', tags: ['backend'], stars: 134217728, forks: 16777216, openIssues: 221, pullRequests: 119, contributors: 232, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '22', name: 'devops-pipeline-manager', owner: 'wayne-enterprises', url: '', lastUpdated: '4 days ago', language: 'Python', tags: ['devops', 'ci-cd'], stars: 268435456, forks: 33554432, openIssues: 232, pullRequests: 125, contributors: 243, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '23', name: 'graphql-server-template', owner: 'acme-corp', url: '', lastUpdated: '1 week ago', language: 'TypeScript', tags: ['backend', 'graphql'], stars: 536870912, forks: 67108864, openIssues: 243, pullRequests: 131, contributors: 254, recentBuilds: [{ status: 'Failed', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '24', name: 'design-system-ui-kit', owner: 'acme-corp', url: '', lastUpdated: '2 weeks ago', language: 'TypeScript', tags: ['frontend', 'ui-kit'], stars: 1073741824, forks: 134217728, openIssues: 254, pullRequests: 137, contributors: 265, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", "feature/new-ui", ...testingBranches] },
-    { id: '25', name: 'financial-analytics-tool', owner: 'wayne-enterprises', url: '', lastUpdated: '3 days ago', language: 'Python', tags: ['finance', 'analytics'], stars: 2147483648, forks: 268435456, openIssues: 265, pullRequests: 143, contributors: 276, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '26', name: 'collaboration-platform', owner: 'stark-industries', url: '', lastUpdated: '1 week ago', language: 'TypeScript', tags: ['collaboration', 'saas'], stars: 4294967296, forks: 536870912, openIssues: 276, pullRequests: 149, contributors: 287, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '27', name: 'log-management-system', owner: 'globex-inc', url: '', lastUpdated: '2 weeks ago', language: 'Go', tags: ['backend', 'logging'], stars: 8589934592, forks: 1073741824, openIssues: 287, pullRequests: 155, contributors: 298, recentBuilds: [{ status: 'Failed', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '28', name: 'customer-support-chatbot', owner: 'acme-corp', url: '', lastUpdated: '1 month ago', language: 'Python', tags: ['chatbot', 'ai'], stars: 17179869184, forks: 2147483648, openIssues: 298, pullRequests: 161, contributors: 309, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '29', name: 'healthcare-data-platform', owner: 'wayne-enterprises', url: '', lastUpdated: '5 days ago', language: 'Python', tags: ['healthcare', 'data'], stars: 34359738368, forks: 4294967296, openIssues: 309, pullRequests: 167, contributors: 320, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '30', name: 'smart-home-controller', owner: 'stark-industries', url: '', lastUpdated: '2 weeks ago', language: 'Rust', tags: ['iot', 'smart-home'], stars: 68719476736, forks: 8589934592, openIssues: 320, pullRequests: 173, contributors: 331, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '31', name: 'geospatial-analysis-api', owner: 'globex-inc', url: '', lastUpdated: '1 week ago', language: 'Go', tags: ['backend', 'gis'], stars: 137438953472, forks: 17179869184, openIssues: 331, pullRequests: 179, contributors: 342, recentBuilds: [{ status: 'Failed', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '32', name: 'virtual-reality-sdk', owner: 'acme-corp', url: '', lastUpdated: '3 weeks ago', language: 'C++', tags: ['vr', 'sdk'], stars: 274877906944, forks: 34359738368, openIssues: 342, pullRequests: 185, contributors: 353, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '33', name: 'code-review-assistant', owner: 'wayne-enterprises', url: '', lastUpdated: '4 days ago', language: 'Python', tags: ['dev-tools', 'ai'], stars: 549755813888, forks: 68719476736, openIssues: 353, pullRequests: 191, contributors: 364, recentBuilds: [{ status: 'Success', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-    { id: '34', name: 'music-recommendation-engine', owner: 'stark-industries', url: '', lastUpdated: '1 month ago', language: 'Python', tags: ['ml', 'music'], stars: 1099511627776, forks: 137438953472, openIssues: 364, pullRequests: 197, contributors: 375, recentBuilds: [{ status: 'In Progress', timestamp: new Date() }], branches: ["main", "develop", ...testingBranches] },
-];
-
-const buildStatusInfo = {
-  "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
-  "Success": { icon: CheckCircle2, color: "text-accent" },
-  "Failed": { icon: XCircle, color: "text-destructive" },
-}
+import { getRepositories } from "./actions"
+import { formatDistanceToNow } from 'date-fns'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { GithubIcon } from "@/components/icons"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function RepositoriesPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const { searchQuery, setSearchQuery, selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null)
   const [mergingRepo, setMergingRepo] = useState<Repository | null>(null)
@@ -103,19 +59,26 @@ export default function RepositoriesPage() {
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
   useEffect(() => {
-    setLoading(true);
-    // Simulate fetching data
-    setTimeout(() => {
-        setLocalRepos(staticRepos);
+    const fetchRepos = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const repos = await getRepositories();
+        setLocalRepos(repos);
+      } catch (err: any) {
+        setError("Failed to fetch repositories from GitHub. " + err.message);
+      } finally {
         setLoading(false);
-    }, 1000);
+      }
+    };
+    fetchRepos();
     
-    // Clear search when navigating away
+    // Clear search and selection when navigating away
     return () => {
       setSearchQuery('');
       clearRepos();
     }
-  }, [clearRepos, setSearchQuery])
+  }, [clearRepos, setSearchQuery]);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
@@ -174,8 +137,8 @@ export default function RepositoriesPage() {
   const filteredRepos = localRepos.filter((repo) => {
     const searchMatch =
       repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.language.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      repo.owner.login.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (repo.language && repo.language.toLowerCase().includes(searchQuery.toLowerCase())) ||
       repo.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
     const tagMatch = selectedTags.length === 0 || selectedTags.every(tag => repo.tags.includes(tag))
@@ -194,6 +157,8 @@ export default function RepositoriesPage() {
           <div className="text-sm text-muted-foreground mt-1">
             {loading ? (
               <Skeleton className="h-4 w-48" />
+            ) : error ? (
+              <span>&nbsp;</span>
             ) : (
               <span>{filteredRepos.length} of {localRepos.length} repositories shown • {selectedRepos.length} selected</span>
             )}
@@ -230,7 +195,7 @@ export default function RepositoriesPage() {
                 <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <ScrollArea className="h-48">
-                  {allTags.map(tag => (
+                  {allTags.length > 0 ? allTags.map(tag => (
                      <DropdownMenuCheckboxItem
                       key={tag}
                       checked={selectedTags.includes(tag)}
@@ -238,7 +203,9 @@ export default function RepositoriesPage() {
                      >
                        {tag}
                      </DropdownMenuCheckboxItem>
-                  ))}
+                  )) : (
+                    <DropdownMenuItem disabled>No tags found</DropdownMenuItem>
+                  )}
                 </ScrollArea>
                 {selectedTags.length > 0 && (
                   <>
@@ -261,7 +228,7 @@ export default function RepositoriesPage() {
                       onCheckedChange={handleSelectAll} 
                       checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       aria-label="Select all"
-                      disabled={loading}
+                      disabled={loading || error}
                     />
                   </TableHead>
                   <TableHead>Repository</TableHead>
@@ -278,8 +245,13 @@ export default function RepositoriesPage() {
                     <TableRow key={i}>
                       <TableCell className="px-4"><Skeleton className="h-4 w-4" /></TableCell>
                       <TableCell>
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2 mt-1" />
+                        <div className="flex items-center gap-2">
+                            <Skeleton className="size-6 rounded-full" />
+                            <div className="flex-1 space-y-1">
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-3 w-1/2" />
+                            </div>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -290,7 +262,6 @@ export default function RepositoriesPage() {
                              <Skeleton className="h-3 w-8" />
                              <Skeleton className="h-3 w-8" />
                            </div>
-                           <Skeleton className="h-3 w-20" />
                         </div>
                       </TableCell>
                       <TableCell><Skeleton className="h-8 w-24" /></TableCell>
@@ -298,16 +269,18 @@ export default function RepositoriesPage() {
                       <TableCell className="text-right pr-4"><Skeleton className="h-6 w-6" /></TableCell>
                     </TableRow>
                   ))
+                ) : error ? (
+                    <TableRow>
+                        <TableCell colSpan={7}>
+                            <Alert variant="destructive" className="mt-4">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>Error</AlertTitle>
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        </TableCell>
+                    </TableRow>
                 ) : (
                   filteredRepos.map((repo) => {
-                    const recentBuilds = (repo.recentBuilds || []).filter(
-                      build => build.timestamp > twelveHoursAgo
-                    );
-                    const buildCounts = recentBuilds.reduce((acc, build) => {
-                      acc[build.status] = (acc[build.status] || 0) + 1;
-                      return acc;
-                    }, {} as Record<Build['status'], number>);
-
                     return (
                     <TableRow key={repo.id}>
                       <TableCell className="px-4">
@@ -318,39 +291,39 @@ export default function RepositoriesPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">{repo.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {repo.owner}
+                        <div className="flex items-center gap-3">
+                          <Avatar className="size-6">
+                            <AvatarImage src={repo.owner.avatar_url} alt={repo.owner.login} />
+                            <AvatarFallback>{repo.owner.login[0]}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{repo.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {repo.owner.login}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">{repo.language}</TableCell>
+                      <TableCell className="hidden md:table-cell">{repo.language || 'N/A'}</TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="size-3" />
-                            <span>{repo.lastUpdated}</span>
+                            <span>Updated {formatDistanceToNow(new Date(repo.updated_at))} ago</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             <div className="flex items-center gap-1">
                               <Star className="size-3" />
-                              <span>{repo.stars.toLocaleString()}</span>
+                              <span>{repo.stargazers_count.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <GitFork className="size-3" />
-                              <span>{repo.forks.toLocaleString()}</span>
+                              <span>{repo.forks_count.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <AlertCircle className="size-3" />
-                              <span>{repo.openIssues.toLocaleString()}</span>
+                              <span>{repo.open_issues_count.toLocaleString()}</span>
                             </div>
-                             <div className="flex items-center gap-1">
-                              <GitPullRequest className="size-3" />
-                              <span>{repo.pullRequests.toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Users className="size-3" />
-                            <span>{repo.contributors.toLocaleString()} contributors</span>
                           </div>
                         </div>
                       </TableCell>
@@ -362,16 +335,16 @@ export default function RepositoriesPage() {
                           onClick={() => setViewingBuildsRepo(repo)}
                         >
                           <div className="flex items-center gap-1 text-primary">
-                            <Loader className={`size-3 ${buildCounts['In Progress'] > 0 ? 'animate-spin' : ''}`} />
-                            <span>{buildCounts['In Progress'] || 0}</span>
+                            <Loader className={`size-3`} />
+                            <span>0</span>
                           </div>
                           <div className="flex items-center gap-1 text-accent">
                             <CheckCircle2 className="size-3" />
-                            <span>{buildCounts['Success'] || 0}</span>
+                            <span>0</span>
                           </div>
                            <div className="flex items-center gap-1 text-destructive">
                             <XCircle className="size-3" />
-                            <span>{buildCounts['Failed'] || 0}</span>
+                            <span>0</span>
                           </div>
                         </Button>
                       </TableCell>
@@ -395,7 +368,10 @@ export default function RepositoriesPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            <span className="text-xs text-muted-foreground">No tags</span>
+                            <Button variant="ghost" size="sm" className="h-auto p-1 text-xs flex items-center gap-1 text-muted-foreground" onClick={() => setEditingRepo(repo)}>
+                                <Tag className="size-3.5" />
+                                Add Tags
+                            </Button>
                           )}
                       </TableCell>
                        <TableCell className="text-right pr-4">
@@ -424,6 +400,19 @@ export default function RepositoriesPage() {
                       </TableCell>
                     </TableRow>
                   )})
+                )}
+                {!loading && !error && filteredRepos.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={7} className="h-48 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                                <GithubIcon className="size-12 text-muted" />
+                                <h3 className="text-xl font-semibold">No Repositories Found</h3>
+                                <p className="text-muted-foreground">
+                                    {searchQuery ? "Your search did not match any repositories." : "We couldn't find any repositories for your account."}
+                                </p>
+                            </div>
+                        </TableCell>
+                    </TableRow>
                 )}
               </TableBody>
             </Table>
@@ -480,5 +469,3 @@ export default function RepositoriesPage() {
     </>
   )
 }
-
-    
