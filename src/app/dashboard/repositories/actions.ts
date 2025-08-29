@@ -33,7 +33,7 @@ async function fetchFromGitHub<T>(
     });
     
     // For specific cases, we want to handle the error in the calling function
-    if ([422, 404].includes(response.status) && (url.includes('/pulls') || url.includes('/compare/'))) {
+    if ([422, 404, 409, 405].includes(response.status)) {
        return { data: errorData, nextUrl: null, status: responseStatus };
     }
 
