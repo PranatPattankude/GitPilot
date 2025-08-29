@@ -35,6 +35,7 @@ export default function ConflictResolver({ repoFullName, prNumber }: ConflictRes
   const [state, formAction] = useFormState(resolveConflict, { success: false, data: null, error: null })
   const { toast } = useToast()
   const [diff, setDiff] = useState<string | null>(null);
+  const [editableDiff, setEditableDiff] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +47,7 @@ export default function ConflictResolver({ repoFullName, prNumber }: ConflictRes
         try {
             const diffText = await getPullRequestDiff(repoFullName, prNumber);
             setDiff(diffText);
+            setEditableDiff(diffText);
         } catch (e: any) {
             setError(e.message || "Failed to fetch pull request diff.");
         } finally {
@@ -88,12 +90,12 @@ export default function ConflictResolver({ repoFullName, prNumber }: ConflictRes
   return (
     <Card className="bg-background/50 border-0 shadow-none">
       <form action={formAction}>
-        {/* Hidden input to pass the diff to the server action */}
+        {/* Hidden input to pass the original diff to the server action */}
         <input type="hidden" name="fileDiff" value={diff || ""} />
         <CardContent className="space-y-4 p-0">
           <div className="space-y-2">
             <Label htmlFor="file-diff">File Diff with Conflicts</Label>
-            <Textarea id="file-diff" name="fileDiffDisplay" rows={10} defaultValue={diff || "Could not load diff."} className="font-mono" disabled />
+            <Textarea id="file-diff" name="fileDiffDisplay" rows={10} value={editableDiff} onChange={(e) => setEditableDiff(e.target.value)} className="font-mono" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
