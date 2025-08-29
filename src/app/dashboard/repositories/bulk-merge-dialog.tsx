@@ -1,7 +1,8 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { GitMerge, GitPullRequest, AlertTriangle, XCircle } from "lucide-react"
+import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader } from "lucide-react"
 import { useAppStore, type Repository } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,9 @@ import {
     SelectValue,
   } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { useMemo } from "react"
+import { addReleaseToHistory } from "@/ai/flows/release-history"
+import { useToast } from "@/hooks/use-toast"
+import { useSession } from "next-auth/react"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
@@ -33,11 +36,16 @@ interface BulkMergeDialogProps {
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
-  const { selectedRepos } = useAppStore()
+  const { selectedRepos, startBulkBuild } = useAppStore()
   const [sourceBranch, setSourceBranch] = useState("develop")
   const [targetBranch, setTargetBranch] = useState("main")
   const [isComparing, setIsComparing] = useState(false)
+  const [isMerging, setIsMerging] = useState(false)
   const [comparisonDone, setComparisonDone] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
+  const { data: session } = useSession()
+  const [isPending, startTransition] = useTransition()
 
   const availableBranches = useMemo(() => {
     const allBranches = new Set<string>();
@@ -75,6 +83,57 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingBranch.find(r => r.repo.id === repo.id)) : [];
   const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingBranch.find(r => r.repo.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
 
+
+  const handleBulkMerge = async () => {
+    setIsMerging(true)
+    
+    // In a real app, you would loop through `cleanRepos` and call the merge actions.
+    // For now, we'll simulate the process and set up the state for the builds page.
+    startBulkBuild({
+        id: new Date().getTime().toString(),
+        sourceBranch,
+        targetBranch,
+        repos: cleanRepos.map(repo => ({
+          name: repo.name,
+          status: 'Queued',
+          commit: '...'.padStart(7, '.'), // Placeholder
+          duration: '-',
+          timestamp: new Date()
+        })),
+        status: 'In Progress',
+        duration: '0s',
+        timestamp: new Date()
+    });
+
+    try {
+        await addReleaseToHistory({
+            type: 'bulk',
+            repos: cleanRepos.map(r => r.name),
+            branch: `${sourceBranch} → ${targetBranch}`,
+            user: session?.user?.name || 'Unknown User',
+            status: 'In Progress'
+        });
+    } catch(e) {
+        console.error("Failed to add release to history", e);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not log release to Google Sheets. Check console for details.",
+        });
+    }
+
+    toast({
+        title: "Bulk Build Started",
+        description: `Merging ${cleanRepos.length} repositories. You are being redirected to the build status page.`,
+    });
+    
+    startTransition(() => {
+        onOpenChange(false);
+        router.push('/dashboard/builds');
+    })
+
+    // No need to set isMerging to false as we are navigating away.
+  }
 
   const hasConflicts = (repoId: string) => reposWithConflicts.some(r => r.id === repoId);
 
@@ -144,6 +203,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         </div>
                     </div>
                     <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
+                        {isComparing && <Loader className="mr-2 animate-spin"/>}
                         {isComparing ? "Comparing..." : "Compare Branches"}
                     </Button>
                     </CardContent>
@@ -211,9 +271,9 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         ))}
                         </ul>
                         <div className="flex justify-end mt-6">
-                        <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={cleanRepos.length === 0 && reposWithConflicts.length === 0}>
-                            <GitPullRequest className="mr-2 size-4" />
-                            Merge All Clean Branches
+                        <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={cleanRepos.length === 0 || reposWithConflicts.length > 0 || isMerging || isPending} onClick={handleBulkMerge}>
+                            {(isMerging || isPending) ? <Loader className="mr-2 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
+                            Merge All Clean Branches ({cleanRepos.length})
                         </Button>
                         </div>
                     </CardContent>

@@ -5,11 +5,13 @@ import { create } from 'zustand'
 
 export type Build = {
   id: string;
-  status: 'In Progress' | 'Success' | 'Failed';
+  status: 'In Progress' | 'Success' | 'Failed' | 'Queued';
   timestamp: Date;
   branch: string;
   commit: string;
   error?: string | null;
+  duration?: string;
+  name?: string;
 }
 
 export type Repository = {
@@ -33,6 +35,16 @@ export type Repository = {
   fullName: string
 }
 
+export type BulkBuild = {
+  id: string;
+  sourceBranch: string;
+  targetBranch: string;
+  repos: Build[];
+  status: 'In Progress' | 'Success' | 'Failed';
+  duration: string;
+  timestamp: Date;
+}
+
 type AppState = {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -43,9 +55,14 @@ type AppState = {
   clearRepos: () => void
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
+  bulkBuild: BulkBuild | null;
+  startBulkBuild: (build: BulkBuild) => void;
+  updateBulkBuildRepoStatus: (repoName: string, status: Build['status'], duration: string) => void;
+  finishBulkBuild: (status: BulkBuild['status']) => void;
+  clearBulkBuild: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   selectedRepos: [],
@@ -55,4 +72,35 @@ export const useAppStore = create<AppState>((set) => ({
   clearRepos: () => set({ selectedRepos: [] }),
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
+  bulkBuild: null,
+  startBulkBuild: (build) => set({ bulkBuild: build }),
+  updateBulkBuildRepoStatus: (repoName, status, duration) => {
+    const currentBuild = get().bulkBuild;
+    if (currentBuild) {
+      set({
+        bulkBuild: {
+          ...currentBuild,
+          repos: currentBuild.repos.map(repo => 
+            repo.name === repoName ? { ...repo, status, duration, timestamp: new Date() } : repo
+          ),
+        },
+      });
+    }
+  },
+  finishBulkBuild: (status) => {
+      const currentBuild = get().bulkBuild;
+      if (currentBuild) {
+          const startTime = currentBuild.timestamp.getTime();
+          const endTime = new Date().getTime();
+          const durationSeconds = Math.round((endTime - startTime) / 1000);
+          set({
+              bulkBuild: {
+                  ...currentBuild,
+                  status,
+                  duration: `${durationSeconds}s`
+              }
+          });
+      }
+  },
+  clearBulkBuild: () => set({ bulkBuild: null }),
 }))
