@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null, status: number }> {
+async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null, status: number, rawResponse: Response }> {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -18,6 +18,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
   });
 
   const responseStatus = response.status;
+  const responseForClone = response.clone();
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
@@ -27,7 +28,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     });
     
     if (response.status === 404 && options.method !== 'POST') {
-        return { data: [] as T, nextUrl: null, status: responseStatus };
+        return { data: [] as T, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
     }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
     
@@ -35,12 +36,17 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         throw new Error("GitHub API rate limit exceeded. Please try again later.");
     }
     
+    // For createPullRequest, we want to handle the 422 in the calling function
+    if (response.status === 422) {
+       return { data: errorData, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
+    }
+
     throw new Error(errorMessage);
   }
 
   // Handle empty response body for certain status codes like 204
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-    return { data: null as T, nextUrl: null, status: responseStatus };
+    return { data: null as T, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
   }
   
   const linkHeader = response.headers.get("Link");
@@ -55,7 +61,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
   }
 
   const data = await response.json();
-  return { data, nextUrl, status: responseStatus };
+  return { data, nextUrl, status: responseStatus, rawResponse: responseForClone };
 }
 
 
@@ -249,20 +255,24 @@ export async function createPullRequest(
     });
 
     if (status === 422) { // Unprocessable Entity - often means PR already exists or no diff
-        const { data: compareData } = await fetchFromGitHub<any>(`https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`, accessToken);
-        if (compareData.status === 'identical') {
+        const errorDetails = data?.errors?.[0]?.message || data?.message || "An unprocessable request was made.";
+        if (errorDetails.includes("A pull request already exists")) {
+            return { success: false, error: "A pull request for these branches already exists." };
+        }
+        if (errorDetails.includes("No commits between")) {
             return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
         }
-        return { success: false, error: "A pull request for these branches likely already exists or there are other issues." };
+        return { success: false, error: `Could not create PR: ${errorDetails}` };
+    }
+    
+    // This is for other non-OK statuses that were not thrown but are not successful either.
+    if (status >= 400) {
+        return { success: false, error: data?.message || `An unknown error occurred (status ${status}).` };
     }
 
     return { success: true, data };
   } catch (error: any) {
     console.error(`Failed to create pull request for ${repoFullName}:`, error);
-    // Handle case where a PR already exists
-    if (error.message && error.message.includes("A pull request already exists")) {
-        return { success: false, error: "A pull request for these branches already exists." };
-    }
     return { success: false, error: `Failed to create pull request: ${error.message}` };
   }
 }
@@ -279,7 +289,7 @@ export async function mergePullRequest(
 
     try {
         const url = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}/merge`;
-        const { status } = await fetchFromGitHub<any>(url, accessToken, {
+        const { status, data } = await fetchFromGitHub<any>(url, accessToken, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -297,6 +307,10 @@ export async function mergePullRequest(
 
         if (status === 409) { // Conflict
              return { success: false, error: "Could not merge due to a conflict. Please resolve conflicts on GitHub." };
+        }
+
+        if (status >= 400) {
+            return { success: false, error: data?.message || `Failed to merge, status: ${status}` };
         }
 
         return { success: true };
@@ -326,10 +340,11 @@ export async function compareBranches(
     }
     
     if (data.status === 'diverged' || data.status === 'ahead' || data.status === 'behind') {
+      // This is an optimistic check. The PR creation will be the definitive test for mergeability.
       return { status: "can-merge" };
     }
     
-    // Fallback for other scenarios, assume conflicts
+    // Fallback for other scenarios, assume conflicts until proven otherwise.
     return { status: "has-conflicts", error: data.status ? `Unknown branch status: ${data.status}` : "Could not determine mergeability." };
 
   } catch (error: any) {
