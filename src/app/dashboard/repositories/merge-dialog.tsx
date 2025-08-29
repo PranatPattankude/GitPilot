@@ -26,7 +26,7 @@ import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info } from "luci
 interface MergeDialogProps {
   repo: Repository
   onOpenChange: (open: boolean) => void
-  onMerge: (repoId: string, sourceBranch: string, targetBranch: string) => void
+  onMerge: (repoFullName: string, sourceBranch: string, targetBranch: string) => Promise<{ success: boolean; data?: any; error?: string }>
 }
 
 type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes"
@@ -35,6 +35,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
   const [targetBranch, setTargetBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
   const [comparisonStatus, setComparisonStatus] = useState<ComparisonStatus>("idle")
+  const [isMerging, setIsMerging] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -62,10 +63,10 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     }
 
     setComparisonStatus("comparing")
-    // Simulate API call
+    // Simulate API call to compare branches
     setTimeout(() => {
-      // In a real app, you'd check for conflicts here.
-      // We'll simulate different outcomes randomly.
+      // In a real app, you'd use the GitHub compare API.
+      // We'll simulate different outcomes randomly for demonstration.
       const outcome = Math.random();
       if (outcome < 0.15) {
         setComparisonStatus("no-changes");
@@ -84,22 +85,24 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
         setComparisonStatus("can-merge");
         toast({
             title: "Branches Can Be Merged",
-            description: "No conflicts were found between the selected branches.",
+            description: "No conflicts were found. You can now create a pull request.",
         });
       }
     }, 1500)
   }
 
-  const handleMerge = () => {
+  const handleMerge = async () => {
     if (comparisonStatus !== "can-merge") {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Please compare the branches before merging.",
+        title: "Cannot Create Pull Request",
+        description: "Please compare the branches and ensure there are no conflicts.",
       })
       return
     }
-    onMerge(repo.id, sourceBranch, targetBranch)
+    setIsMerging(true);
+    await onMerge(repo.fullName, sourceBranch, targetBranch);
+    setIsMerging(false);
     onOpenChange(false)
   }
 
@@ -107,9 +110,9 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Merge Branches in {repo.name}</DialogTitle>
+          <DialogTitle>Create Pull Request in {repo.name}</DialogTitle>
           <DialogDescription>
-            Select and compare branches to initiate a merge.
+            Compare branches and create a pull request to merge changes.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -176,9 +179,9 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
               {comparisonStatus === 'comparing' ? 'Comparing...' : 'Compare Branches'}
             </Button>
           ) : (
-            <Button onClick={handleMerge} className="bg-accent hover:bg-accent/90">
+            <Button onClick={handleMerge} disabled={isMerging} className="bg-accent hover:bg-accent/90">
               <GitMerge className="mr-2 size-4" />
-              Initiate Merge
+              {isMerging ? 'Creating PR...' : 'Create Pull Request'}
             </Button>
           )}
         </DialogFooter>

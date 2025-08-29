@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, updateRepoTags } from "./actions"
+import { getRepositories, createPullRequest } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -89,6 +89,8 @@ export default function RepositoriesPage() {
   }, [fetchRepos, clearRepos, setSearchQuery]);
 
   const allTags = useMemo(() => {
+    // This is now a mock since we removed firestore.
+    // In a real app, this would be populated from the database.
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
   }, [localRepos])
 
@@ -116,19 +118,30 @@ export default function RepositoriesPage() {
       )
     );
      toast({
-        title: "Tags Updated",
-        description: `Successfully updated tags for the repository.`,
+        title: "Tags Updated (Local)",
+        description: `Tags have been updated locally.`,
       });
   };
 
-  const handleMerge = (repoId: string, sourceBranch: string, targetBranch: string) => {
-    const repo = localRepos.find(r => r.id === repoId);
-    if (repo) {
+  const handleMerge = async (repoFullName: string, sourceBranch: string, targetBranch: string) => {
+    const result = await createPullRequest(repoFullName, sourceBranch, targetBranch);
+    if (result.success) {
       toast({
-        title: "Merge Initiated",
-        description: `Merging ${sourceBranch} into ${targetBranch} for ${repo.name}.`,
+        title: "Pull Request Created",
+        description: (
+          <a href={result.data.html_url} target="_blank" rel="noopener noreferrer" className="underline">
+            Successfully created PR #{result.data.number} for {repoFullName}. Click to view.
+          </a>
+        ),
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Failed to Create Pull Request",
+        description: result.error,
       });
     }
+    return result;
   };
 
   const handleRebuild = (repoId: string, branch: string) => {
@@ -247,7 +260,7 @@ export default function RepositoriesPage() {
                   <TableHead>Repository</TableHead>
                   <TableHead className="hidden md:table-cell">Language</TableHead>
                   <TableHead className="hidden lg:table-cell">Activity</TableHead>
-                  <TableHead>Builds (Last 12h)</TableHead>
+                  <TableHead>Builds (Last 24h)</TableHead>
                   <TableHead className="hidden sm:table-cell">Tags</TableHead>
                   <TableHead className="w-[50px] text-right pr-4">Actions</TableHead>
                 </TableRow>
@@ -294,8 +307,8 @@ export default function RepositoriesPage() {
                     </TableRow>
                 ) : (
                   filteredRepos.map((repo) => {
-                    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-                    const recentBuilds = repo.recentBuilds.filter(b => new Date(b.timestamp) > twelveHoursAgo);
+                    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    const recentBuilds = repo.recentBuilds.filter(b => new Date(b.timestamp) > twentyFourHoursAgo);
 
                     const buildsInProgress = recentBuilds.filter(b => b.status === 'In Progress').length;
                     const buildsSucceeded = recentBuilds.filter(b => b.status === 'Success').length;
@@ -359,7 +372,7 @@ export default function RepositoriesPage() {
                           size="sm"
                           className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
                           onClick={() => setViewingBuildsRepo(repo)}
-                          disabled={recentBuilds.length === 0}
+                          disabled={repo.recentBuilds.length === 0}
                         >
                           <div className="flex items-center gap-1 text-primary">
                             <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
@@ -421,7 +434,7 @@ export default function RepositoriesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setMergingRepo(repo)}>
                               <GitMerge className="mr-2 h-4 w-4" />
-                              <span>Merge</span>
+                              <span>Create Pull Request</span>
                             </DropdownMenuItem>
                              <DropdownMenuItem onSelect={() => setRebuildingRepo(repo)}>
                               <RefreshCw className="mr-2 h-4 w-4" />

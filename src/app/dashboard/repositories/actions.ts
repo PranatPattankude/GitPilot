@@ -24,7 +24,8 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         message: errorData?.message,
     });
     
-    if (response.status === 404) {
+    // For batch operations, don't throw on 404
+    if (response.status === 404 && options.method !== 'POST') {
         return { data: [] as T, nextUrl: null };
     }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
@@ -36,6 +37,11 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     throw new Error(errorMessage);
   }
 
+  // Handle empty response body for certain status codes like 204
+  if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+    return { data: null as T, nextUrl: null };
+  }
+  
   const linkHeader = response.headers.get("Link");
   let nextUrl: string | null = null;
 
@@ -61,32 +67,29 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
             return [];
         }
         
-        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-
-        return runsData.workflow_runs
-            .filter(run => new Date(run.created_at) > twelveHoursAgo)
-            .map((run: any): Build => {
-                let status: Build['status'];
-                if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
-                    status = 'In Progress';
-                } else if (run.status === 'completed') {
-                    if (run.conclusion === 'success') {
-                        status = 'Success';
-                    } else {
-                        status = 'Failed';
-                    }
+        return runsData.workflow_runs.map((run: any): Build => {
+            let status: Build['status'];
+            if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
+                status = 'In Progress';
+            } else if (run.status === 'completed') {
+                if (run.conclusion === 'success') {
+                    status = 'Success';
                 } else {
                     status = 'Failed';
                 }
-                
-                return {
-                    id: run.id.toString(),
-                    branch: run.head_branch,
-                    commit: run.head_sha.substring(0, 7),
-                    status,
-                    timestamp: new Date(run.created_at),
-                };
-            });
+            } else {
+                status = 'Failed';
+            }
+            
+            return {
+                id: run.id.toString(),
+                branch: run.head_branch,
+                commit: run.head_sha.substring(0, 7),
+                status,
+                timestamp: new Date(run.created_at),
+                error: run.conclusion === 'failure' ? 'Build failed' : null,
+            };
+        });
     } catch (error) {
         console.error(`Failed to fetch builds for ${repoFullName}:`, error);
         return [];
@@ -218,14 +221,38 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
     }
 }
 
-export async function updateRepoTags(repoId: string, tags: string[]): Promise<{ success: boolean; error?: string }> {
+export async function createPullRequest(
+  repoFullName: string,
+  sourceBranch: string,
+  targetBranch: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    return { success: false, error: "Not authenticated" };
+  }
+  const accessToken = (session as any).accessToken as string;
+
   try {
-    // This is now a mock function.
-    console.log(`(Mock) Updating tags for ${repoId}:`, tags);
-    return { success: true };
-  } catch (error) {
-    console.error("Error in updateRepoTags server action:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-    return { success: false, error: errorMessage };
+    const url = `https://api.github.com/repos/${repoFullName}/pulls`;
+    const { data } = await fetchFromGitHub<any>(url, accessToken, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: `Merge ${sourceBranch} into ${targetBranch}`,
+        head: sourceBranch,
+        base: targetBranch,
+        body: `Automated PR created by GitPilot to merge ${sourceBranch} into ${targetBranch}.`,
+      }),
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    console.error(`Failed to create pull request for ${repoFullName}:`, error);
+    // Handle case where a PR already exists
+    if (error.message && error.message.includes("A pull request already exists")) {
+        return { success: false, error: "A pull request for these branches already exists." };
+    }
+    return { success: false, error: `Failed to create pull request: ${error.message}` };
   }
 }
