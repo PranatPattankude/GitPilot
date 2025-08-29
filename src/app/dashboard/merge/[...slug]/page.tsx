@@ -17,22 +17,24 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const [pr, setPr] = useState<PullRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const repoOwner = params.slug[0];
-    const repoName = params.slug[1];
-    const prNumber = parseInt(params.slug[2], 10);
-    const repoFullName = `${repoOwner}/${repoName}`;
-
+    const [repoFullName, setRepoFullName] = useState<string>("");
+    const [prNumber, setPrNumber] = useState<number | null>(null);
 
     useEffect(() => {
-        if (repoFullName && prNumber) {
+        const [repoOwner, repoName, prNumberStr] = params.slug;
+        if (repoOwner && repoName && prNumberStr) {
+            const fullName = `${repoOwner}/${repoName}`;
+            const number = parseInt(prNumberStr, 10);
+            setRepoFullName(fullName);
+            setPrNumber(number);
+
             setLoading(true);
-            getPullRequest(repoFullName, prNumber)
+            getPullRequest(fullName, number)
             .then(setPr)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
         }
-    }, [repoFullName, prNumber]);
+    }, [params.slug]);
 
     return (
          <div className="space-y-6">
@@ -72,7 +74,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     </CardContent>
-                ) : pr ? (
+                ) : pr && repoFullName && prNumber ? (
                     <>
                         <CardHeader>
                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -88,7 +90,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                                 <br />
                                 Optionally, provide the rest of the file content in "Unseen Lines" to have the AI apply your fix to other parts of the file.
                             </p>
-                            <ConflictResolver repoFullName={pr.repoFullName} prNumber={pr.number}/>
+                            <ConflictResolver repoFullName={repoFullName} prNumber={prNumber}/>
                         </CardContent>
                     </>
                 ): (
