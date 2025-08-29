@@ -17,6 +17,7 @@ export type Repository = {
   }
   html_url: string
   description: string | null
+  private: boolean
   language: string | null
   stargazers_count: number
   forks_count: number

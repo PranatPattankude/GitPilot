@@ -7,15 +7,16 @@ export const authOptions: NextAuthOptions = {
     GithubProvider({
       clientId: process.env.GITHUB_CLIENT_ID ?? "",
       clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
-      ...(process.env.NODE_ENV === 'development' && {
-        authorization: {
-          params: {
+      authorization: {
+        params: {
+          scope: "read:user user:email repo",
+          ...(process.env.NODE_ENV === 'development' && {
             prompt: 'consent',
             access_type: 'offline',
             response_type: 'code'
-          }
+          })
         }
-      })
+      },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,

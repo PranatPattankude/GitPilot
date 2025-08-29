@@ -29,7 +29,7 @@ import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState, useMemo, startTransition } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw, Lock, Globe } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
@@ -302,7 +302,13 @@ export default function RepositoriesPage() {
                             <AvatarFallback>{repo.owner.login[0]}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium">{repo.name}</div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium">{repo.name}</span>
+                                <Badge variant="outline" className="font-normal text-xs">
+                                    {repo.private ? <Lock className="size-3 mr-1" /> : <Globe className="size-3 mr-1" />}
+                                    {repo.private ? 'Private' : 'Public'}
+                                </Badge>
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               {repo.owner.login}
                             </div>

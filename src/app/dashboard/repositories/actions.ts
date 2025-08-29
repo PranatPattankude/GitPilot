@@ -45,6 +45,7 @@ export async function getRepositories(): Promise<Repository[]> {
       },
       html_url: repo.html_url,
       description: repo.description,
+      private: repo.private,
       language: repo.language,
       stargazers_count: repo.stargazers_count,
       forks_count: repo.forks_count,
