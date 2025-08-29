@@ -1,100 +1,104 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useFormState, useFormStatus } from "react-dom"
-import { Wand2, Loader2 } from "lucide-react"
+import { GitMerge, Loader2 } from "lucide-react"
 
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { resolveConflict } from "./actions"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { resolveConflictAndMerge } from "./actions"
 import { useToast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle } from "lucide-react"
+import { type PullRequest } from "@/lib/store"
 
 interface ConflictResolverProps {
-  repoFullName: string;
-  prNumber: number;
+  pr: PullRequest
 }
 
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Analyzing..." : "Resolve with AI"}
-      <Wand2 className="ml-2 size-4" />
+    <Button type="submit" disabled={pending} size="lg">
+      {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
+      {pending ? "Committing & Merging..." : "Commit Fix and Merge Pull Request"}
+      <GitMerge className="ml-2 size-4" />
     </Button>
   )
 }
 
-export default function ConflictResolver({ repoFullName, prNumber }: ConflictResolverProps) {
-  const [state, formAction] = useFormState(resolveConflict, { success: false, data: null, error: null })
+export default function ConflictResolver({ pr }: ConflictResolverProps) {
+  const [state, formAction] = useFormState(resolveConflictAndMerge, { success: false, message: null })
   const { toast } = useToast()
 
   useEffect(() => {
     if (state.success) {
-      toast({ title: "Resolution Suggested", description: "AI has generated an enhanced suggestion." })
-    } else if (state.error) {
-      toast({ variant: "destructive", title: "Error", description: state.error })
+      toast({ title: "Conflict Resolved!", description: "The pull request was successfully merged." })
+    } else if (state.message) {
+      toast({ variant: "destructive", title: "Error", description: state.message })
     }
   }, [state, toast])
 
   return (
     <Card className="bg-background/50 border-0 shadow-none">
       <form action={formAction}>
-        <CardContent className="space-y-4 p-0">
-          <div className="space-y-2">
-            <Label htmlFor="file-diff">File Diff with Conflicts</Label>
-            <Textarea 
-              id="file-diff" 
-              name="fileDiff" 
-              rows={10} 
-              className="font-mono"
-              placeholder="Paste the section of the file that contains the merge conflict markers (e.g., from <<<<<<< HEAD to >>>>>>> branch-name)."
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Hidden inputs to pass PR info to the server action */}
+        <input type="hidden" name="repoFullName" value={pr.repoFullName} />
+        <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
+        <input type="hidden" name="pullRequestNumber" value={pr.number} />
+
+        <CardContent className="space-y-6 p-0">
+          <CardDescription>
+            This tool helps you resolve a single file conflict at a time.
+            Follow the steps below.
+          </CardDescription>
+
+          <div className="space-y-4 p-4 border rounded-lg">
+            <h3 className="font-semibold text-lg">Step 1: Provide File Details</h3>
+            <p className="text-sm text-muted-foreground">
+              Enter the full path of the file that has the conflict (e.g., `src/components/ui/button.tsx`). You can find this on the GitHub pull request page under the "Files changed" tab.
+            </p>
             <div className="space-y-2">
-              <Label htmlFor="selected-suggestion">Your Resolution (Suggestion)</Label>
-              <Textarea 
-                id="selected-suggestion" 
-                name="selectedSuggestion" 
-                rows={10} 
-                placeholder="After resolving the conflict, paste the final, correct code for that section here." 
-                className="font-mono" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unseen-lines">Unseen Lines (Optional)</Label>
-              <Textarea 
-                id="unseen-lines" 
-                name="unseenLines" 
-                rows={10} 
-                placeholder="To use the AI resolution enhancement, paste the rest of the file's content here. The AI will try to apply your fix to similar lines it finds." 
-                className="font-mono" />
+              <Label htmlFor="file-path">Conflicting File Path</Label>
+              <Input
+                id="file-path"
+                name="filePath"
+                placeholder="e.g., src/app/page.tsx"
+                className="font-mono"
+                required
+              />
             </div>
           </div>
-          {state.success && state.data?.enhancedSuggestion && (
+          
+          <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg">Step 2: Resolve the Conflict</h3>
+            <p className="text-sm text-muted-foreground">
+                Go to the conflicting file on GitHub or in your local editor. Copy the <span className="font-bold">entire file content</span>, including the conflict markers (`&lt;&lt;&lt;&lt;&lt;&lt;&lt;`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`), and paste it into the editor below. Then, manually resolve the conflicts by editing the text.
+            </p>
             <div className="space-y-2">
-              <Label>AI Enhanced Suggestion</Label>
-              <pre className="p-4 rounded-md bg-muted text-sm font-mono overflow-x-auto">
-                <code>{state.data.enhancedSuggestion}</code>
-              </pre>
+              <Label htmlFor="resolved-content">Resolved File Content</Label>
+              <Textarea
+                id="resolved-content"
+                name="resolvedContent"
+                rows={20}
+                className="font-mono"
+                placeholder="Paste the entire file content here, then edit it to resolve the conflicts."
+                required
+              />
             </div>
-          )}
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-between items-center p-0 pt-4">
-          <div>
-            {state.success && (
-              <Button>Confirm and Commit</Button>
-            )}
-          </div>
-          <div className="flex gap-4">
-            <Button variant="outline">Save Manual Resolution</Button>
-            <SubmitButton />
-          </div>
+        <CardFooter className="flex justify-end items-center p-0 pt-6">
+          <SubmitButton />
         </CardFooter>
       </form>
     </Card>

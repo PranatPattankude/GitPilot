@@ -21,8 +21,8 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const [prNumber, setPrNumber] = useState<number | null>(null);
 
     useEffect(() => {
-        const [repoOwner, repoName, prNumberStr] = params.slug;
-        if (repoOwner && repoName && prNumberStr) {
+        if (params.slug && params.slug.length >= 3) {
+            const [repoOwner, repoName, prNumberStr] = params.slug;
             const fullName = `${repoOwner}/${repoName}`;
             const number = parseInt(prNumberStr, 10);
             setRepoFullName(fullName);
@@ -44,7 +44,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                     <Skeleton className="h-5 w-1/2 mt-1" />
                 ) : pr ? (
                     <p className="text-muted-foreground mt-1">
-                        For <Link href={`/dashboard/merge`} className="text-primary hover:underline">PR #{pr.number}: {pr.title}</Link> in <span className="font-medium text-foreground">{pr.repoFullName}</span>
+                        For <a href={pr.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PR #{pr.number}: {pr.title}</a> in <span className="font-medium text-foreground">{pr.repoFullName}</span>
                     </p>
                 ) : (
                     <p className="text-muted-foreground mt-1">Loading pull request details...</p>
@@ -85,11 +85,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                             </div>
                         </CardHeader>
                          <CardContent>
-                            <p className="mb-4 text-sm text-muted-foreground">
-                                The GitHub API does not provide a file with conflict markers. To resolve, copy the conflicting code section (including markers like `&lt;&lt;&lt;&lt;&lt;&lt;&lt;` and `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`) into the "File Diff" box.
-                                Then, provide your final, resolved code in the "Your Resolution" box.
-                            </p>
-                            <ConflictResolver repoFullName={repoFullName} prNumber={prNumber}/>
+                            <ConflictResolver pr={pr} />
                         </CardContent>
                     </>
                 ): (

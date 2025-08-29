@@ -16,7 +16,7 @@ async function fetchFromGitHub<T>(
     headers: {
       ...options.headers,
       Authorization: `token ${accessToken}`,
-      Accept: returnText ? "application/vnd.github.diff" : "application/vnd.github.v3+json",
+      Accept: returnText ? "application/vnd.github.v3.raw" : "application/vnd.github.v3+json",
     },
     // Revalidate every hour
     next: { revalidate: 3600 },
@@ -24,7 +24,6 @@ async function fetchFromGitHub<T>(
 
   const responseStatus = response.status;
   
-  // For text responses (like diffs), handle them separately.
   if (returnText) {
     if (!response.ok) {
         const errorText = await response.text();
@@ -32,13 +31,12 @@ async function fetchFromGitHub<T>(
             status: response.status,
             message: errorText,
         });
-        throw new Error(errorText || `Failed to fetch diff, status: ${response.status}`);
+        throw new Error(errorText || `Failed to fetch raw content, status: ${response.status}`);
     }
     const textData = await response.text();
     return { data: textData, nextUrl: null, status: responseStatus };
   }
   
-  // Handle JSON responses
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
     return { data: null as T, nextUrl: null, status: responseStatus };
   }
@@ -140,7 +138,6 @@ async function getBranchesForRepo(repoFullName: string, accessToken: string): Pr
         return allBranches.map(branch => branch.name);
     } catch (error) {
         console.error(`Failed to fetch branches for ${repoFullName}:`, error);
-        // Return a default list if fetching fails, e.g., for empty repos
         return ['main']; 
     }
 }
@@ -222,7 +219,6 @@ export async function getAllRecentBuilds(): Promise<Build[]> {
             currentUrl = nextUrl;
         }
         
-        // We only want to check repos pushed to in the last 7 days.
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const recentRepos = allRepos.filter(repo => new Date(repo.pushed_at) > sevenDaysAgo);
@@ -231,10 +227,8 @@ export async function getAllRecentBuilds(): Promise<Build[]> {
         const allBuildsNested = await Promise.all(allBuildPromises);
         let allBuilds = allBuildsNested.flat();
 
-        // Filter builds to be within the last 7 days as well
         allBuilds = allBuilds.filter(build => build.timestamp > sevenDaysAgo);
 
-        // Sort by timestamp descending
         allBuilds.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
         
         return allBuilds;
@@ -336,7 +330,6 @@ export async function createPullRequest(
       return { success: false, error: `Could not create PR: ${errorDetails}` };
     }
     
-    // This is for other non-OK statuses that were not thrown but are not successful either.
     if (status >= 400) {
         return { success: false, error: data?.message || `An unknown error occurred (status ${status}).` };
     }
@@ -368,15 +361,15 @@ export async function mergePullRequest(
             body: JSON.stringify({
                 commit_title: `Merge PR #${pullRequestNumber} via GitPilot`,
                 commit_message: `Merged by GitPilot.`,
-                merge_method: "merge", // Can be 'merge', 'squash', or 'rebase'
+                merge_method: "merge",
             }),
         });
 
-        if (status === 405) { // Method Not Allowed
+        if (status === 405) {
             return { success: false, error: "Pull request is not mergeable. It may have conflicts or require checks to pass." };
         }
 
-        if (status === 409) { // Conflict
+        if (status === 409) {
              return { success: false, error: "Could not merge due to a conflict. Please resolve conflicts on GitHub." };
         }
 
@@ -419,11 +412,9 @@ export async function compareBranches(
     }
     
     if (data.status === 'diverged' || data.status === 'ahead' || data.status === 'behind') {
-      // This is an optimistic check. The PR creation will be the definitive test for mergeability.
       return { status: "can-merge" };
     }
     
-    // Fallback for other scenarios, assume conflicts until proven otherwise.
     return { status: "has-conflicts", error: data.status ? `Unknown branch status: ${data.status}` : "Could not determine mergeability." };
 
   } catch (error: any) {
@@ -449,7 +440,6 @@ export async function getBuildLogs(
   const accessToken = (session as any).accessToken as string;
 
   try {
-    // 1. Get the jobs for the workflow run
     const jobsUrl = `https://api.github.com/repos/${repoFullName}/actions/runs/${runId}/jobs`;
     const { data: jobsData, status: jobsStatus } = await fetchFromGitHub<{ jobs: any[] }>(jobsUrl, accessToken);
     
@@ -461,7 +451,6 @@ export async function getBuildLogs(
         return { "info": "No jobs found for this build run." };
     }
 
-    // 2. Fetch logs for each job
     const logPromises = jobsData.jobs.map(async (job) => {
       const logsUrl = `https://api.github.com/repos/${repoFullName}/actions/jobs/${job.id}/logs`;
       const { data: logText, status: logStatus } = await fetchFromGitHub<string>(logsUrl, accessToken, {}, true);
@@ -475,7 +464,6 @@ export async function getBuildLogs(
 
     const logsPerJob = await Promise.all(logPromises);
 
-    // 3. Combine into a single object
     const allLogs: { [jobName: string]: string } = {};
     for (const jobLog of logsPerJob) {
       allLogs[jobLog.name] = jobLog.logs;
@@ -505,7 +493,15 @@ async function getPullRequestsForRepo(repoFullName: string, accessToken: string)
 async function getPullRequestFiles(repoFullName: string, prNumber: number, accessToken: string): Promise<ChangedFile[]> {
     const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}/files`;
     const { data } = await fetchFromGitHub<any[]>(url, accessToken);
-    return data || [];
+    if (!data) return [];
+    return data.map((f: any) => ({
+        sha: f.sha,
+        filename: f.filename,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        changes: f.changes,
+    }));
 }
 
 
@@ -520,45 +516,28 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
         let allRepos: any[] = [];
         let currentUrl: string | null = "https://api.github.com/user/repos?type=all&per_page=100";
 
-        // 1. Get all repositories for the user
         while (currentUrl) {
             const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
             allRepos = allRepos.concat(data);
             currentUrl = nextUrl;
         }
 
-        // 2. Fetch all open pull requests for each repo
         const allPRsPromises = allRepos.map(repo => getPullRequestsForRepo(repo.full_name, accessToken));
         const allPRsNested = await Promise.all(allPRsPromises);
         const allPRs = allPRsNested.flat();
 
-        if (allPRs.length === 0) {
-            return [];
-        }
+        if (allPRs.length === 0) return [];
 
-        // 3. Fetch the detailed view for each PR to get mergeability status
-        const detailedPRsPromises = allPRs.map(pr => 
-            fetchFromGitHub<any>(pr.url, accessToken)
-        );
+        const detailedPRsPromises = allPRs.map(pr => fetchFromGitHub<any>(pr.url, accessToken));
         const detailedPRsResults = await Promise.all(detailedPRsPromises);
         
-        // 4. Filter for PRs with conflicts
         const conflictingPRsData = detailedPRsResults
             .map(res => res.data)
             .filter(pr => pr && pr.mergeable_state === 'dirty');
 
-        // 5. For conflicting PRs, fetch the list of changed files
          const conflictingPRsWithFiles = await Promise.all(
             conflictingPRsData.map(async (pr): Promise<PullRequest> => {
                 const files = await getPullRequestFiles(pr.head.repo.full_name, pr.number, accessToken);
-                const changedFiles = files.map((f: any) => ({
-                    sha: f.sha,
-                    filename: f.filename,
-                    status: f.status,
-                    additions: f.additions,
-                    deletions: f.deletions,
-                    changes: f.changes,
-                }));
 
                 return {
                     id: pr.id,
@@ -569,7 +548,7 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
                     sourceBranch: pr.head.ref,
                     targetBranch: pr.base.ref,
                     mergeable_state: pr.mergeable_state,
-                    conflictingFiles: changedFiles,
+                    conflictingFiles: files,
                 };
             })
         );
@@ -613,20 +592,65 @@ export async function getPullRequest(repoFullName: string, prNumber: number): Pr
 }
 
 
-export async function getPullRequestDiff(repoFullName: string, prNumber: number): Promise<string> {
+async function getFileContent(repoFullName: string, branch: string, path: string, accessToken: string): Promise<{content: string, sha: string}> {
+    const url = `https://api.github.com/repos/${repoFullName}/contents/${path}?ref=${branch}`;
+    const { data } = await fetchFromGitHub<any>(url, accessToken);
+    if (!data || !data.content) {
+        throw new Error(`Could not fetch content for file: ${path}`);
+    }
+    // Content is base64 encoded
+    const content = Buffer.from(data.content, 'base64').toString('utf-8');
+    return { content, sha: data.sha };
+}
+
+export async function commitAndMerge(
+    { repoFullName, sourceBranch, pullRequestNumber, filePath, resolvedContent }:
+    { repoFullName: string; sourceBranch: string; pullRequestNumber: number; filePath: string; resolvedContent: string }
+): Promise<{ success: boolean; error?: string }> {
     const session = await getServerSession(authOptions);
     if (!session || !(session as any).accessToken) {
-        throw new Error("Not authenticated");
+        return { success: false, error: "Not authenticated" };
     }
     const accessToken = (session as any).accessToken as string;
-    
-    const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`;
-    
-    const { data } = await fetchFromGitHub<string>(url, accessToken, {
-        headers: {
-            Accept: 'application/vnd.github.v3+json'
-        }
-    });
 
-    return data.diff_url;
+    try {
+        // 1. Get the current SHA of the file to update
+        const fileInfoUrl = `https://api.github.com/repos/${repoFullName}/contents/${filePath}?ref=${sourceBranch}`;
+        const { data: fileInfo, status: fileInfoStatus } = await fetchFromGitHub<any>(fileInfoUrl, accessToken);
+        
+        if (fileInfoStatus !== 200 || !fileInfo.sha) {
+            return { success: false, error: `Could not get file information for "${filePath}". Does it exist on the "${sourceBranch}" branch?` };
+        }
+        
+        const fileSha = fileInfo.sha;
+        
+        // 2. Commit the change to the source branch
+        const commitUrl = `https://api.github.com/repos/${repoFullName}/contents/${filePath}`;
+        const commitMessage = `fix(conflict): resolve merge conflict in ${filePath}`;
+        
+        const { status: commitStatus, data: commitData } = await fetchFromGitHub<any>(commitUrl, accessToken, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: commitMessage,
+                content: Buffer.from(resolvedContent).toString('base64'),
+                sha: fileSha,
+                branch: sourceBranch,
+            }),
+        });
+
+        if (commitStatus !== 200) {
+             return { success: false, error: `Failed to commit changes: ${commitData?.message || 'Unknown error'}` };
+        }
+
+        // 3. Attempt to merge the pull request
+        // A short delay might be needed for GitHub to re-check mergeability
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        return await mergePullRequest(repoFullName, pullRequestNumber);
+
+    } catch (error: any) {
+        console.error("Error in commitAndMerge:", error);
+        return { success: false, error: `An unexpected error occurred: ${error.message}` };
+    }
 }
