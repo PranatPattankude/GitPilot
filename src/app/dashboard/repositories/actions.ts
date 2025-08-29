@@ -4,7 +4,6 @@
 import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { getTagsForRepo, updateTagsForRepo as updateTagsInFirestore } from "@/lib/firestore"
 
 async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null }> {
   const response = await fetch(url, {
@@ -115,10 +114,7 @@ export async function getRepositories(): Promise<Repository[]> {
 
     const reposWithDetails = await Promise.all(
         allRepos.map(async (repo) => {
-            const [recentBuilds, tags] = await Promise.all([
-                getRecentBuilds(repo.full_name, accessToken),
-                getTagsForRepo(repo.id.toString())
-            ]);
+            const recentBuilds = await getRecentBuilds(repo.full_name, accessToken);
 
             return {
                 id: repo.id.toString(),
@@ -135,7 +131,7 @@ export async function getRepositories(): Promise<Repository[]> {
                 forks_count: repo.forks_count,
                 open_issues_count: repo.open_issues_count,
                 updated_at: repo.updated_at,
-                tags: tags,
+                tags: [],
                 recentBuilds, 
                 branches: [],
                 fullName: repo.full_name,
@@ -202,7 +198,8 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
 
 export async function updateRepoTags(repoId: string, tags: string[]): Promise<{ success: boolean; error?: string }> {
   try {
-    await updateTagsInFirestore(repoId, tags);
+    // This is now a mock function.
+    console.log(`(Mock) Updating tags for ${repoId}:`, tags);
     return { success: true };
   } catch (error) {
     console.error("Error in updateRepoTags server action:", error);

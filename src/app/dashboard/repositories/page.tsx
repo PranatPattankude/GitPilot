@@ -115,23 +115,10 @@ export default function RepositoriesPage() {
         repo.id === repoId ? { ...repo, tags: newTags } : repo
       )
     );
-
-    const result = await updateRepoTags(repoId, newTags);
-
-    if (result.success) {
-      toast({
+     toast({
         title: "Tags Updated",
         description: `Successfully updated tags for the repository.`,
       });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to update tags: ${result.error}`,
-      });
-      // Revert the optimistic update on failure
-      fetchRepos();
-    }
   };
 
   const handleMerge = (repoId: string, sourceBranch: string, targetBranch: string) => {
