@@ -286,6 +286,13 @@ export default function RepositoriesPage() {
                     </TableRow>
                 ) : (
                   filteredRepos.map((repo) => {
+                    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+                    const recentBuilds = repo.recentBuilds.filter(b => new Date(b.timestamp) > twelveHoursAgo);
+
+                    const buildsInProgress = recentBuilds.filter(b => b.status === 'In Progress').length;
+                    const buildsSucceeded = recentBuilds.filter(b => b.status === 'Success').length;
+                    const buildsFailed = recentBuilds.filter(b => b.status === 'Failed').length;
+                    
                     return (
                     <TableRow key={repo.id}>
                       <TableCell className="px-4">
@@ -344,19 +351,22 @@ export default function RepositoriesPage() {
                           size="sm"
                           className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
                           onClick={() => setViewingBuildsRepo(repo)}
+                          disabled={recentBuilds.length === 0}
                         >
-                          <div className="flex items-center gap-1 text-primary">
-                            <Loader className={`size-3`} />
-                            <span>0</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-accent">
-                            <CheckCircle2 className="size-3" />
-                            <span>0</span>
-                          </div>
-                           <div className="flex items-center gap-1 text-destructive">
-                            <XCircle className="size-3" />
-                            <span>0</span>
-                          </div>
+                           {recentBuilds.length === 0 ? <span className="text-muted-foreground">No recent builds</span> : <>
+                              <div className="flex items-center gap-1 text-primary">
+                                <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
+                                <span>{buildsInProgress}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-accent">
+                                <CheckCircle2 className="size-3" />
+                                <span>{buildsSucceeded}</span>
+                              </div>
+                               <div className="flex items-center gap-1 text-destructive">
+                                <XCircle className="size-3" />
+                                <span>{buildsFailed}</span>
+                              </div>
+                           </>}
                         </Button>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">

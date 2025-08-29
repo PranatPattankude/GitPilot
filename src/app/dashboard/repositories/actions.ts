@@ -2,7 +2,7 @@
 "use server"
 
 import { getServerSession } from "next-auth/next"
-import { type Repository } from "@/lib/store"
+import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 async function fetchRepositories(url: string, accessToken: string): Promise<{ repos: any[], nextUrl: string | null }> {
@@ -36,6 +36,31 @@ async function fetchRepositories(url: string, accessToken: string): Promise<{ re
   const repos = await response.json();
   return { repos, nextUrl };
 }
+
+// Helper to generate some mock build data
+const generateMockBuilds = (): Build[] => {
+  const builds: Build[] = [];
+  const numBuilds = Math.floor(Math.random() * 10); // 0 to 9 builds
+  const now = Date.now();
+
+  for (let i = 0; i < numBuilds; i++) {
+    const statusRandom = Math.random();
+    const timestamp = new Date(now - Math.floor(Math.random() * 24 * 60 * 60 * 1000)); // Within last 24 hours
+    
+    let status: Build['status'];
+    if (statusRandom < 0.1) {
+      status = 'In Progress';
+    } else if (statusRandom < 0.3) {
+      status = 'Failed';
+    } else {
+      status = 'Success';
+    }
+    
+    builds.push({ status, timestamp });
+  }
+  return builds;
+}
+
 
 export async function getRepositories(): Promise<Repository[]> {
   const session = await getServerSession(authOptions)
@@ -74,7 +99,7 @@ export async function getRepositories(): Promise<Repository[]> {
       updated_at: repo.updated_at,
       // Add empty fields for data not on the GitHub API response
       tags: [],
-      recentBuilds: [], 
+      recentBuilds: generateMockBuilds(), 
       branches: [], // We can fetch this separately if needed
     }));
 
