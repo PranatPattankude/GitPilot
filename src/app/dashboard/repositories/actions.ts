@@ -3,15 +3,16 @@
 
 import { getServerSession } from "next-auth/next"
 import { type Repository } from "@/lib/store"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function getRepositories(): Promise<Repository[]> {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
 
-  if (!session || !(session.accessToken as any)) {
+  if (!session || !(session as any).accessToken) {
     throw new Error("Not authenticated")
   }
 
-  const accessToken = session.accessToken as string;
+  const accessToken = (session as any).accessToken as string;
   const url = "https://api.github.com/user/repos?type=all&sort=updated&per_page=100"
 
   try {

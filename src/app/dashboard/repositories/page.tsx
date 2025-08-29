@@ -26,7 +26,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, startTransition } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw } from "lucide-react"
@@ -59,19 +59,24 @@ export default function RepositoriesPage() {
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
   useEffect(() => {
-    const fetchRepos = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const repos = await getRepositories();
-        setLocalRepos(repos);
-      } catch (err: any) {
-        setError("Failed to fetch repositories from GitHub. " + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRepos();
+    setLoading(true);
+    setError(null);
+    getRepositories()
+      .then((repos) => {
+        startTransition(() => {
+          setLocalRepos(repos);
+        })
+      })
+      .catch((err) => {
+         startTransition(() => {
+          setError("Failed to fetch repositories from GitHub. " + err.message);
+         });
+      })
+      .finally(() => {
+         startTransition(() => {
+          setLoading(false);
+        });
+      });
     
     // Clear search and selection when navigating away
     return () => {
@@ -228,7 +233,7 @@ export default function RepositoriesPage() {
                       onCheckedChange={handleSelectAll} 
                       checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       aria-label="Select all"
-                      disabled={loading || error}
+                      disabled={loading || !!error}
                     />
                   </TableHead>
                   <TableHead>Repository</TableHead>
