@@ -132,11 +132,24 @@ export default function DashboardLayout({
 
   const { searchQuery, setSearchQuery, isLoading } = useAppStore();
   const pathname = usePathname();
+  const [delayedLoading, setDelayedLoading] = React.useState(isLoading);
   usePageLoading();
 
   const searchPlaceholder =
     sidebarItems.find((item) => pathname.startsWith(item.href))
       ?.searchPlaceholder || "Search...";
+
+
+  React.useEffect(() => {
+      let timeoutId: NodeJS.Timeout;
+      if (isLoading) {
+          setDelayedLoading(true);
+      } else {
+          // Keep loader visible for a short duration to allow fade-out
+          timeoutId = setTimeout(() => setDelayedLoading(false), 300);
+      }
+      return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
 
   return (
@@ -203,7 +216,7 @@ export default function DashboardLayout({
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 relative">
-          {isLoading && <PageLoader />}
+          {(isLoading || delayedLoading) && <PageLoader show={isLoading} />}
           {children}
         </main>
       </SidebarInset>
