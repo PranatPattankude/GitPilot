@@ -258,9 +258,9 @@ export default function BuildsPage() {
           return (
             <Card key={build.id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{build.repo || 'Unknown Repo'}</CardTitle>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <CardTitle className="text-lg truncate">{build.repo || 'Unknown Repo'}</CardTitle>
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <SvgIcon className={`size-6 ${color} ${animation}`} />
                      {(isFailed || isRunning) && (
                         <DropdownMenu>
