@@ -1,6 +1,3 @@
-
-
-
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -572,7 +569,11 @@ export async function getPullRequestDiff(repoFullName: string, prNumber: number)
     
     const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`;
     
-    const { data } = await fetchFromGitHub<string>(url, accessToken, {}, true);
+    const { data } = await fetchFromGitHub<string>(url, accessToken, {
+        headers: {
+            Accept: 'application/vnd.github.v3.diff'
+        }
+    }, true);
 
     return data;
 }
