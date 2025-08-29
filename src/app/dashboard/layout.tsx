@@ -4,6 +4,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
 import {
   Bell,
   GitMerge,
@@ -13,6 +14,7 @@ import {
   Shield,
   Search,
   Settings,
+  LogOut,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -27,6 +29,14 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/icons"
@@ -34,6 +44,7 @@ import { ThemeToggle } from "./theme-toggle"
 import { Input } from "@/components/ui/input"
 import { useAppStore } from "@/lib/store"
 import { PageLoader } from "@/components/ui/page-loader"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const sidebarItems = [
   {
@@ -94,14 +105,10 @@ function usePageLoading() {
   }, [pathname, searchParams, setIsLoading]);
 
   React.useEffect(() => {
-    // This is a bit of a hack to capture link clicks and show the loader.
-    // The proper way would be to use Next.js's router events, but that
-    // requires a bit more setup. This works for this specific layout.
     const handleLinkClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       const link = target.closest('a');
 
-      // Check if it's a link and not an external one or a special link
       if (link && link.href && link.target !== '_blank' && !event.ctrlKey && !event.metaKey) {
         const currentUrl = new URL(window.location.href);
         const nextUrl = new URL(link.href);
@@ -118,17 +125,60 @@ function usePageLoading() {
   }, [setIsLoading]);
 }
 
+function UserMenu({ user }: { user: { name?: string | null, email?: string | null, image?: string | null } }) {
+  const displayName = user?.name || "User";
+  const displayEmail = user?.email ? `@${user.email.split('@')[0]}` : "";
+  const displayAvatar = user?.image || `https://i.pravatar.cc/150?u=${displayName}`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div className="flex items-center gap-3 cursor-pointer">
+          <Avatar className="size-8">
+            <AvatarImage src={displayAvatar} alt={displayName} />
+            <AvatarFallback>{displayName?.[0]}</AvatarFallback>
+          </Avatar>
+          <div className="hidden md:flex flex-col text-left text-xs">
+            <span className="font-semibold text-foreground">{displayName}</span>
+            <span className="text-muted-foreground">{displayEmail}</span>
+          </div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function UserMenuSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+        <Skeleton className="size-8 rounded-full" />
+        <div className="hidden md:flex flex-col gap-1.5 text-left text-xs">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-16" />
+        </div>
+    </div>
+  )
+}
+
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const user = {
-    displayName: process.env.NEXT_PUBLIC_USER_DISPLAY_NAME || "DevOps Manager",
-    email: process.env.NEXT_PUBLIC_USER_EMAIL || "devops-user",
-    photoURL: process.env.NEXT_PUBLIC_USER_PHOTO_URL || "https://i.pravatar.cc/150?u=a042581f4e29026704d"
-  };
+  const { data: session, status } = useSession({ required: true });
 
   const { searchQuery, setSearchQuery, isLoading } = useAppStore();
   const pathname = usePathname();
@@ -145,7 +195,6 @@ export default function DashboardLayout({
       if (isLoading) {
           setDelayedLoading(true);
       } else {
-          // Keep loader visible for a short duration to allow fade-out
           timeoutId = setTimeout(() => setDelayedLoading(false), 300);
       }
       return () => clearTimeout(timeoutId);
@@ -195,24 +244,11 @@ export default function DashboardLayout({
                 </Button>
                 <div className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">3</div>
              </div>
-            <Link href="#" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
                 <GithubIcon className="size-5" />
                 <span className="sr-only">GitHub</span>
-            </Link>
-            <Button variant="ghost" size="icon">
-                <Settings className="size-5" />
-                <span className="sr-only">Settings</span>
-            </Button>
-            <Link href="#" className="flex items-center gap-3">
-              <Avatar className="size-8">
-                <AvatarImage src={user?.photoURL} alt={user?.displayName} />
-                <AvatarFallback>{user?.displayName?.[0]}</AvatarFallback>
-              </Avatar>
-              <div className="hidden md:flex flex-col text-left text-xs">
-                  <span className="font-semibold text-foreground">{user.displayName}</span>
-                  <span className="text-muted-foreground">@{user.email}</span>
-              </div>
-            </Link>
+            </a>
+            {status === "loading" ? <UserMenuSkeleton /> : <UserMenu user={session?.user} />}
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 relative">

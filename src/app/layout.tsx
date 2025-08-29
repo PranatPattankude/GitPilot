@@ -1,17 +1,25 @@
-import type {Metadata} from 'next';
+
+"use client"
+
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+import { SessionProvider } from "next-auth/react"
 
-export const metadata: Metadata = {
-  title: 'GitPilot',
-  description: 'Merge branches, resolve conflicts, and track releases with ease.',
-};
+// We can't use the metadata export in a client component,
+// so we'll manage the title in the RootLayout component directly.
 
 export default function RootLayout({
   children,
+  session,
 }: Readonly<{
   children: React.ReactNode;
+  session: any; // next-auth session
 }>) {
+
+  React.useEffect(() => {
+    document.title = "GitPilot - Merge branches, resolve conflicts, and track releases with ease.";
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -26,11 +34,6 @@ export default function RootLayout({
                   const theme = localStorage.getItem('theme');
                   if (theme === 'dark') {
                     document.documentElement.classList.add('dark');
-                  } else if (!theme) {
-                    // Optional: set theme based on system preference if no localStorage value
-                    // if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    //   document.documentElement.classList.add('dark');
-                    // }
                   }
                 } catch (e) {}
               })();
@@ -39,7 +42,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        {children}
+        <SessionProvider session={session}>
+          {children}
+        </SessionProvider>
         <Toaster />
       </body>
     </html>
