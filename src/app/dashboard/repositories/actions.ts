@@ -235,7 +235,7 @@ export async function createPullRequest(
 
   try {
     const url = `https://api.github.com/repos/${repoFullName}/pulls`;
-    const { data } = await fetchFromGitHub<any>(url, accessToken, {
+    const { data, status } = await fetchFromGitHub<any>(url, accessToken, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -247,6 +247,15 @@ export async function createPullRequest(
         body: `Automated PR created by GitPilot to merge ${sourceBranch} into ${targetBranch}.`,
       }),
     });
+
+    if (status === 422) { // Unprocessable Entity - often means PR already exists or no diff
+        const { data: compareData } = await fetchFromGitHub<any>(`https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`, accessToken);
+        if (compareData.status === 'identical') {
+            return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
+        }
+        return { success: false, error: "A pull request for these branches likely already exists or there are other issues." };
+    }
+
     return { success: true, data };
   } catch (error: any) {
     console.error(`Failed to create pull request for ${repoFullName}:`, error);
@@ -270,7 +279,7 @@ export async function mergePullRequest(
 
     try {
         const url = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}/merge`;
-        await fetchFromGitHub<any>(url, accessToken, {
+        const { status } = await fetchFromGitHub<any>(url, accessToken, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -281,6 +290,15 @@ export async function mergePullRequest(
                 merge_method: "merge", // Can be 'merge', 'squash', or 'rebase'
             }),
         });
+
+        if (status === 405) { // Method Not Allowed
+            return { success: false, error: "Pull request is not mergeable. It may have conflicts or require checks to pass." };
+        }
+
+        if (status === 409) { // Conflict
+             return { success: false, error: "Could not merge due to a conflict. Please resolve conflicts on GitHub." };
+        }
+
         return { success: true };
     } catch (error: any) {
         console.error(`Failed to merge pull request #${pullRequestNumber} for ${repoFullName}:`, error);
@@ -292,35 +310,37 @@ export async function compareBranches(
   repoFullName: string,
   sourceBranch: string,
   targetBranch: string
-): Promise<{ status: "conflicts" | "no-changes" | "can-merge"; error?: string }> {
+): Promise<{ status: "has-conflicts" | "no-changes" | "can-merge"; error?: string }> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
-    return { status: "conflicts", error: "Not authenticated" };
+    return { status: "has-conflicts", error: "Not authenticated" };
   }
   const accessToken = (session as any).accessToken as string;
 
   try {
     const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
-    const { data, status } = await fetchFromGitHub<any>(compareUrl, accessToken);
-
-    if (status === 200) {
-      if (data.status === 'identical') {
-        return { status: "no-changes" };
-      }
-      // Optimistically assume it can be merged. The merge API call will be the source of truth.
-      return { status: "can-merge" };
+    const { data } = await fetchFromGitHub<any>(compareUrl, accessToken);
+    
+    if (data.status === 'identical') {
+      return { status: "no-changes" };
     }
-
-    // A 404 can mean branches don't exist, which we treat as a conflict.
-    if (status === 404) {
-      return { status: "conflicts", error: "One or both branches not found." };
+    
+    // The `mergeable` status on a pull request is the most reliable way to check for conflicts.
+    // However, that requires creating a PR first. A simpler, optimistic approach is to check the
+    // compare endpoint and let the user attempt to create the PR. The create/merge action will
+    // fail if there are underlying conflicts, providing more accurate feedback at that point.
+    if (data.status === 'diverged' || data.status === 'ahead') {
+      return { status: "can-merge" };
     }
     
     // Fallback for other scenarios, assume conflicts
-    return { status: "conflicts", error: "Could not determine mergeability." };
+    return { status: "has-conflicts", error: data.status ? `Unknown branch status: ${data.status}` : "Could not determine mergeability." };
 
   } catch (error: any) {
     console.error(`Failed to compare branches for ${repoFullName}:`, error);
-    return { status: "conflicts", error: `Failed to compare branches: ${error.message}` };
+     if (error.message && error.message.includes("No common ancestor")) {
+        return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
+    }
+    return { status: "has-conflicts", error: `Failed to compare branches: ${error.message}` };
   }
 }

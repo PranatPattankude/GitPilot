@@ -36,12 +36,14 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
   const [targetBranch, setTargetBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
   const [comparisonStatus, setComparisonStatus] = useState<ComparisonStatus>("idle")
+  const [comparisonError, setComparisonError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     // Reset comparison status if branches change
     setComparisonStatus("idle")
+    setComparisonError(null)
   }, [sourceBranch, targetBranch])
 
   const handleCompare = async () => {
@@ -64,25 +66,12 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     }
 
     setComparisonStatus("comparing")
+    setComparisonError(null)
     const result = await compareBranches(repo.fullName, sourceBranch, targetBranch);
+    
     setComparisonStatus(result.status);
-
-    if (result.status === "can-merge") {
-      toast({
-        title: "Branches Can Be Merged",
-        description: "No conflicts were found. You can now create and merge a pull request.",
-      });
-    } else if (result.status === "has-conflicts") {
-       toast({
-        variant: "destructive",
-        title: "Merge Conflicts Detected",
-        description: result.error || "Please resolve conflicts manually before merging.",
-      });
-    } else if (result.status === "no-changes") {
-       toast({
-        title: "No Changes",
-        description: "The source and target branches are identical.",
-      });
+    if(result.error) {
+        setComparisonError(result.error);
     }
   }
 
@@ -154,7 +143,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           {comparisonStatus === "has-conflicts" && (
              <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
                 <AlertTriangle className="size-4" />
-                <p>Merge conflicts detected. Please resolve them manually.</p>
+                <p>{comparisonError || "Merge conflicts detected. Please resolve them manually."}</p>
             </div>
           )}
 

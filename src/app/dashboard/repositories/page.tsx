@@ -89,8 +89,6 @@ export default function RepositoriesPage() {
   }, [fetchRepos, clearRepos, setSearchQuery]);
 
   const allTags = useMemo(() => {
-    // This is now a mock since we removed firestore.
-    // In a real app, this would be populated from the database.
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
   }, [localRepos])
 
@@ -119,7 +117,7 @@ export default function RepositoriesPage() {
     );
      toast({
         title: "Tags Updated (Local)",
-        description: `Tags have been updated locally.`,
+        description: `Tags have been updated locally. In a real app, this would be saved to a database.`,
       });
   };
 
@@ -473,6 +471,13 @@ export default function RepositoriesPage() {
                                 <p className="text-muted-foreground">
                                     {searchQuery ? "Your search did not match any repositories." : "We couldn't find any repositories for your account."}
                                 </p>
+                                {error && <p className="text-destructive text-sm mt-2">{error}</p>}
+                                {!searchQuery && (
+                                    <Button onClick={fetchRepos} variant="outline" size="sm">
+                                        <RefreshCw className="mr-2 size-4" />
+                                        Try Again
+                                    </Button>
+                                )}
                             </div>
                         </TableCell>
                     </TableRow>
