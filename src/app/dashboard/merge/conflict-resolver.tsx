@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect } from "react"
@@ -63,15 +64,9 @@ export default function ConflictResolver() {
 
 
   return (
-    <Card className="bg-background/50">
+    <Card className="bg-background/50 border-0 shadow-none">
       <form action={formAction}>
-        <CardHeader>
-          <CardTitle>Resolve Conflicts</CardTitle>
-          <CardDescription>
-            Use the editor below to manually resolve, or use AI to suggest a resolution based on your changes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-0">
           <div className="space-y-2">
             <Label htmlFor="file-diff">File Diff with Conflicts</Label>
             <Textarea id="file-diff" name="fileDiff" rows={10} defaultValue={initialFileDiff} className="font-mono" />
@@ -95,7 +90,7 @@ export default function ConflictResolver() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between items-center">
+        <CardFooter className="flex justify-between items-center p-0 pt-4">
           <div>
             {state.success && (
               <Button>Confirm and Commit</Button>
