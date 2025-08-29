@@ -303,7 +303,7 @@ export default function RepositoriesPage() {
                           </Avatar>
                           <div>
                             <div className="flex items-center gap-2">
-                                <span className="font-medium">{repo.name}</span>
+                                <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">{repo.name}</a>
                                 <Badge variant="outline" className="font-normal text-xs">
                                     {repo.private ? <Lock className="size-3 mr-1" /> : <Globe className="size-3 mr-1" />}
                                     {repo.private ? 'Private' : 'Public'}
@@ -394,6 +394,11 @@ export default function RepositoriesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                             <DropdownMenuItem onSelect={() => window.open(repo.html_url, '_blank')}>
+                              <GithubIcon className="mr-2 h-4 w-4" />
+                              <span>View on GitHub</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onSelect={() => setEditingRepo(repo)}>
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit Tags</span>
