@@ -28,6 +28,12 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         return { data: [] as T, nextUrl: null };
     }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
+    // For rate limiting, we want to throw a specific error
+    if (response.status === 403 && errorMessage.includes('rate limit')) {
+        throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    }
+    // For other errors, we can choose to throw or return empty.
+    // Let's throw to be aware of other potential issues.
     throw new Error(errorMessage);
   }
 
@@ -63,7 +69,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
             .filter(run => new Date(run.created_at) > twelveHoursAgo)
             .map((run: any): Build => {
                 let status: Build['status'];
-                if (run.status === 'in_progress' || run.status === 'queued') {
+                if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
                     status = 'In Progress';
                 } else if (run.status === 'completed') {
                     if (run.conclusion === 'success') {
@@ -140,8 +146,8 @@ export async function getRepositories(): Promise<Repository[]> {
 
   } catch (error) {
     console.error("Error fetching repositories:", error)
-    if (error instanceof Error && error.message.includes('API rate limit exceeded')) {
-        throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    if (error instanceof Error && error.message.includes('GitHub API rate limit exceeded')) {
+        throw error; // Re-throw the specific error for the UI
     }
     throw new Error("Could not fetch repositories from GitHub.");
   }
@@ -166,7 +172,7 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
         
         return runsData.workflow_runs.map((run: any): Build => {
             let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'queued') {
+            if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
                 status = 'In Progress';
             } else if (run.status === 'completed') {
                 if (run.conclusion === 'success') {
