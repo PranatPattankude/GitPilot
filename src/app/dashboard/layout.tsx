@@ -89,9 +89,9 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const user = {
-    displayName: "DevOps Manager",
-    email: "devops-user",
-    photoURL: "https://i.pravatar.cc/150?u=a042581f4e29026704d"
+    displayName: process.env.NEXT_PUBLIC_USER_DISPLAY_NAME || "DevOps Manager",
+    email: process.env.NEXT_PUBLIC_USER_EMAIL || "devops-user",
+    photoURL: process.env.NEXT_PUBLIC_USER_PHOTO_URL || "https://i.pravatar.cc/150?u=a042581f4e29026704d"
   };
 
   const { searchQuery, setSearchQuery } = useAppStore();

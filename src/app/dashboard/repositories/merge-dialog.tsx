@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -28,8 +29,7 @@ interface MergeDialogProps {
   onMerge: (repoId: string, sourceBranch: string, targetBranch: string) => void
 }
 
-// Statically defined branches for demonstration purposes.
-const availableBranches = ["main", "develop", "feature/new-auth", "fix/caching-issue", "hotfix/prod-login", "dev-k8s", "MSRMH-TRN", "qa-k8s", "KPMC-UAT", "perf-k8s", "Selgate-SIT", "Sriphat-SIT", "UCSI-UAT", "HUMS-DEV"]
+const availableBranches = (process.env.NEXT_PUBLIC_AVAILABLE_BRANCHES || "main,develop").split(',');
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")

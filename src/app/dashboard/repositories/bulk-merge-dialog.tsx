@@ -31,8 +31,7 @@ interface BulkMergeDialogProps {
 
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
 
-// Statically defined branches for demonstration purposes.
-const availableBranches = ["main", "develop", "feature/new-auth", "fix/caching-issue", "hotfix/prod-login", "feature/new-ui", "feature/analytics", "feature/sidebar-v2", "dev-k8s", "MSRMH-TRN", "qa-k8s", "KPMC-UAT", "perf-k8s", "Selgate-SIT", "Sriphat-SIT", "UCSI-UAT", "HUMS-DEV"]
+const availableBranches = (process.env.NEXT_PUBLIC_AVAILABLE_BRANCHES || "main,develop").split(',');
 
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
