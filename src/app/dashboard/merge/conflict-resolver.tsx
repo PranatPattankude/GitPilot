@@ -23,6 +23,7 @@ import { type PullRequest } from "@/lib/store"
 
 interface ConflictResolverProps {
   pr: PullRequest
+  filePath: string
 }
 
 function SubmitButton() {
@@ -36,7 +37,7 @@ function SubmitButton() {
   )
 }
 
-export default function ConflictResolver({ pr }: ConflictResolverProps) {
+export default function ConflictResolver({ pr, filePath }: ConflictResolverProps) {
   const [state, formAction] = useFormState(resolveConflictAndMerge, { success: false, message: null })
   const { toast } = useToast()
 
@@ -55,37 +56,21 @@ export default function ConflictResolver({ pr }: ConflictResolverProps) {
         <input type="hidden" name="repoFullName" value={pr.repoFullName} />
         <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
         <input type="hidden" name="pullRequestNumber" value={pr.number} />
+        <input type="hidden" name="filePath" value={filePath} />
 
         <CardContent className="space-y-6 p-0">
           <CardDescription>
             This tool helps you resolve a single file conflict at a time.
             Follow the steps below.
           </CardDescription>
-
-          <div className="space-y-4 p-4 border rounded-lg">
-            <h3 className="font-semibold text-lg">Step 1: Provide File Details</h3>
-            <p className="text-sm text-muted-foreground">
-              Enter the full path of the file that has the conflict (e.g., `src/components/ui/button.tsx`). You can find this on the GitHub pull request page under the "Files changed" tab.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="file-path">Conflicting File Path</Label>
-              <Input
-                id="file-path"
-                name="filePath"
-                placeholder="e.g., src/app/page.tsx"
-                className="font-mono"
-                required
-              />
-            </div>
-          </div>
           
           <div className="space-y-4 p-4 border rounded-lg">
-             <h3 className="font-semibold text-lg">Step 2: Resolve the Conflict</h3>
+             <h3 className="font-semibold text-lg">Resolve the Conflict</h3>
             <p className="text-sm text-muted-foreground">
-                Go to the conflicting file on GitHub or in your local editor. Copy the <span className="font-bold">entire file content</span>, including the conflict markers (`&lt;&lt;&lt;&lt;&lt;&lt;&lt;`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`), and paste it into the editor below. Then, manually resolve the conflicts by editing the text.
+                Go to the conflicting file on GitHub or in your local editor. Copy the <span className="font-bold">entire file content</span>, including the conflict markers (`&lt;&lt;&lt;&lt;&lt;&lt;&lt;`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`), and paste it into the editor below. Then, manually resolve the conflicts by editing the text. Once you're done, the final content will be committed to the source branch and merged.
             </p>
             <div className="space-y-2">
-              <Label htmlFor="resolved-content">Resolved File Content</Label>
+              <Label htmlFor="resolved-content">Resolved File Content for <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{filePath}</span></Label>
               <Textarea
                 id="resolved-content"
                 name="resolvedContent"

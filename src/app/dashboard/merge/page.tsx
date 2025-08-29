@@ -2,7 +2,7 @@
 "use client"
 
 import { useAppStore, type PullRequest, type ChangedFile } from "@/lib/store";
-import { AlertTriangle, GitPullRequest, ChevronsRight, FileWarning, GitBranch } from "lucide-react"
+import { AlertTriangle, GitPullRequest, ChevronsRight, FileWarning, GitBranch, ArrowRight } from "lucide-react"
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { getConflictingPullRequests } from "../repositories/actions";
@@ -13,24 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
 
-function ConflictFile({ file }: { file: ChangedFile }) {
-    let statusColor = "text-muted-foreground";
-    if (file.status === 'modified') statusColor = "text-yellow-500";
-    if (file.status === 'added') statusColor = "text-green-500";
-    if (file.status === 'removed') statusColor = "text-red-500";
+function ConflictFile({ file, pr }: { file: ChangedFile, pr: PullRequest }) {
+    const encodedFilePath = encodeURIComponent(file.filename);
+    const resolveUrl = `/dashboard/merge/${pr.repoFullName}/${pr.number}/${encodedFilePath}`;
 
     return (
         <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded-md hover:bg-muted/50">
             <span className="font-mono text-xs">{file.filename}</span>
-            <div className="flex items-center gap-4 text-xs">
-                 <div className="flex items-center gap-1.5">
-                    <span className="text-green-500">+{file.additions}</span>
-                 </div>
-                 <div className="flex items-center gap-1.5">
-                    <span className="text-red-500">-{file.deletions}</span>
-                 </div>
-                 <span className={`capitalize font-medium ${statusColor}`}>{file.status}</span>
-            </div>
+            <Button asChild variant="secondary" size="sm" className="h-7">
+               <Link href={resolveUrl}>Resolve <ArrowRight className="ml-2 size-3" /></Link>
+            </Button>
         </div>
     )
 }
@@ -135,9 +127,6 @@ export default function MergePage() {
                                     <Badge variant="secondary">{pr.targetBranch}</Badge>
                                 </div>
                             </div>
-                             <Button asChild variant="default" size="sm">
-                               <Link href={`/dashboard/merge/${pr.repoFullName}/${pr.number}`}>Resolve Conflict</Link>
-                            </Button>
                         </div>
                     </CardHeader>
                      {pr.conflictingFiles && pr.conflictingFiles.length > 0 && (
@@ -148,7 +137,7 @@ export default function MergePage() {
                             </h4>
                             <div className="border rounded-md p-2 space-y-1">
                                 {pr.conflictingFiles.map((file) => (
-                                    <ConflictFile key={file.sha} file={file} />
+                                    <ConflictFile key={file.sha} file={file} pr={pr} />
                                 ))}
                             </div>
                         </CardContent>
