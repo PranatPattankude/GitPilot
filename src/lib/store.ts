@@ -36,6 +36,17 @@ export type Repository = {
   fullName: string
 }
 
+export type PullRequest = {
+    id: number;
+    number: number;
+    title: string;
+    url: string;
+    repoFullName: string;
+    sourceBranch: string;
+    targetBranch: string;
+    mergeable_state: string;
+}
+
 export type BulkBuild = {
   id: string;
   sourceBranch: string;

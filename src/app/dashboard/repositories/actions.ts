@@ -1,9 +1,10 @@
 
 
+
 "use server"
 
 import { getServerSession } from "next-auth/next"
-import { type Repository, type Build } from "@/lib/store"
+import { type Repository, type Build, type PullRequest } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 async function fetchFromGitHub<T>(
@@ -475,4 +476,76 @@ export async function getBuildLogs(
     console.error(`Failed to fetch build logs for ${repoFullName}, run ${runId}:`, error);
     throw new Error(`Failed to fetch build logs: ${error.message}`);
   }
+}
+
+async function getPullRequestsForRepo(repoFullName: string, accessToken: string): Promise<any[]> {
+    let allPRs: any[] = [];
+    let currentUrl: string | null = `https://api.github.com/repos/${repoFullName}/pulls?state=open&per_page=100`;
+
+    while (currentUrl) {
+        const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+        if (data) {
+            allPRs = allPRs.concat(data);
+        }
+        currentUrl = nextUrl;
+    }
+    return allPRs;
+}
+
+export async function getConflictingPullRequests(): Promise<PullRequest[]> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    try {
+        let allRepos: any[] = [];
+        let currentUrl: string | null = "https://api.github.com/user/repos?type=owner&per_page=100";
+
+        // 1. Get all repositories for the user
+        while (currentUrl) {
+            const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+            allRepos = allRepos.concat(data);
+            currentUrl = nextUrl;
+        }
+
+        // 2. Fetch all open pull requests for each repo
+        const allPRsPromises = allRepos.map(repo => getPullRequestsForRepo(repo.full_name, accessToken));
+        const allPRsNested = await Promise.all(allPRsPromises);
+        const allPRs = allPRsNested.flat();
+
+        if (allPRs.length === 0) {
+            return [];
+        }
+
+        // 3. Fetch the detailed view for each PR to get mergeability status
+        const detailedPRsPromises = allPRs.map(pr => 
+            fetchFromGitHub<any>(pr.url, accessToken)
+        );
+        const detailedPRsResults = await Promise.all(detailedPRsPromises);
+        
+        // 4. Filter for PRs with conflicts
+        const conflictingPRs = detailedPRsResults
+            .map(res => res.data)
+            .filter(pr => pr && pr.mergeable_state === 'dirty'); // 'dirty' means there are conflicts
+
+        return conflictingPRs.map((pr: any): PullRequest => ({
+            id: pr.id,
+            number: pr.number,
+            title: pr.title,
+            url: pr.html_url,
+            repoFullName: pr.head.repo.full_name,
+            sourceBranch: pr.head.ref,
+            targetBranch: pr.base.ref,
+            mergeable_state: pr.mergeable_state,
+        }));
+
+    } catch (error: any) {
+        console.error("Error fetching conflicting pull requests:", error);
+        if (error instanceof Error && error.message.includes('rate limit')) {
+            throw error;
+        }
+        throw new Error("Could not fetch conflicting pull requests from GitHub.");
+    }
 }
