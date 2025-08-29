@@ -43,7 +43,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <SessionProvider session={session}>
+        <SessionProvider session={session} basePath="/api/auth">
           {children}
         </SessionProvider>
         <Toaster />
