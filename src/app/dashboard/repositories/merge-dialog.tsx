@@ -85,7 +85,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
         setComparisonStatus("can-merge");
         toast({
             title: "Branches Can Be Merged",
-            description: "No conflicts were found. You can now create a pull request.",
+            description: "No conflicts were found. You can now create and merge a pull request.",
         });
       }
     }, 1500)
@@ -95,7 +95,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     if (comparisonStatus !== "can-merge") {
       toast({
         variant: "destructive",
-        title: "Cannot Create Pull Request",
+        title: "Cannot Merge",
         description: "Please compare the branches and ensure there are no conflicts.",
       })
       return
@@ -110,9 +110,9 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Pull Request in {repo.name}</DialogTitle>
+          <DialogTitle>Create and Merge PR in {repo.name}</DialogTitle>
           <DialogDescription>
-            Compare branches and create a pull request to merge changes.
+            Compare branches and then create and automatically merge a pull request.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -181,7 +181,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           ) : (
             <Button onClick={handleMerge} disabled={isMerging} className="bg-accent hover:bg-accent/90">
               <GitMerge className="mr-2 size-4" />
-              {isMerging ? 'Creating PR...' : 'Create Pull Request'}
+              {isMerging ? 'Merging...' : 'Create and Merge PR'}
             </Button>
           )}
         </DialogFooter>

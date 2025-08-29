@@ -256,3 +256,33 @@ export async function createPullRequest(
     return { success: false, error: `Failed to create pull request: ${error.message}` };
   }
 }
+
+export async function mergePullRequest(
+  repoFullName: string,
+  pullRequestNumber: number
+): Promise<{ success: boolean; error?: string }> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        return { success: false, error: "Not authenticated" };
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    try {
+        const url = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}/merge`;
+        await fetchFromGitHub<any>(url, accessToken, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                commit_title: `Merge PR #${pullRequestNumber} via GitPilot`,
+                commit_message: `Merged by GitPilot.`,
+                merge_method: "merge", // Can be 'merge', 'squash', or 'rebase'
+            }),
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Failed to merge pull request #${pullRequestNumber} for ${repoFullName}:`, error);
+        return { success: false, error: `Failed to merge pull request: ${error.message}` };
+    }
+}

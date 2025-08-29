@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, createPullRequest } from "./actions"
+import { getRepositories, createPullRequest, mergePullRequest } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -124,24 +124,42 @@ export default function RepositoriesPage() {
   };
 
   const handleMerge = async (repoFullName: string, sourceBranch: string, targetBranch: string) => {
-    const result = await createPullRequest(repoFullName, sourceBranch, targetBranch);
-    if (result.success) {
+    const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch);
+    
+    if (!prResult.success || !prResult.data) {
       toast({
+        variant: "destructive",
+        title: "Failed to Create Pull Request",
+        description: prResult.error,
+      });
+      return prResult;
+    }
+
+    toast({
         title: "Pull Request Created",
+        description: `Successfully created PR #${prResult.data.number}. Now attempting to merge...`,
+    });
+    
+    const mergeResult = await mergePullRequest(repoFullName, prResult.data.number);
+
+    if (mergeResult.success) {
+      toast({
+        title: "Pull Request Merged",
         description: (
-          <a href={result.data.html_url} target="_blank" rel="noopener noreferrer" className="underline">
-            Successfully created PR #{result.data.number} for {repoFullName}. Click to view.
+          <a href={prResult.data.html_url.replace('/pull/', '/pulls/')} target="_blank" rel="noopener noreferrer" className="underline">
+            Successfully merged PR #{prResult.data.number} for {repoFullName}. Click to view.
           </a>
         ),
       });
     } else {
-      toast({
+       toast({
         variant: "destructive",
-        title: "Failed to Create Pull Request",
-        description: result.error,
+        title: "Failed to Merge Pull Request",
+        description: mergeResult.error,
       });
     }
-    return result;
+    
+    return mergeResult;
   };
 
   const handleRebuild = (repoId: string, branch: string) => {
@@ -434,7 +452,7 @@ export default function RepositoriesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setMergingRepo(repo)}>
                               <GitMerge className="mr-2 h-4 w-4" />
-                              <span>Create Pull Request</span>
+                              <span>Create and Merge PR</span>
                             </DropdownMenuItem>
                              <DropdownMenuItem onSelect={() => setRebuildingRepo(repo)}>
                               <RefreshCw className="mr-2 h-4 w-4" />
