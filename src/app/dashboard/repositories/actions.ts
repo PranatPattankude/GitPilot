@@ -1,5 +1,6 @@
 
 
+
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -17,7 +18,7 @@ async function fetchFromGitHub<T>(
     headers: {
       ...options.headers,
       Authorization: `token ${accessToken}`,
-      Accept: "application/vnd.github.v3+json",
+      Accept: returnText ? "application/vnd.github.diff" : "application/vnd.github.v3+json",
     },
     // Revalidate every hour
     next: { revalidate: 3600 },
@@ -25,14 +26,33 @@ async function fetchFromGitHub<T>(
 
   const responseStatus = response.status;
   
+  // For text responses (like diffs), handle them separately.
+  if (returnText) {
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`GitHub API Error for ${url}:`, {
+            status: response.status,
+            message: errorText,
+        });
+        throw new Error(errorText || `Failed to fetch diff, status: ${response.status}`);
+    }
+    const textData = await response.text();
+    return { data: textData, nextUrl: null, status: responseStatus };
+  }
+  
+  // Handle JSON responses
+  if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+    return { data: null as T, nextUrl: null, status: responseStatus };
+  }
+
+  const errorData = await response.json().catch(() => null);
+  
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
     console.error(`GitHub API Error for ${url}:`, {
         status: response.status,
         message: errorData?.message,
     });
     
-    // For specific cases, we want to handle the error in the calling function
     if ([422, 404, 409, 405].includes(response.status)) {
        return { data: errorData, nextUrl: null, status: responseStatus };
     }
@@ -45,10 +65,6 @@ async function fetchFromGitHub<T>(
     
     throw new Error(errorMessage);
   }
-
-  if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-    return { data: null as T, nextUrl: null, status: responseStatus };
-  }
   
   const linkHeader = response.headers.get("Link");
   let nextUrl: string | null = null;
@@ -60,14 +76,8 @@ async function fetchFromGitHub<T>(
       nextUrl = nextLink.substring(nextLink.indexOf('<') + 1, nextLink.indexOf('>'));
     }
   }
-  
-  if (returnText) {
-    const textData = await response.text();
-    return { data: textData, nextUrl, status: responseStatus };
-  }
 
-  const data = await response.json();
-  return { data, nextUrl, status: responseStatus };
+  return { data: errorData, nextUrl, status: responseStatus };
 }
 
 
@@ -550,4 +560,19 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
         }
         throw new Error("Could not fetch conflicting pull requests from GitHub.");
     }
+}
+
+
+export async function getPullRequestDiff(repoFullName: string, prNumber: number): Promise<string> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+    
+    const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`;
+    
+    const { data } = await fetchFromGitHub<string>(url, accessToken, {}, true);
+
+    return data;
 }

@@ -119,11 +119,11 @@ export default function MergePage() {
                     </CardHeader>
                     <CardContent>
                         <p className="mb-4 text-sm text-muted-foreground">
-                            Conflicts were detected between the selected branches. Use the tool below to resolve them.
+                            The diff below is loaded from the pull request. Manually resolve the conflicts into the "Your Resolution" box. 
                             <br />
-                            The file diff below is an example. In a real application, this would be populated with the actual conflicting file content from the pull request.
+                            Optionally, provide the rest of the file content in "Unseen Lines" to have the AI apply your fix to other parts of the file.
                         </p>
-                        <ConflictResolver />
+                        <ConflictResolver repoFullName={pr.repoFullName} prNumber={pr.number}/>
                     </CardContent>
                 </Card>
             ))}
