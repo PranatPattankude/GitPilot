@@ -1,4 +1,5 @@
 
+
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -255,15 +256,19 @@ export async function createPullRequest(
       }),
     });
 
-    if (status === 422) { // Unprocessable Entity - often means PR already exists or no diff
-        const errorDetails = data?.errors?.[0]?.message || data?.message || "An unprocessable request was made.";
-        if (errorDetails.includes("A pull request already exists")) {
-            return { success: false, error: "A pull request for these branches already exists." };
-        }
-        if (errorDetails.includes("No commits between")) {
-            return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
-        }
-        return { success: false, error: `Could not create PR: ${errorDetails}` };
+    if (status === 201) {
+      return { success: true, data };
+    }
+
+    if (status === 422) {
+      const errorDetails = data?.errors?.[0]?.message || data?.message || "An unprocessable request was made.";
+      if (errorDetails.includes("A pull request already exists")) {
+        return { success: false, error: "A pull request for these branches already exists." };
+      }
+      if (errorDetails.includes("No commits between")) {
+        return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
+      }
+      return { success: false, error: `Could not create PR: ${errorDetails}` };
     }
     
     // This is for other non-OK statuses that were not thrown but are not successful either.
