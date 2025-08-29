@@ -2,7 +2,6 @@
 
 import {
   intelligentConflictResolution,
-  type IntelligentConflictResolutionInput,
 } from "@/ai/flows/intelligent-conflict-resolution"
 import { z } from "zod"
 
@@ -36,22 +35,7 @@ export async function resolveConflict(prevState: State, formData: FormData): Pro
   }
 
   try {
-    // In a real scenario, the AI model would provide a truly intelligent suggestion.
-    // We are mocking a successful response here to demonstrate the flow.
-    const mockEnhancedSuggestion = `// AI has analyzed your suggestion and applied it to similar patterns.
-    
-import { PrimaryButton as MainButton } from './components/Buttons';
-import { SecondaryButton as MainButton } from './components/Buttons';
-
-const App = () => (
-  <div>
-    <MainButton />
-    <MainButton />
-  </div>
-);`
-
-    // const result = await intelligentConflictResolution(parsed.data);
-    const result = { enhancedSuggestion: mockEnhancedSuggestion }
+    const result = await intelligentConflictResolution(parsed.data);
 
     return { success: true, data: result, error: null }
   } catch (e) {

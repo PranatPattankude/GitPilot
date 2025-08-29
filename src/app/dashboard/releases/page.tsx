@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { format } from 'date-fns'
 import { getReleaseHistory, type Release } from "@/ai/flows/release-history"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAppStore } from "@/lib/store"
 
@@ -41,7 +41,7 @@ export default function ReleasesPage() {
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { setSearchQuery } = useAppStore();
+  const { searchQuery, setSearchQuery } = useAppStore();
 
   useEffect(() => {
     // Clear search when navigating to this page
@@ -64,6 +64,22 @@ export default function ReleasesPage() {
     };
     fetchReleases();
   }, [setSearchQuery]);
+
+  const filteredReleases = useMemo(() => {
+    if (!searchQuery) {
+      return releases;
+    }
+    return releases.filter(release => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        release.branch.toLowerCase().includes(searchLower) ||
+        release.user.toLowerCase().includes(searchLower) ||
+        release.status.toLowerCase().includes(searchLower) ||
+        release.type.toLowerCase().includes(searchLower) ||
+        release.repos.some(repo => repo.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [releases, searchQuery]);
 
 
   return (
@@ -105,14 +121,14 @@ export default function ReleasesPage() {
                     {error}
                   </TableCell>
                 </TableRow>
-              ) : releases.length === 0 ? (
+              ) : filteredReleases.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    No release history found. Make sure your Google Sheet is set up correctly and has a header row.
+                    {searchQuery ? "No releases found for your search." : "No release history found. Make sure your Google Sheet is set up correctly and has a header row."}
                   </TableCell>
                 </TableRow>
               ) : (
-                releases.map((release) => (
+                filteredReleases.map((release) => (
                   <TableRow key={release.id}>
                      <TableCell>
                       <Badge variant={release.type === 'bulk' ? "secondary" : "outline"}>{release.type}</Badge>
