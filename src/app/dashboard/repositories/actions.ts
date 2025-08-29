@@ -70,14 +70,22 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
 
 async function getRecentBuilds(repoFullName: string, accessToken: string): Promise<Build[]> {
     try {
-        const url = `https://api.github.com/repos/${repoFullName}/actions/runs?per_page=20`;
-        const { data: runsData } = await fetchFromGitHub<{ workflow_runs: any[] }>(url, accessToken);
+        let allRuns: any[] = [];
+        let currentUrl: string | null = `https://api.github.com/repos/${repoFullName}/actions/runs?per_page=100`;
 
-        if (!runsData || !runsData.workflow_runs) {
+        while (currentUrl) {
+            const { data, nextUrl } = await fetchFromGitHub<{ workflow_runs: any[] }>(currentUrl, accessToken);
+            if (data && data.workflow_runs) {
+                allRuns = allRuns.concat(data.workflow_runs);
+            }
+            currentUrl = nextUrl;
+        }
+
+        if (!allRuns) {
             return [];
         }
         
-        return runsData.workflow_runs.map((run: any): Build => {
+        return allRuns.map((run: any): Build => {
             let status: Build['status'];
             if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
                 status = 'In Progress';
@@ -195,12 +203,12 @@ export async function getAllRecentBuilds(): Promise<Build[]> {
 
     try {
         let allRepos: any[] = [];
-        let currentUrl: string | null = "https://api.github.com/user/repos?type=all&sort=pushed&per_page=50";
+        let currentUrl: string | null = "https://api.github.com/user/repos?type=all&sort=pushed&per_page=100";
 
         while (currentUrl) {
             const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
             allRepos = allRepos.concat(data);
-            currentUrl = nextUrl; // This loop will fetch all repos, but we can limit the processing
+            currentUrl = nextUrl;
         }
         
         // We only want to check repos pushed to in the last 7 days.
@@ -212,10 +220,10 @@ export async function getAllRecentBuilds(): Promise<Build[]> {
         const allBuildsNested = await Promise.all(allBuildPromises);
         const allBuilds = allBuildsNested.flat();
 
-        // Sort by timestamp descending and take the top 20
+        // Sort by timestamp descending
         allBuilds.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
         
-        return allBuilds.slice(0, 20);
+        return allBuilds;
 
     } catch (error) {
         console.error("Error fetching all recent builds:", error);
