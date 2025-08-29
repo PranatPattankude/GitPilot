@@ -5,19 +5,28 @@ import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-async function fetchRepositories(url: string, accessToken: string): Promise<{ repos: any[], nextUrl: string | null }> {
+async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null }> {
   const response = await fetch(url, {
+    ...options,
     headers: {
+      ...options.headers,
       Authorization: `token ${accessToken}`,
       Accept: "application/vnd.github.v3+json",
     },
-    // Revalidate every hour
+    // Revalidate every hour, but this may be stale if builds are frequent
     next: { revalidate: 3600 },
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    console.error("GitHub API Error:", errorData);
+    console.error(`GitHub API Error for ${url}:`, {
+        status: response.status,
+        message: errorData?.message,
+    });
+    // Don't throw for individual errors like 404, just return empty
+    if (response.status === 404) {
+        return { data: [] as T, nextUrl: null };
+    }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
     throw new Error(errorMessage);
   }
@@ -33,32 +42,49 @@ async function fetchRepositories(url: string, accessToken: string): Promise<{ re
     }
   }
 
-  const repos = await response.json();
-  return { repos, nextUrl };
+  const data = await response.json();
+  return { data, nextUrl };
 }
 
-// Helper to generate some mock build data
-const generateMockBuilds = (): Build[] => {
-  const builds: Build[] = [];
-  const numBuilds = Math.floor(Math.random() * 10); // 0 to 9 builds
-  const now = Date.now();
 
-  for (let i = 0; i < numBuilds; i++) {
-    const statusRandom = Math.random();
-    const timestamp = new Date(now - Math.floor(Math.random() * 24 * 60 * 60 * 1000)); // Within last 24 hours
-    
-    let status: Build['status'];
-    if (statusRandom < 0.1) {
-      status = 'In Progress';
-    } else if (statusRandom < 0.3) {
-      status = 'Failed';
-    } else {
-      status = 'Success';
+async function getRecentBuilds(repoFullName: string, accessToken: string): Promise<Build[]> {
+    try {
+        // Fetch the last 20 workflow runs for more accurate "last 12h" status
+        const url = `https://api.github.com/repos/${repoFullName}/actions/runs?per_page=20`;
+        const { data: runsData } = await fetchFromGitHub<{ workflow_runs: any[] }>(url, accessToken);
+
+        if (!runsData || !runsData.workflow_runs) {
+            return [];
+        }
+        
+        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+        return runsData.workflow_runs
+            .filter(run => new Date(run.created_at) > twelveHoursAgo)
+            .map((run: any): Build => {
+                let status: Build['status'];
+                if (run.status === 'in_progress' || run.status === 'queued') {
+                    status = 'In Progress';
+                } else if (run.status === 'completed') {
+                    if (run.conclusion === 'success') {
+                        status = 'Success';
+                    } else {
+                        status = 'Failed'; // Includes failure, cancelled, etc.
+                    }
+                } else {
+                    status = 'Failed'; // Any other state we'll consider failed
+                }
+                
+                return {
+                    status,
+                    timestamp: new Date(run.created_at),
+                };
+            });
+    } catch (error) {
+        console.error(`Failed to fetch builds for ${repoFullName}:`, error);
+        // Return empty array on error so one repo doesn't break the whole list
+        return [];
     }
-    
-    builds.push({ status, timestamp });
-  }
-  return builds;
 }
 
 
@@ -75,33 +101,38 @@ export async function getRepositories(): Promise<Repository[]> {
 
   try {
     while (currentUrl) {
-      const { repos, nextUrl } = await fetchRepositories(currentUrl, accessToken);
-      allRepos = allRepos.concat(repos);
+      const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+      allRepos = allRepos.concat(data);
       currentUrl = nextUrl;
     }
 
-    // Here we can map the complex GitHub API response to our simpler Repository type.
-    // We also add a few properties that are not on the GitHub response, like tags and recentBuilds.
-    return allRepos.map(repo => ({
-      id: repo.id.toString(),
-      name: repo.name,
-      owner: {
-        login: repo.owner.login,
-        avatar_url: repo.owner.avatar_url,
-      },
-      html_url: repo.html_url,
-      description: repo.description,
-      private: repo.private,
-      language: repo.language,
-      stargazers_count: repo.stargazers_count,
-      forks_count: repo.forks_count,
-      open_issues_count: repo.open_issues_count,
-      updated_at: repo.updated_at,
-      // Add empty fields for data not on the GitHub API response
-      tags: [],
-      recentBuilds: generateMockBuilds(), 
-      branches: [], // We can fetch this separately if needed
-    }));
+    // Fetch build statuses for all repositories concurrently
+    const reposWithBuilds = await Promise.all(
+        allRepos.map(async (repo) => {
+            const recentBuilds = await getRecentBuilds(repo.full_name, accessToken);
+            return {
+                id: repo.id.toString(),
+                name: repo.name,
+                owner: {
+                    login: repo.owner.login,
+                    avatar_url: repo.owner.avatar_url,
+                },
+                html_url: repo.html_url,
+                description: repo.description,
+                private: repo.private,
+                language: repo.language,
+                stargazers_count: repo.stargazers_count,
+                forks_count: repo.forks_count,
+                open_issues_count: repo.open_issues_count,
+                updated_at: repo.updated_at,
+                tags: [],
+                recentBuilds, 
+                branches: [], 
+            };
+        })
+    );
+
+    return reposWithBuilds;
 
   } catch (error) {
     console.error("Error fetching repositories:", error)
