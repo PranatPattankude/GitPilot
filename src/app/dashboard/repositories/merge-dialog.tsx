@@ -67,11 +67,15 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
 
     setComparisonStatus("comparing")
     setComparisonError(null)
-    const result = await compareBranches(repo.fullName, sourceBranch, targetBranch);
-    
-    setComparisonStatus(result.status);
-    if(result.error) {
-        setComparisonError(result.error);
+    try {
+      const result = await compareBranches(repo.fullName, sourceBranch, targetBranch);
+      setComparisonStatus(result.status);
+      if(result.error) {
+          setComparisonError(result.error);
+      }
+    } catch (e: any) {
+        setComparisonStatus("has-conflicts");
+        setComparisonError(e.message || "An unexpected error occurred during comparison.");
     }
   }
 

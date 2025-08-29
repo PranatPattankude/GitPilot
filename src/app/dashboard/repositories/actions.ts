@@ -325,11 +325,7 @@ export async function compareBranches(
       return { status: "no-changes" };
     }
     
-    // The `mergeable` status on a pull request is the most reliable way to check for conflicts.
-    // However, that requires creating a PR first. A simpler, optimistic approach is to check the
-    // compare endpoint and let the user attempt to create the PR. The create/merge action will
-    // fail if there are underlying conflicts, providing more accurate feedback at that point.
-    if (data.status === 'diverged' || data.status === 'ahead') {
+    if (data.status === 'diverged' || data.status === 'ahead' || data.status === 'behind') {
       return { status: "can-merge" };
     }
     
@@ -340,6 +336,9 @@ export async function compareBranches(
     console.error(`Failed to compare branches for ${repoFullName}:`, error);
      if (error.message && error.message.includes("No common ancestor")) {
         return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
+    }
+    if (error.message && error.message.includes("Not Found")) {
+      return { status: "has-conflicts", error: "One of the branches was not found. It may not exist in this repository." };
     }
     return { status: "has-conflicts", error: `Failed to compare branches: ${error.message}` };
   }
