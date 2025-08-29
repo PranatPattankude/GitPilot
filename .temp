@@ -1,0 +1,13 @@
+GEMINI_API_KEY=
+GOOGLE_SHEET_ID=
+NEXT_PUBLIC_USER_DISPLAY_NAME=Alex
+NEXT_PUBLIC_USER_EMAIL=user@gitpilot.com
+NEXT_PUBLIC_USER_PHOTO_URL=https://i.pravatar.cc/150?u=a042581f4e29026704d
+NEXT_PUBLIC_AVAILABLE_BRANCHES=main,develop,feature/new-auth,feature/new-ui,hotfix/prod-login,feature/sidebar-v2,fix/caching-issue,feature/analytics
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=http://localhost:9002
+NEXT_PUBLIC_USER_AVATAR_URL=https://i.pravatar.cc/150?u=Alex
+NEXT_PUBLIC_USER_NAME="GitPilot User"
+NEXT_PUBLIC_USER_AVATAR=https://i.pravatar.cc/150?u=gitpilot
