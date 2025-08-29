@@ -12,6 +12,7 @@ export type Build = {
   error?: string | null;
   duration?: string;
   name?: string;
+  repo?: string;
 }
 
 export type Repository = {

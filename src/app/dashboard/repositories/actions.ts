@@ -98,6 +98,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                 status,
                 timestamp: new Date(run.created_at),
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
+                repo: repoFullName,
             };
         });
     } catch (error) {
@@ -184,6 +185,47 @@ export async function getRepositories(): Promise<Repository[]> {
     throw new Error("Could not fetch repositories from GitHub.");
   }
 }
+
+export async function getAllRecentBuilds(): Promise<Build[]> {
+    const session = await getServerSession(authOptions)
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated")
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    try {
+        let allRepos: any[] = [];
+        let currentUrl: string | null = "https://api.github.com/user/repos?type=all&sort=pushed&per_page=50";
+
+        while (currentUrl) {
+            const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+            allRepos = allRepos.concat(data);
+            currentUrl = nextUrl; // This loop will fetch all repos, but we can limit the processing
+        }
+        
+        // We only want to check repos pushed to in the last 7 days.
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentRepos = allRepos.filter(repo => new Date(repo.pushed_at) > sevenDaysAgo);
+
+        const allBuildPromises = recentRepos.map(repo => getRecentBuilds(repo.full_name, accessToken));
+        const allBuildsNested = await Promise.all(allBuildPromises);
+        const allBuilds = allBuildsNested.flat();
+
+        // Sort by timestamp descending and take the top 20
+        allBuilds.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        
+        return allBuilds.slice(0, 20);
+
+    } catch (error) {
+        console.error("Error fetching all recent builds:", error);
+        if (error instanceof Error && error.message.includes('GitHub API rate limit exceeded')) {
+            throw error;
+        }
+        throw new Error("Could not fetch recent builds from GitHub.");
+    }
+}
+
 
 export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
     const session = await getServerSession(authOptions)

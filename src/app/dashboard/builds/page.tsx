@@ -16,21 +16,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban, Calendar } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban, Calendar, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { format, formatDistanceToNow } from 'date-fns'
-import { useAppStore } from "@/lib/store"
+import { useAppStore, type Build } from "@/lib/store"
 import React from "react"
 import { useRouter } from "next/navigation"
-
-const singleBuilds = [
-  { id: 1, repo: 'gitpilot-ui', branch: 'main', commit: 'a1b2c3d', status: 'Success', duration: '5m 32s', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-  { id: 2, repo: 'firebase-functions-sdk', branch: 'main', commit: 'e4f5g6h', status: 'Running', duration: '2m 15s', timestamp: new Date(Date.now() - 10 * 60 * 1000) },
-  { id: 3, repo: 'project-phoenix', branch: 'main', commit: 'i7j8k9l', status: 'Failed', duration: '1m 45s', timestamp: new Date(Date.now() - 30 * 60 * 1000) },
-  { id: 4, repo: 'react-fire-hooks', branch: 'main', commit: 'm0n1o2p', status: 'Success', duration: '8m 02s', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
-]
+import { getAllRecentBuilds } from "../repositories/actions"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
@@ -54,12 +50,33 @@ const formatTimestamp = (date: Date) => {
 
 export default function BuildsPage() {
   const { setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
+  const [singleBuilds, setSingleBuilds] = React.useState<Build[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const router = useRouter();
 
   React.useEffect(() => {
     // Clear search when navigating to this page
     setSearchQuery('');
-  }, [setSearchQuery]);
+
+    async function fetchBuilds() {
+        try {
+            setLoading(true);
+            const builds = await getAllRecentBuilds();
+            setSingleBuilds(builds);
+        } catch (err: any) {
+            setError(err.message || "Failed to fetch recent builds.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (!bulkBuild) {
+        fetchBuilds();
+    } else {
+        setLoading(false);
+    }
+  }, [setSearchQuery, bulkBuild]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -195,20 +212,50 @@ export default function BuildsPage() {
             </CardFooter>
           </Card>
         )}
-        {singleBuilds.map((build) => {
+        {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                    <CardFooter>
+                        <Skeleton className="h-8 w-24" />
+                    </CardFooter>
+                </Card>
+            ))
+        ) : error ? (
+            <div className="col-span-full">
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error Fetching Builds</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            </div>
+        ) : singleBuilds.length === 0 && !bulkBuild ? (
+             <div className="col-span-full text-center py-12 text-muted-foreground">
+                <p>No recent builds found in the last 7 days.</p>
+             </div>
+        ) : (
+        singleBuilds.map((build) => {
           const SvgIcon = statusInfo[build.status as keyof typeof statusInfo]?.icon
           const color = statusInfo[build.status as keyof typeof statusInfo]?.color
-          const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation
+          const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation || ""
           if (!SvgIcon) return null;
           const isFailed = build.status === 'Failed';
-          const isRunning = build.status === 'Running';
+          const isRunning = build.status === 'In Progress';
 
 
           return (
             <Card key={build.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{build.repo}</CardTitle>
+                  <CardTitle className="text-lg">{build.repo || 'Unknown Repo'}</CardTitle>
                   <div className="flex items-center gap-2">
                     <SvgIcon className={`size-6 ${color} ${animation}`} />
                      {(isFailed || isRunning) && (
@@ -254,7 +301,7 @@ export default function BuildsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="size-4 text-muted-foreground" />
-                  <span>Duration: {build.duration}</span>
+                  <span>Duration: {build.duration || 'N/A'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="size-4 text-muted-foreground" />
@@ -266,7 +313,7 @@ export default function BuildsPage() {
               </CardFooter>
             </Card>
           )
-        })}
+        }))}
       </div>
     </>
   )
