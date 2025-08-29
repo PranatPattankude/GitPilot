@@ -353,20 +353,18 @@ export default function RepositoriesPage() {
                           onClick={() => setViewingBuildsRepo(repo)}
                           disabled={recentBuilds.length === 0}
                         >
-                           {recentBuilds.length === 0 ? <span className="text-muted-foreground">No recent builds</span> : <>
-                              <div className="flex items-center gap-1 text-primary">
-                                <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
-                                <span>{buildsInProgress}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-accent">
-                                <CheckCircle2 className="size-3" />
-                                <span>{buildsSucceeded}</span>
-                              </div>
-                               <div className="flex items-center gap-1 text-destructive">
-                                <XCircle className="size-3" />
-                                <span>{buildsFailed}</span>
-                              </div>
-                           </>}
+                          <div className="flex items-center gap-1 text-primary">
+                            <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
+                            <span>{buildsInProgress}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-accent">
+                            <CheckCircle2 className="size-3" />
+                            <span>{buildsSucceeded}</span>
+                          </div>
+                            <div className="flex items-center gap-1 text-destructive">
+                            <XCircle className="size-3" />
+                            <span>{buildsFailed}</span>
+                          </div>
                         </Button>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
