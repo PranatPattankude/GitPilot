@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null, status: number, rawResponse: Response }> {
+async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T | any, nextUrl: string | null, status: number }> {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -19,8 +19,8 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
   });
 
   const responseStatus = response.status;
-  const responseForClone = response.clone();
-
+  
+  // For non-OK responses, we want to parse the JSON error body
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     console.error(`GitHub API Error for ${url}:`, {
@@ -30,25 +30,26 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     
     // For createPullRequest, we want to handle the 422 in the calling function
     if (response.status === 422) {
-       return { data: errorData, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
+       return { data: errorData, nextUrl: null, status: responseStatus };
+    }
+    
+    // For compareBranches, we need to handle 404 differently
+    if (response.status === 404 && url.includes('/compare/')) {
+        return { data: errorData, nextUrl: null, status: responseStatus };
     }
 
-    if (response.status === 404 && options.method !== 'POST') {
-        return { data: [] as T, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
-    }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
     
     if (response.status === 403 && errorMessage.includes('rate limit')) {
         throw new Error("GitHub API rate limit exceeded. Please try again later.");
     }
     
-
     throw new Error(errorMessage);
   }
 
   // Handle empty response body for certain status codes like 204
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-    return { data: null as T, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
+    return { data: null as T, nextUrl: null, status: responseStatus };
   }
   
   const linkHeader = response.headers.get("Link");
@@ -63,7 +64,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
   }
 
   const data = await response.json();
-  return { data, nextUrl, status: responseStatus, rawResponse: responseForClone };
+  return { data, nextUrl, status: responseStatus };
 }
 
 
@@ -339,11 +340,11 @@ export async function compareBranches(
 
   try {
     const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
-    const { data, status, rawResponse } = await fetchFromGitHub<any>(compareUrl, accessToken);
+    const { data, status } = await fetchFromGitHub<any>(compareUrl, accessToken);
     
     if (status === 404) {
-      const errorText = await rawResponse.text();
-      if (errorText.includes("No common ancestor")) {
+      const errorMessage = data?.message || "One of the branches was not found.";
+      if (errorMessage.includes("No common ancestor")) {
         return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
       }
       return { status: "has-conflicts", error: "One of the branches was not found. It may not exist in this repository." };

@@ -144,7 +144,7 @@ export default function RepositoriesPage() {
       toast({
         title: "Pull Request Merged",
         description: (
-          <a href={prResult.data.html_url.replace('/pull/', '/pulls/')} target="_blank" rel="noopener noreferrer" className="underline">
+          <a href={prResult.data.html_url} target="_blank" rel="noopener noreferrer" className="underline">
             Successfully merged PR #{prResult.data.number} for {repoFullName}. Click to view.
           </a>
         ),

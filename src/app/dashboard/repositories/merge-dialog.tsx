@@ -140,7 +140,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           {comparisonStatus === "can-merge" && (
             <div className="p-3 rounded-md bg-accent/20 text-accent-foreground border border-accent/50 flex items-center gap-2 text-sm">
                 <CheckCircle className="size-4 text-accent" />
-                <p>Branches can be merged cleanly.</p>
+                <p>Branches can be merged.</p>
             </div>
           )}
 
