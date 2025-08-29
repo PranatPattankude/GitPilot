@@ -1,3 +1,4 @@
+
 "use client"
 
 import { create } from 'zustand'
@@ -32,6 +33,8 @@ type AppState = {
   removeRepo: (repoId: string) => void
   setRepos: (repos: Repository[]) => void
   clearRepos: () => void
+  isLoading: boolean;
+  setIsLoading: (isLoading: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -42,4 +45,6 @@ export const useAppStore = create<AppState>((set) => ({
   removeRepo: (repoId) => set((state) => ({ selectedRepos: state.selectedRepos.filter((r) => r.id !== repoId) })),
   setRepos: (repos) => set({ selectedRepos: repos }),
   clearRepos: () => set({ selectedRepos: [] }),
+  isLoading: false,
+  setIsLoading: (isLoading) => set({ isLoading }),
 }))

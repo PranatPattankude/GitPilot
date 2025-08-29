@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   Bell,
   GitMerge,
@@ -33,6 +33,7 @@ import { GithubIcon } from "@/components/icons"
 import { ThemeToggle } from "./theme-toggle"
 import { Input } from "@/components/ui/input"
 import { useAppStore } from "@/lib/store"
+import { PageLoader } from "@/components/ui/page-loader"
 
 const sidebarItems = [
   {
@@ -83,6 +84,41 @@ function SidebarNav() {
   )
 }
 
+function usePageLoading() {
+  const { setIsLoading } = useAppStore();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  React.useEffect(() => {
+    setIsLoading(false);
+  }, [pathname, searchParams, setIsLoading]);
+
+  React.useEffect(() => {
+    // This is a bit of a hack to capture link clicks and show the loader.
+    // The proper way would be to use Next.js's router events, but that
+    // requires a bit more setup. This works for this specific layout.
+    const handleLinkClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const link = target.closest('a');
+
+      // Check if it's a link and not an external one or a special link
+      if (link && link.href && link.target !== '_blank' && !event.ctrlKey && !event.metaKey) {
+        const currentUrl = new URL(window.location.href);
+        const nextUrl = new URL(link.href);
+        if (nextUrl.origin === currentUrl.origin && nextUrl.pathname !== currentUrl.pathname) {
+          setIsLoading(true);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleLinkClick);
+    return () => {
+      document.removeEventListener('click', handleLinkClick);
+    };
+  }, [setIsLoading]);
+}
+
+
 export default function DashboardLayout({
   children,
 }: {
@@ -94,8 +130,9 @@ export default function DashboardLayout({
     photoURL: process.env.NEXT_PUBLIC_USER_PHOTO_URL || "https://i.pravatar.cc/150?u=a042581f4e29026704d"
   };
 
-  const { searchQuery, setSearchQuery } = useAppStore();
+  const { searchQuery, setSearchQuery, isLoading } = useAppStore();
   const pathname = usePathname();
+  usePageLoading();
 
   const searchPlaceholder =
     sidebarItems.find((item) => pathname.startsWith(item.href))
@@ -165,7 +202,8 @@ export default function DashboardLayout({
             </Link>
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 relative">
+          {isLoading && <PageLoader />}
           {children}
         </main>
       </SidebarInset>
