@@ -1,6 +1,5 @@
 
 
-
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -222,7 +221,10 @@ export async function getAllRecentBuilds(): Promise<Build[]> {
 
         const allBuildPromises = recentRepos.map(repo => getRecentBuilds(repo.full_name, accessToken));
         const allBuildsNested = await Promise.all(allBuildPromises);
-        const allBuilds = allBuildsNested.flat();
+        let allBuilds = allBuildsNested.flat();
+
+        // Filter builds to be within the last 7 days as well
+        allBuilds = allBuilds.filter(build => build.timestamp > sevenDaysAgo);
 
         // Sort by timestamp descending
         allBuilds.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -501,7 +503,7 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
 
     try {
         let allRepos: any[] = [];
-        let currentUrl: string | null = "https://api.github.com/user/repos?type=owner&per_page=100";
+        let currentUrl: string | null = "https://api.github.com/user/repos?type=all&per_page=100";
 
         // 1. Get all repositories for the user
         while (currentUrl) {
