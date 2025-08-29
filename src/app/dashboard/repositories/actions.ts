@@ -76,6 +76,9 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                 }
                 
                 return {
+                    id: run.id.toString(),
+                    branch: run.head_branch,
+                    commit: run.head_sha.substring(0, 7),
                     status,
                     timestamp: new Date(run.created_at),
                 };
@@ -127,7 +130,8 @@ export async function getRepositories(): Promise<Repository[]> {
                 updated_at: repo.updated_at,
                 tags: [],
                 recentBuilds, 
-                branches: [], 
+                branches: [],
+                fullName: repo.full_name,
             };
         })
     );
@@ -141,4 +145,50 @@ export async function getRepositories(): Promise<Repository[]> {
     }
     throw new Error("Could not fetch repositories from GitHub.");
   }
+}
+
+export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
+    const session = await getServerSession(authOptions)
+
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated")
+    }
+
+    const accessToken = (session as any).accessToken as string;
+
+    try {
+        const url = `https://api.github.com/repos/${repoFullName}/actions/runs?per_page=20`;
+        const { data: runsData } = await fetchFromGitHub<{ workflow_runs: any[] }>(url, accessToken);
+
+        if (!runsData || !runsData.workflow_runs) {
+            return [];
+        }
+        
+        return runsData.workflow_runs.map((run: any): Build => {
+            let status: Build['status'];
+            if (run.status === 'in_progress' || run.status === 'queued') {
+                status = 'In Progress';
+            } else if (run.status === 'completed') {
+                if (run.conclusion === 'success') {
+                    status = 'Success';
+                } else {
+                    status = 'Failed';
+                }
+            } else {
+                status = 'Failed';
+            }
+            
+            return {
+                id: run.id.toString(),
+                branch: run.head_branch,
+                commit: run.head_sha.substring(0, 7),
+                status,
+                timestamp: new Date(run.created_at),
+                error: run.conclusion === 'failure' ? 'Build failed' : null, // Simplification
+            };
+        });
+    } catch (error) {
+        console.error(`Failed to fetch builds for ${repoFullName}:`, error);
+        throw new Error(`Could not fetch builds for ${repoFullName}.`);
+    }
 }

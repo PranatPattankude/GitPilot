@@ -4,8 +4,12 @@
 import { create } from 'zustand'
 
 export type Build = {
+  id: string;
   status: 'In Progress' | 'Success' | 'Failed';
   timestamp: Date;
+  branch: string;
+  commit: string;
+  error?: string | null;
 }
 
 export type Repository = {
@@ -26,6 +30,7 @@ export type Repository = {
   tags: string[]
   recentBuilds: Build[]
   branches: string[]
+  fullName: string
 }
 
 type AppState = {
