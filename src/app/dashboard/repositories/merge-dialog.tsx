@@ -29,11 +29,9 @@ interface MergeDialogProps {
   onMerge: (repoId: string, sourceBranch: string, targetBranch: string) => void
 }
 
-const availableBranches = (process.env.NEXT_PUBLIC_AVAILABLE_BRANCHES || "main,develop").split(',');
-
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
-  const [targetBranch, setTargetBranch] = useState("main")
+  const [targetBranch, setTargetBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
   const { toast } = useToast()
 
   const handleMerge = () => {
@@ -76,7 +74,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                 <SelectValue placeholder="Select a branch" />
               </SelectTrigger>
               <SelectContent>
-                {(repo.branches || availableBranches).map((branch) => (
+                {(repo.branches || []).map((branch) => (
                   <SelectItem key={branch} value={branch} disabled={branch === targetBranch}>
                     {branch}
                   </SelectItem>
@@ -91,7 +89,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                 <SelectValue placeholder="Select a branch" />
               </SelectTrigger>
               <SelectContent>
-                {(repo.branches || availableBranches).map((branch) => (
+                {(repo.branches || []).map((branch) => (
                   <SelectItem key={branch} value={branch} disabled={branch === sourceBranch}>
                     {branch}
                   </SelectItem>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -29,7 +30,7 @@ interface RebuildDialogProps {
 }
 
 export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogProps) {
-  const [selectedBranch, setSelectedBranch] = useState("main")
+  const [selectedBranch, setSelectedBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
   const { toast } = useToast()
 
   const handleRebuildClick = () => {

@@ -24,6 +24,7 @@ import {
     SelectValue,
   } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { useMemo } from "react"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
@@ -31,15 +32,21 @@ interface BulkMergeDialogProps {
 
 const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
 
-const availableBranches = (process.env.NEXT_PUBLIC_AVAILABLE_BRANCHES || "main,develop").split(',');
-
-
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   const { selectedRepos } = useAppStore()
-  const [sourceBranch, setSourceBranch] = useState("feature/new-auth")
+  const [sourceBranch, setSourceBranch] = useState("develop")
   const [targetBranch, setTargetBranch] = useState("main")
   const [isComparing, setIsComparing] = useState(false)
   const [comparisonDone, setComparisonDone] = useState(false)
+
+  const availableBranches = useMemo(() => {
+    const allBranches = new Set<string>();
+    selectedRepos.forEach(repo => {
+        (repo.branches || []).forEach(branch => allBranches.add(branch));
+    });
+    return Array.from(allBranches).sort();
+  }, [selectedRepos]);
+
 
   const handleCompare = () => {
     setIsComparing(true)
@@ -56,6 +63,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     if (!hasSource && !hasTarget) return `Source & Target branch not found`;
     if (!hasSource) return `Source branch not found`;
     if (!hasTarget) return `Target branch not found`;
+    if (sourceBranch === targetBranch) return `Source and Target branches are the same`;
     return null;
   }
 
@@ -135,7 +143,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                             </Select>
                         </div>
                     </div>
-                    <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch}>
+                    <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
                         {isComparing ? "Comparing..." : "Compare Branches"}
                     </Button>
                     </CardContent>
@@ -159,7 +167,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                 <div className="flex items-center justify-between">
                                     <div>
                                     <h4 className="font-semibold">{repo.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{repo.owner}</p>
+                                    <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
                                     </div>
                                     <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
                                         <XCircle className="size-4" />
@@ -178,7 +186,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                             <div className="flex items-center justify-between">
                                 <div>
                                 <h4 className="font-semibold">{repo.name}</h4>
-                                <p className="text-sm text-muted-foreground">{repo.owner}</p>
+                                <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
                                 </div>
                                <Badge variant="secondary" className="bg-accent/20 text-accent-foreground border-accent/50">Can be merged cleanly</Badge>
                             </div>
@@ -190,7 +198,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                 <div className="flex items-center justify-between">
                                     <div>
                                     <h4 className="font-semibold">{repo.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{repo.owner}</p>
+                                    <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
                                     </div>
                                     <Badge variant="destructive" className="flex items-center gap-2">
                                         <AlertTriangle className="size-4" />

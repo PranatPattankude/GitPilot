@@ -93,6 +93,25 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
     }
 }
 
+async function getBranchesForRepo(repoFullName: string, accessToken: string): Promise<string[]> {
+    try {
+        let allBranches: any[] = [];
+        let currentUrl: string | null = `https://api.github.com/repos/${repoFullName}/branches?per_page=100`;
+
+        while (currentUrl) {
+            const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+            allBranches = allBranches.concat(data);
+            currentUrl = nextUrl;
+        }
+        
+        return allBranches.map(branch => branch.name);
+    } catch (error) {
+        console.error(`Failed to fetch branches for ${repoFullName}:`, error);
+        // Return a default list if fetching fails, e.g., for empty repos
+        return ['main']; 
+    }
+}
+
 
 export async function getRepositories(): Promise<Repository[]> {
   const session = await getServerSession(authOptions)
@@ -114,7 +133,10 @@ export async function getRepositories(): Promise<Repository[]> {
 
     const reposWithDetails = await Promise.all(
         allRepos.map(async (repo) => {
-            const recentBuilds = await getRecentBuilds(repo.full_name, accessToken);
+            const [recentBuilds, branches] = await Promise.all([
+                getRecentBuilds(repo.full_name, accessToken),
+                getBranchesForRepo(repo.full_name, accessToken)
+            ]);
 
             return {
                 id: repo.id.toString(),
@@ -133,7 +155,7 @@ export async function getRepositories(): Promise<Repository[]> {
                 updated_at: repo.updated_at,
                 tags: [],
                 recentBuilds, 
-                branches: [],
+                branches,
                 fullName: repo.full_name,
             };
         })
