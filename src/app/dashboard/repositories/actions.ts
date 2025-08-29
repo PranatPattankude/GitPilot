@@ -300,18 +300,6 @@ export async function compareBranches(
   const accessToken = (session as any).accessToken as string;
 
   try {
-    // First, try to get the pull request to check mergeability
-    // This is the most reliable way to check for conflicts
-    const prUrl = `https://api.github.com/repos/${repoFullName}/pulls`;
-    const prCheckPayload = {
-      title: `[TEMP] Compare ${sourceBranch} and ${targetBranch}`,
-      head: sourceBranch,
-      base: targetBranch,
-      draft: true, // Create a draft PR to avoid spamming notifications
-    };
-
-    // We don't actually create a PR, we're just checking
-    // A better approach is to use the compare endpoint
     const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
     const { data, status } = await fetchFromGitHub<any>(compareUrl, accessToken);
 
@@ -319,14 +307,11 @@ export async function compareBranches(
       if (data.status === 'identical') {
         return { status: "no-changes" };
       }
-      if (data.status === 'diverged' || data.status === 'ahead') {
-        // Now check if a PR would be mergeable. For simplicity, we assume it is.
-        // A full implementation would create a draft PR and check its `mergeable` state.
-        return { status: "can-merge" };
-      }
+      // Optimistically assume it can be merged. The merge API call will be the source of truth.
+      return { status: "can-merge" };
     }
 
-    // A 404 can mean branches don't exist, which we treat as a conflict for simplicity
+    // A 404 can mean branches don't exist, which we treat as a conflict.
     if (status === 404) {
       return { status: "conflicts", error: "One or both branches not found." };
     }
