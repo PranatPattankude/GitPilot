@@ -1,7 +1,8 @@
+
 "use server"
 
 import { getServerSession } from "next-auth/next"
-import { type Repository, type Build, type PullRequest } from "@/lib/store"
+import { type Repository, type Build, type PullRequest, type ChangedFile } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 async function fetchFromGitHub<T>(
@@ -501,6 +502,13 @@ async function getPullRequestsForRepo(repoFullName: string, accessToken: string)
     return allPRs;
 }
 
+async function getPullRequestFiles(repoFullName: string, prNumber: number, accessToken: string): Promise<ChangedFile[]> {
+    const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}/files`;
+    const { data } = await fetchFromGitHub<any[]>(url, accessToken);
+    return data || [];
+}
+
+
 export async function getConflictingPullRequests(): Promise<PullRequest[]> {
     const session = await getServerSession(authOptions);
     if (!session || !(session as any).accessToken) {
@@ -535,20 +543,38 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
         const detailedPRsResults = await Promise.all(detailedPRsPromises);
         
         // 4. Filter for PRs with conflicts
-        const conflictingPRs = detailedPRsResults
+        const conflictingPRsData = detailedPRsResults
             .map(res => res.data)
-            .filter(pr => pr && pr.mergeable_state === 'dirty'); // 'dirty' means there are conflicts
+            .filter(pr => pr && pr.mergeable_state === 'dirty');
 
-        return conflictingPRs.map((pr: any): PullRequest => ({
-            id: pr.id,
-            number: pr.number,
-            title: pr.title,
-            url: pr.html_url,
-            repoFullName: pr.head.repo.full_name,
-            sourceBranch: pr.head.ref,
-            targetBranch: pr.base.ref,
-            mergeable_state: pr.mergeable_state,
-        }));
+        // 5. For conflicting PRs, fetch the list of changed files
+         const conflictingPRsWithFiles = await Promise.all(
+            conflictingPRsData.map(async (pr): Promise<PullRequest> => {
+                const files = await getPullRequestFiles(pr.head.repo.full_name, pr.number, accessToken);
+                const changedFiles = files.map((f: any) => ({
+                    sha: f.sha,
+                    filename: f.filename,
+                    status: f.status,
+                    additions: f.additions,
+                    deletions: f.deletions,
+                    changes: f.changes,
+                }));
+
+                return {
+                    id: pr.id,
+                    number: pr.number,
+                    title: pr.title,
+                    url: pr.html_url,
+                    repoFullName: pr.head.repo.full_name,
+                    sourceBranch: pr.head.ref,
+                    targetBranch: pr.base.ref,
+                    mergeable_state: pr.mergeable_state,
+                    conflictingFiles: changedFiles,
+                };
+            })
+        );
+        
+        return conflictingPRsWithFiles;
 
     } catch (error: any) {
         console.error("Error fetching conflicting pull requests:", error);
@@ -557,6 +583,33 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
         }
         throw new Error("Could not fetch conflicting pull requests from GitHub.");
     }
+}
+
+
+export async function getPullRequest(repoFullName: string, prNumber: number): Promise<PullRequest | null> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`;
+    const { data: pr } = await fetchFromGitHub<any>(url, accessToken);
+
+    if (!pr) {
+        return null;
+    }
+
+    return {
+        id: pr.id,
+        number: pr.number,
+        title: pr.title,
+        url: pr.html_url,
+        repoFullName: pr.head.repo.full_name,
+        sourceBranch: pr.head.ref,
+        targetBranch: pr.base.ref,
+        mergeable_state: pr.mergeable_state,
+    };
 }
 
 

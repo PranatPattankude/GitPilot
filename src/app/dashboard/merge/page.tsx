@@ -1,16 +1,39 @@
 
 "use client"
 
-import { useAppStore, type Repository, type PullRequest } from "@/lib/store";
-import { AlertTriangle, GitBranch, GitPullRequest, ChevronsRight } from "lucide-react"
+import { useAppStore, type PullRequest, type ChangedFile } from "@/lib/store";
+import { AlertTriangle, GitPullRequest, ChevronsRight, FileWarning, GitBranch } from "lucide-react"
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import ConflictResolver from "./conflict-resolver";
 import { getConflictingPullRequests } from "../repositories/actions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Separator } from "@/components/ui/separator";
+
+function ConflictFile({ file }: { file: ChangedFile }) {
+    let statusColor = "text-muted-foreground";
+    if (file.status === 'modified') statusColor = "text-yellow-500";
+    if (file.status === 'added') statusColor = "text-green-500";
+    if (file.status === 'removed') statusColor = "text-red-500";
+
+    return (
+        <div className="flex items-center justify-between text-sm py-1.5 px-2 rounded-md hover:bg-muted/50">
+            <span className="font-mono text-xs">{file.filename}</span>
+            <div className="flex items-center gap-4 text-xs">
+                 <div className="flex items-center gap-1.5">
+                    <span className="text-green-500">+{file.additions}</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                    <span className="text-red-500">-{file.deletions}</span>
+                 </div>
+                 <span className={`capitalize font-medium ${statusColor}`}>{file.status}</span>
+            </div>
+        </div>
+    )
+}
 
 export default function MergePage() {
     const { setSearchQuery, searchQuery } = useAppStore();
@@ -62,11 +85,11 @@ export default function MergePage() {
                             <Skeleton className="h-4 w-1/3" />
                         </CardHeader>
                         <CardContent>
-                             <p className="mb-4 text-sm text-muted-foreground">
-                                <Skeleton className="h-4 w-3/4 mb-2" />
-                                <Skeleton className="h-4 w-full" />
-                            </p>
-                            <Skeleton className="h-64 w-full" />
+                             <div className="space-y-2">
+                                <Skeleton className="h-5 w-full" />
+                                <Skeleton className="h-5 w-full" />
+                                <Skeleton className="h-5 w-4/5" />
+                             </div>
                         </CardContent>
                    </Card>
               ))}
@@ -112,19 +135,24 @@ export default function MergePage() {
                                     <Badge variant="secondary">{pr.targetBranch}</Badge>
                                 </div>
                             </div>
-                            <Button asChild variant="outline" size="sm">
-                               <a href={pr.url} target="_blank" rel="noopener noreferrer">View on GitHub</a>
+                             <Button asChild variant="default" size="sm">
+                               <Link href={`/dashboard/merge/${pr.repoFullName}/${pr.number}`}>Resolve Conflict</Link>
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <p className="mb-4 text-sm text-muted-foreground">
-                            The diff below is loaded from the pull request. Manually resolve the conflicts into the "Your Resolution" box. 
-                            <br />
-                            Optionally, provide the rest of the file content in "Unseen Lines" to have the AI apply your fix to other parts of the file.
-                        </p>
-                        <ConflictResolver repoFullName={pr.repoFullName} prNumber={pr.number}/>
-                    </CardContent>
+                     {pr.conflictingFiles && pr.conflictingFiles.length > 0 && (
+                        <CardContent>
+                            <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                                <FileWarning className="size-4 text-destructive" />
+                                Conflicting Files ({pr.conflictingFiles.length})
+                            </h4>
+                            <div className="border rounded-md p-2 space-y-1">
+                                {pr.conflictingFiles.map((file) => (
+                                    <ConflictFile key={file.sha} file={file} />
+                                ))}
+                            </div>
+                        </CardContent>
+                     )}
                 </Card>
             ))}
         </div>

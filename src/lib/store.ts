@@ -36,6 +36,16 @@ export type Repository = {
   fullName: string
 }
 
+export type ChangedFile = {
+    sha: string;
+    filename: string;
+    status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed' | 'unchanged';
+    additions: number;
+    deletions: number;
+    changes: number;
+};
+
+
 export type PullRequest = {
     id: number;
     number: number;
@@ -45,6 +55,7 @@ export type PullRequest = {
     sourceBranch: string;
     targetBranch: string;
     mergeable_state: string;
+    conflictingFiles?: ChangedFile[];
 }
 
 export type BulkBuild = {
