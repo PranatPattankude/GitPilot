@@ -27,6 +27,11 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         message: errorData?.message,
     });
     
+    // For createPullRequest, we want to handle the 422 in the calling function
+    if (response.status === 422) {
+       return { data: errorData, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
+    }
+
     if (response.status === 404 && options.method !== 'POST') {
         return { data: [] as T, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
     }
@@ -36,10 +41,6 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         throw new Error("GitHub API rate limit exceeded. Please try again later.");
     }
     
-    // For createPullRequest, we want to handle the 422 in the calling function
-    if (response.status === 422) {
-       return { data: errorData, nextUrl: null, status: responseStatus, rawResponse: responseForClone };
-    }
 
     throw new Error(errorMessage);
   }
@@ -333,7 +334,15 @@ export async function compareBranches(
 
   try {
     const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
-    const { data } = await fetchFromGitHub<any>(compareUrl, accessToken);
+    const { data, status, rawResponse } = await fetchFromGitHub<any>(compareUrl, accessToken);
+    
+    if (status === 404) {
+      const errorText = await rawResponse.text();
+      if (errorText.includes("No common ancestor")) {
+        return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
+      }
+      return { status: "has-conflicts", error: "One of the branches was not found. It may not exist in this repository." };
+    }
     
     if (data.status === 'identical') {
       return { status: "no-changes" };
