@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select"
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
-import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle } from "lucide-react"
+import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info } from "lucide-react"
 
 interface MergeDialogProps {
   repo: Repository
@@ -29,7 +29,7 @@ interface MergeDialogProps {
   onMerge: (repoId: string, sourceBranch: string, targetBranch: string) => void
 }
 
-type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts"
+type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes"
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
@@ -65,12 +65,28 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     // Simulate API call
     setTimeout(() => {
       // In a real app, you'd check for conflicts here.
-      // We'll simulate a clean merge for now.
-      setComparisonStatus("can-merge")
-      toast({
-        title: "Branches Can Be Merged",
-        description: "No conflicts were found between the selected branches.",
-      })
+      // We'll simulate different outcomes randomly.
+      const outcome = Math.random();
+      if (outcome < 0.15) {
+        setComparisonStatus("no-changes");
+        toast({
+            title: "No Changes",
+            description: "The source and target branches are identical.",
+        });
+      } else if (outcome < 0.3) {
+        setComparisonStatus("has-conflicts");
+        toast({
+            variant: "destructive",
+            title: "Merge Conflicts Detected",
+            description: "Please resolve conflicts manually before merging.",
+        });
+      } else {
+        setComparisonStatus("can-merge");
+        toast({
+            title: "Branches Can Be Merged",
+            description: "No conflicts were found between the selected branches.",
+        });
+      }
     }, 1500)
   }
 
@@ -141,6 +157,13 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
              <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
                 <AlertTriangle className="size-4" />
                 <p>Merge conflicts detected. Please resolve them manually.</p>
+            </div>
+          )}
+
+          {comparisonStatus === "no-changes" && (
+            <div className="p-3 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 flex items-center gap-2 text-sm">
+                <Info className="size-4" />
+                <p>No changes detected between the selected branches.</p>
             </div>
           )}
 
