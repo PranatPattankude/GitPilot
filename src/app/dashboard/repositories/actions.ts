@@ -624,9 +624,9 @@ export async function getPullRequestDiff(repoFullName: string, prNumber: number)
     
     const { data } = await fetchFromGitHub<string>(url, accessToken, {
         headers: {
-            Accept: 'application/vnd.github.v3.diff'
+            Accept: 'application/vnd.github.v3+json'
         }
-    }, true);
+    });
 
-    return data;
+    return data.diff_url;
 }

@@ -86,9 +86,8 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                         </CardHeader>
                          <CardContent>
                             <p className="mb-4 text-sm text-muted-foreground">
-                                The diff below is loaded from the pull request. Manually resolve the conflicts into the "Your Resolution" box. 
-                                <br />
-                                Optionally, provide the rest of the file content in "Unseen Lines" to have the AI apply your fix to other parts of the file.
+                                The GitHub API does not provide a file with conflict markers. To resolve, copy the conflicting code section (including markers like `&lt;&lt;&lt;&lt;&lt;&lt;&lt;` and `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`) into the "File Diff" box.
+                                Then, provide your final, resolved code in the "Your Resolution" box.
                             </p>
                             <ConflictResolver repoFullName={repoFullName} prNumber={prNumber}/>
                         </CardContent>
