@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation"
 import { getAllRecentBuilds } from "../repositories/actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { BuildLogsDialog } from "./build-logs-dialog"
 
 const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
@@ -48,11 +49,14 @@ const formatTimestamp = (date: Date) => {
     return format(date, 'MMM d, yyyy');
 }
 
+type BuildWithRepo = Build & { repo: string };
+
 export default function BuildsPage() {
   const { setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
-  const [singleBuilds, setSingleBuilds] = React.useState<Build[]>([]);
+  const [singleBuilds, setSingleBuilds] = React.useState<BuildWithRepo[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [viewingLogsBuild, setViewingLogsBuild] = React.useState<BuildWithRepo | null>(null);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -63,7 +67,7 @@ export default function BuildsPage() {
         try {
             setLoading(true);
             const builds = await getAllRecentBuilds();
-            setSingleBuilds(builds);
+            setSingleBuilds(builds as BuildWithRepo[]);
         } catch (err: any) {
             setError(err.message || "Failed to fetch recent builds.");
         } finally {
@@ -205,7 +209,7 @@ export default function BuildsPage() {
               </ScrollArea>
             </CardContent>
             <CardFooter className="gap-2">
-              <Button variant="outline" size="sm">View Bulk Log</Button>
+              <Button variant="outline" size="sm" onClick={() => setViewingLogsBuild(bulkBuild as any)}>View Bulk Log</Button>
                {bulkBuild.status !== "In Progress" && (
                  <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard/repositories")}>Back to Repositories</Button>
                )}
@@ -309,12 +313,18 @@ export default function BuildsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                 <Button variant="outline" size="sm">View Logs</Button>
+                 <Button variant="outline" size="sm" onClick={() => setViewingLogsBuild(build)}>View Logs</Button>
               </CardFooter>
             </Card>
           )
         }))}
       </div>
+       {viewingLogsBuild && (
+        <BuildLogsDialog
+          build={viewingLogsBuild}
+          onOpenChange={(open) => !open && setViewingLogsBuild(null)}
+        />
+      )}
     </>
   )
 }

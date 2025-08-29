@@ -6,7 +6,12 @@ import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T | any, nextUrl: string | null, status: number }> {
+async function fetchFromGitHub<T>(
+  url: string, 
+  accessToken: string, 
+  options: RequestInit = {},
+  returnText: boolean = false
+): Promise<{ data: T | any, nextUrl: string | null, status: number }> {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -20,7 +25,6 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
 
   const responseStatus = response.status;
   
-  // For non-OK responses, we want to parse the JSON error body
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     console.error(`GitHub API Error for ${url}:`, {
@@ -28,14 +32,9 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         message: errorData?.message,
     });
     
-    // For createPullRequest, we want to handle the 422 in the calling function
-    if (response.status === 422) {
+    // For specific cases, we want to handle the error in the calling function
+    if ([422, 404].includes(response.status) && (url.includes('/pulls') || url.includes('/compare/'))) {
        return { data: errorData, nextUrl: null, status: responseStatus };
-    }
-    
-    // For compareBranches, we need to handle 404 differently
-    if (response.status === 404 && url.includes('/compare/')) {
-        return { data: errorData, nextUrl: null, status: responseStatus };
     }
 
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
@@ -47,7 +46,6 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     throw new Error(errorMessage);
   }
 
-  // Handle empty response body for certain status codes like 204
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
     return { data: null as T, nextUrl: null, status: responseStatus };
   }
@@ -61,6 +59,11 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     if (nextLink) {
       nextUrl = nextLink.substring(nextLink.indexOf('<') + 1, nextLink.indexOf('>'));
     }
+  }
+  
+  if (returnText) {
+    const textData = await response.text();
+    return { data: textData, nextUrl, status: responseStatus };
   }
 
   const data = await response.json();
@@ -421,5 +424,55 @@ export async function compareBranches(
       return { status: "has-conflicts", error: "One of the branches was not found. It may not exist in this repository." };
     }
     return { status: "has-conflicts", error: `Failed to compare branches: ${error.message}` };
+  }
+}
+
+export async function getBuildLogs(
+  repoFullName: string,
+  runId: string
+): Promise<{ [jobName: string]: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    throw new Error("Not authenticated");
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  try {
+    // 1. Get the jobs for the workflow run
+    const jobsUrl = `https://api.github.com/repos/${repoFullName}/actions/runs/${runId}/jobs`;
+    const { data: jobsData, status: jobsStatus } = await fetchFromGitHub<{ jobs: any[] }>(jobsUrl, accessToken);
+    
+    if (jobsStatus !== 200 || !jobsData.jobs) {
+      throw new Error(`Failed to fetch jobs for run ${runId}. Status: ${jobsStatus}`);
+    }
+
+    if (jobsData.jobs.length === 0) {
+        return { "info": "No jobs found for this build run." };
+    }
+
+    // 2. Fetch logs for each job
+    const logPromises = jobsData.jobs.map(async (job) => {
+      const logsUrl = `https://api.github.com/repos/${repoFullName}/actions/jobs/${job.id}/logs`;
+      const { data: logText, status: logStatus } = await fetchFromGitHub<string>(logsUrl, accessToken, {}, true);
+
+      if (logStatus !== 200) {
+        console.warn(`Could not fetch logs for job "${job.name}" (ID: ${job.id}). Status: ${logStatus}`);
+        return { name: job.name, logs: `Could not retrieve logs for this job. Status: ${logStatus}` };
+      }
+      return { name: job.name, logs: logText };
+    });
+
+    const logsPerJob = await Promise.all(logPromises);
+
+    // 3. Combine into a single object
+    const allLogs: { [jobName: string]: string } = {};
+    for (const jobLog of logsPerJob) {
+      allLogs[jobLog.name] = jobLog.logs;
+    }
+
+    return allLogs;
+  } catch (error: any) {
+    console.error(`Failed to fetch build logs for ${repoFullName}, run ${runId}:`, error);
+    throw new Error(`Failed to fetch build logs: ${error.message}`);
   }
 }
