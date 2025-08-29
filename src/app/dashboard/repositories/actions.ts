@@ -4,6 +4,7 @@
 import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { getTagsForRepo, updateTagsForRepo as updateTagsInFirestore } from "@/lib/firestore"
 
 async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null }> {
   const response = await fetch(url, {
@@ -13,7 +14,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
       Authorization: `token ${accessToken}`,
       Accept: "application/vnd.github.v3+json",
     },
-    // Revalidate every hour, but this may be stale if builds are frequent
+    // Revalidate every hour
     next: { revalidate: 3600 },
   });
 
@@ -23,17 +24,16 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         status: response.status,
         message: errorData?.message,
     });
-    // Don't throw for individual errors like 404, just return empty
+    
     if (response.status === 404) {
         return { data: [] as T, nextUrl: null };
     }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
-    // For rate limiting, we want to throw a specific error
+    
     if (response.status === 403 && errorMessage.includes('rate limit')) {
         throw new Error("GitHub API rate limit exceeded. Please try again later.");
     }
-    // For other errors, we can choose to throw or return empty.
-    // Let's throw to be aware of other potential issues.
+    
     throw new Error(errorMessage);
   }
 
@@ -55,7 +55,6 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
 
 async function getRecentBuilds(repoFullName: string, accessToken: string): Promise<Build[]> {
     try {
-        // Fetch the last 20 workflow runs for more accurate "last 12h" status
         const url = `https://api.github.com/repos/${repoFullName}/actions/runs?per_page=20`;
         const { data: runsData } = await fetchFromGitHub<{ workflow_runs: any[] }>(url, accessToken);
 
@@ -75,10 +74,10 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                     if (run.conclusion === 'success') {
                         status = 'Success';
                     } else {
-                        status = 'Failed'; // Includes failure, cancelled, etc.
+                        status = 'Failed';
                     }
                 } else {
-                    status = 'Failed'; // Any other state we'll consider failed
+                    status = 'Failed';
                 }
                 
                 return {
@@ -91,7 +90,6 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
             });
     } catch (error) {
         console.error(`Failed to fetch builds for ${repoFullName}:`, error);
-        // Return empty array on error so one repo doesn't break the whole list
         return [];
     }
 }
@@ -115,10 +113,13 @@ export async function getRepositories(): Promise<Repository[]> {
       currentUrl = nextUrl;
     }
 
-    // Fetch build statuses for all repositories concurrently
-    const reposWithBuilds = await Promise.all(
+    const reposWithDetails = await Promise.all(
         allRepos.map(async (repo) => {
-            const recentBuilds = await getRecentBuilds(repo.full_name, accessToken);
+            const [recentBuilds, tags] = await Promise.all([
+                getRecentBuilds(repo.full_name, accessToken),
+                getTagsForRepo(repo.id.toString())
+            ]);
+
             return {
                 id: repo.id.toString(),
                 name: repo.name,
@@ -134,7 +135,7 @@ export async function getRepositories(): Promise<Repository[]> {
                 forks_count: repo.forks_count,
                 open_issues_count: repo.open_issues_count,
                 updated_at: repo.updated_at,
-                tags: [],
+                tags: tags,
                 recentBuilds, 
                 branches: [],
                 fullName: repo.full_name,
@@ -142,12 +143,12 @@ export async function getRepositories(): Promise<Repository[]> {
         })
     );
 
-    return reposWithBuilds;
+    return reposWithDetails;
 
   } catch (error) {
     console.error("Error fetching repositories:", error)
     if (error instanceof Error && error.message.includes('GitHub API rate limit exceeded')) {
-        throw error; // Re-throw the specific error for the UI
+        throw error;
     }
     throw new Error("Could not fetch repositories from GitHub.");
   }
@@ -190,11 +191,22 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
                 commit: run.head_sha.substring(0, 7),
                 status,
                 timestamp: new Date(run.created_at),
-                error: run.conclusion === 'failure' ? 'Build failed' : null, // Simplification
+                error: run.conclusion === 'failure' ? 'Build failed' : null,
             };
         });
     } catch (error) {
         console.error(`Failed to fetch builds for ${repoFullName}:`, error);
         throw new Error(`Could not fetch builds for ${repoFullName}.`);
     }
+}
+
+export async function updateRepoTags(repoId: string, tags: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    await updateTagsInFirestore(repoId, tags);
+    return { success: true };
+  } catch (error) {
+    console.error("Error in updateRepoTags server action:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return { success: false, error: errorMessage };
+  }
 }

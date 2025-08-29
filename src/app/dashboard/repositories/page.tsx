@@ -26,7 +26,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
-import { useEffect, useState, useMemo, startTransition } from "react"
+import { useEffect, useState, useMemo, startTransition, useCallback } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw, Lock, Globe } from "lucide-react"
@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories } from "./actions"
+import { getRepositories, updateRepoTags } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -58,18 +58,18 @@ export default function RepositoriesPage() {
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
-  useEffect(() => {
+  const fetchRepos = useCallback(() => {
     setLoading(true);
     setError(null);
     getRepositories()
       .then((repos) => {
         startTransition(() => {
           setLocalRepos(repos);
-        })
+        });
       })
       .catch((err) => {
          startTransition(() => {
-          setError("Failed to fetch repositories from GitHub. " + err.message);
+          setError("Failed to fetch repositories. " + err.message);
          });
       })
       .finally(() => {
@@ -77,13 +77,16 @@ export default function RepositoriesPage() {
           setLoading(false);
         });
       });
+  }, []);
+
+  useEffect(() => {
+    fetchRepos();
     
-    // Clear search and selection when navigating away
     return () => {
       setSearchQuery('');
       clearRepos();
     }
-  }, [clearRepos, setSearchQuery]);
+  }, [fetchRepos, clearRepos, setSearchQuery]);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
@@ -105,13 +108,31 @@ export default function RepositoriesPage() {
     }
   }
 
-  const handleUpdateTags = (repoId: string, newTags: string[]) => {
-    setLocalRepos(prevRepos => 
-      prevRepos.map(repo => 
+  const handleUpdateTags = async (repoId: string, newTags: string[]) => {
+    // Optimistically update the UI
+    setLocalRepos(prevRepos =>
+      prevRepos.map(repo =>
         repo.id === repoId ? { ...repo, tags: newTags } : repo
       )
     );
-  }
+
+    const result = await updateRepoTags(repoId, newTags);
+
+    if (result.success) {
+      toast({
+        title: "Tags Updated",
+        description: `Successfully updated tags for the repository.`,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to update tags: ${result.error}`,
+      });
+      // Revert the optimistic update on failure
+      fetchRepos();
+    }
+  };
 
   const handleMerge = (repoId: string, sourceBranch: string, targetBranch: string) => {
     const repo = localRepos.find(r => r.id === repoId);
