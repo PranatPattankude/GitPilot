@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select"
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
-import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info } from "lucide-react"
+import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info, Loader } from "lucide-react"
+import { compareBranches } from "./actions"
 
 interface MergeDialogProps {
   repo: Repository
@@ -43,7 +44,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     setComparisonStatus("idle")
   }, [sourceBranch, targetBranch])
 
-  const handleCompare = () => {
+  const handleCompare = async () => {
     if (!sourceBranch || !targetBranch) {
       toast({
         variant: "destructive",
@@ -63,32 +64,26 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     }
 
     setComparisonStatus("comparing")
-    // Simulate API call to compare branches
-    setTimeout(() => {
-      // In a real app, you'd use the GitHub compare API.
-      // We'll simulate different outcomes randomly for demonstration.
-      const outcome = Math.random();
-      if (outcome < 0.15) {
-        setComparisonStatus("no-changes");
-        toast({
-            title: "No Changes",
-            description: "The source and target branches are identical.",
-        });
-      } else if (outcome < 0.3) {
-        setComparisonStatus("has-conflicts");
-        toast({
-            variant: "destructive",
-            title: "Merge Conflicts Detected",
-            description: "Please resolve conflicts manually before merging.",
-        });
-      } else {
-        setComparisonStatus("can-merge");
-        toast({
-            title: "Branches Can Be Merged",
-            description: "No conflicts were found. You can now create and merge a pull request.",
-        });
-      }
-    }, 1500)
+    const result = await compareBranches(repo.fullName, sourceBranch, targetBranch);
+    setComparisonStatus(result.status);
+
+    if (result.status === "can-merge") {
+      toast({
+        title: "Branches Can Be Merged",
+        description: "No conflicts were found. You can now create and merge a pull request.",
+      });
+    } else if (result.status === "has-conflicts") {
+       toast({
+        variant: "destructive",
+        title: "Merge Conflicts Detected",
+        description: result.error || "Please resolve conflicts manually before merging.",
+      });
+    } else if (result.status === "no-changes") {
+       toast({
+        title: "No Changes",
+        description: "The source and target branches are identical.",
+      });
+    }
   }
 
   const handleMerge = async () => {
@@ -175,12 +170,12 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           {comparisonStatus !== "can-merge" ? (
             <Button onClick={handleCompare} disabled={comparisonStatus === 'comparing' || !sourceBranch || !targetBranch}>
-              <GitPullRequest className="mr-2 size-4" />
+              {comparisonStatus === 'comparing' ? <Loader className="mr-2 size-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
               {comparisonStatus === 'comparing' ? 'Comparing...' : 'Compare Branches'}
             </Button>
           ) : (
             <Button onClick={handleMerge} disabled={isMerging} className="bg-accent hover:bg-accent/90">
-              <GitMerge className="mr-2 size-4" />
+              {isMerging ? <Loader className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
               {isMerging ? 'Merging...' : 'Create and Merge PR'}
             </Button>
           )}

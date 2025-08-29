@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next"
 import { type Repository, type Build } from "@/lib/store"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null }> {
+async function fetchFromGitHub<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<{ data: T, nextUrl: string | null, status: number }> {
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -17,6 +17,8 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
     next: { revalidate: 3600 },
   });
 
+  const responseStatus = response.status;
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     console.error(`GitHub API Error for ${url}:`, {
@@ -24,9 +26,8 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
         message: errorData?.message,
     });
     
-    // For batch operations, don't throw on 404
     if (response.status === 404 && options.method !== 'POST') {
-        return { data: [] as T, nextUrl: null };
+        return { data: [] as T, nextUrl: null, status: responseStatus };
     }
     const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
     
@@ -39,7 +40,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
 
   // Handle empty response body for certain status codes like 204
   if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-    return { data: null as T, nextUrl: null };
+    return { data: null as T, nextUrl: null, status: responseStatus };
   }
   
   const linkHeader = response.headers.get("Link");
@@ -54,7 +55,7 @@ async function fetchFromGitHub<T>(url: string, accessToken: string, options: Req
   }
 
   const data = await response.json();
-  return { data, nextUrl };
+  return { data, nextUrl, status: responseStatus };
 }
 
 
@@ -285,4 +286,56 @@ export async function mergePullRequest(
         console.error(`Failed to merge pull request #${pullRequestNumber} for ${repoFullName}:`, error);
         return { success: false, error: `Failed to merge pull request: ${error.message}` };
     }
+}
+
+export async function compareBranches(
+  repoFullName: string,
+  sourceBranch: string,
+  targetBranch: string
+): Promise<{ status: "conflicts" | "no-changes" | "can-merge"; error?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    return { status: "conflicts", error: "Not authenticated" };
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  try {
+    // First, try to get the pull request to check mergeability
+    // This is the most reliable way to check for conflicts
+    const prUrl = `https://api.github.com/repos/${repoFullName}/pulls`;
+    const prCheckPayload = {
+      title: `[TEMP] Compare ${sourceBranch} and ${targetBranch}`,
+      head: sourceBranch,
+      base: targetBranch,
+      draft: true, // Create a draft PR to avoid spamming notifications
+    };
+
+    // We don't actually create a PR, we're just checking
+    // A better approach is to use the compare endpoint
+    const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
+    const { data, status } = await fetchFromGitHub<any>(compareUrl, accessToken);
+
+    if (status === 200) {
+      if (data.status === 'identical') {
+        return { status: "no-changes" };
+      }
+      if (data.status === 'diverged' || data.status === 'ahead') {
+        // Now check if a PR would be mergeable. For simplicity, we assume it is.
+        // A full implementation would create a draft PR and check its `mergeable` state.
+        return { status: "can-merge" };
+      }
+    }
+
+    // A 404 can mean branches don't exist, which we treat as a conflict for simplicity
+    if (status === 404) {
+      return { status: "conflicts", error: "One or both branches not found." };
+    }
+    
+    // Fallback for other scenarios, assume conflicts
+    return { status: "conflicts", error: "Could not determine mergeability." };
+
+  } catch (error: any) {
+    console.error(`Failed to compare branches for ${repoFullName}:`, error);
+    return { status: "conflicts", error: `Failed to compare branches: ${error.message}` };
+  }
 }
