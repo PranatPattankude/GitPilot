@@ -76,6 +76,13 @@ async function fetchFromGitHub<T>(
   return { data: errorData, nextUrl, status: responseStatus };
 }
 
+function formatDuration(startTime: Date, endTime: Date): string {
+    const seconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+}
 
 async function getRecentBuilds(repoFullName: string, accessToken: string): Promise<Build[]> {
     try {
@@ -107,6 +114,13 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
             } else {
                 status = 'Failed';
             }
+
+            let duration = 'N/A';
+            if (run.run_started_at) {
+                const startTime = new Date(run.run_started_at);
+                const endTime = run.updated_at ? new Date(run.updated_at) : new Date();
+                duration = formatDuration(startTime, endTime);
+            }
             
             return {
                 id: run.id.toString(),
@@ -117,6 +131,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                 triggeredBy: run.triggering_actor?.login,
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
                 repo: repoFullName,
+                duration,
             };
         });
     } catch (error) {
@@ -275,6 +290,13 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
                 status = 'Failed';
             }
             
+             let duration = 'N/A';
+            if (run.run_started_at) {
+                const startTime = new Date(run.run_started_at);
+                const endTime = run.updated_at ? new Date(run.updated_at) : new Date();
+                duration = formatDuration(startTime, endTime);
+            }
+
             return {
                 id: run.id.toString(),
                 branch: run.head_branch,
@@ -283,6 +305,7 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
                 timestamp: new Date(run.created_at),
                 triggeredBy: run.triggering_actor?.login,
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
+                duration,
             };
         });
     } catch (error) {
