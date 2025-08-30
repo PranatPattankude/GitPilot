@@ -86,6 +86,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
 
   const handleBulkMerge = async () => {
     setIsMerging(true)
+    const user = session?.user?.name || 'Unknown User';
     
     // In a real app, you would loop through `cleanRepos` and call the merge actions.
     // For now, we'll simulate the process and set up the state for the builds page.
@@ -102,7 +103,8 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
         })),
         status: 'In Progress',
         duration: '0s',
-        timestamp: new Date()
+        timestamp: new Date(),
+        triggeredBy: user,
     });
 
     try {
@@ -110,7 +112,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             type: 'bulk',
             repos: cleanRepos.map(r => r.name),
             branch: `${sourceBranch} → ${targetBranch}`,
-            user: session?.user?.name || 'Unknown User',
+            user: user,
             status: 'In Progress'
         });
     } catch(e) {

@@ -9,6 +9,7 @@ export type Build = {
   timestamp: Date;
   branch: string;
   commit: string;
+  triggeredBy?: string;
   error?: string | null;
   duration?: string;
   name?: string;
@@ -66,6 +67,7 @@ export type BulkBuild = {
   status: 'In Progress' | 'Success' | 'Failed';
   duration: string;
   timestamp: Date;
+  triggeredBy?: string;
 }
 
 type AppState = {

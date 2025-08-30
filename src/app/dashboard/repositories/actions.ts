@@ -114,6 +114,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                 commit: run.head_sha.substring(0, 7),
                 status,
                 timestamp: new Date(run.created_at),
+                triggeredBy: run.triggering_actor?.login,
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
                 repo: repoFullName,
             };
@@ -280,6 +281,7 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
                 commit: run.head_sha.substring(0, 7),
                 status,
                 timestamp: new Date(run.created_at),
+                triggeredBy: run.triggering_actor?.login,
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
             };
         });

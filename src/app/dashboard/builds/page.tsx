@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban, Calendar, AlertTriangle } from "lucide-react"
+import { CheckCircle2, XCircle, Loader, Clock, GitCommit, GitMerge, GitPullRequest, Tag, MoreHorizontal, RefreshCw, Ban, Calendar, AlertTriangle, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -51,7 +51,7 @@ const formatTimestamp = (date: Date) => {
 type BuildWithRepo = Build & { repo: string };
 
 export default function BuildsPage() {
-  const { setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
+  const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
   const [singleBuilds, setSingleBuilds] = React.useState<BuildWithRepo[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -65,8 +65,15 @@ export default function BuildsPage() {
     async function fetchBuilds() {
         try {
             setLoading(true);
-            const builds = await getAllRecentBuilds();
-            setSingleBuilds(builds as BuildWithRepo[]);
+            const buildsData = await getAllRecentBuilds();
+            const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
+                !searchQuery || 
+                build.repo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                build.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                build.commit.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+            setSingleBuilds(filteredBuilds);
         } catch (err: any) {
             setError(err.message || "Failed to fetch recent builds.");
         } finally {
@@ -79,7 +86,7 @@ export default function BuildsPage() {
     } else {
         setLoading(false);
     }
-  }, [setSearchQuery, bulkBuild]);
+  }, [setSearchQuery, bulkBuild, searchQuery]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -91,6 +98,14 @@ export default function BuildsPage() {
       return () => clearTimeout(timer);
     }
   }, [bulkBuild, clearBulkBuild]);
+  
+  const filteredSingleBuilds = singleBuilds.filter(build => 
+      !searchQuery ||
+      build.repo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      build.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      build.commit.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <>
@@ -123,6 +138,12 @@ export default function BuildsPage() {
                       <Calendar className="size-4" />
                       <span>Triggered {formatTimestamp(bulkBuild.timestamp)}</span>
                   </div>
+                   {bulkBuild.triggeredBy && (
+                    <div className="flex items-center gap-1.5">
+                        <User className="size-4" />
+                        <span>by {bulkBuild.triggeredBy}</span>
+                    </div>
+                  )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
@@ -240,12 +261,12 @@ export default function BuildsPage() {
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             </div>
-        ) : singleBuilds.length === 0 && !bulkBuild ? (
+        ) : filteredSingleBuilds.length === 0 && !bulkBuild ? (
              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <p>No recent builds found in the last 7 days.</p>
+                <p>No recent builds found.</p>
              </div>
         ) : (
-        singleBuilds.map((build) => {
+        filteredSingleBuilds.map((build) => {
           const SvgIcon = statusInfo[build.status as keyof typeof statusInfo]?.icon
           const color = statusInfo[build.status as keyof typeof statusInfo]?.color
           const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation || ""
@@ -310,6 +331,12 @@ export default function BuildsPage() {
                   <Calendar className="size-4 text-muted-foreground" />
                   <span>Triggered {formatTimestamp(build.timestamp)}</span>
                 </div>
+                 {build.triggeredBy && (
+                    <div className="flex items-center gap-2">
+                        <User className="size-4 text-muted-foreground" />
+                        <span>by {build.triggeredBy}</span>
+                    </div>
+                 )}
               </CardContent>
               <CardFooter>
                  <Button variant="outline" size="sm" onClick={() => setViewingLogsBuild(build)}>View Logs</Button>
