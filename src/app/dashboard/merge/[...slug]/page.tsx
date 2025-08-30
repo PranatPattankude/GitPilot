@@ -1,10 +1,9 @@
 
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { getPullRequest } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
-import ConflictResolver from "../conflict-resolver";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,23 +11,35 @@ import { AlertTriangle, GitBranch, ChevronsRight, FileCode } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ConflictResolver from "../conflict-resolver";
+import { useFormState } from 'react-dom';
+import { resolveConflict } from '../actions';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function MergeConflictPage({ params }: { params: { slug: string[] } }) {
     const [pr, setPr] = useState<PullRequest | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    const [repoFullName, prNumber, filePath] = useMemo(() => {
-        if (!params.slug || params.slug.length < 3) {
-            return ["", null, ""];
-        }
-        const [repoOwner, repoName, prNumberStr, ...filePathParts] = params.slug;
-        const fullName = `${repoOwner}/${repoName}`;
-        const number = parseInt(prNumberStr, 10);
-        const path = decodeURIComponent(filePathParts.join('/'));
-        return [fullName, number, path];
+    const repoOwner = params.slug[0];
+    const repoName = params.slug[1];
+    const prNumber = parseInt(params.slug[2], 10);
+    const repoFullName = `${repoOwner}/${repoName}`;
+    const filePath = params.slug.slice(3).join('/');
 
-    }, [params.slug]);
+    const [state, formAction] = useFormState(resolveConflict, { success: false, message: '' });
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (state.message) {
+            if (state.success) {
+                toast({ title: "Success", description: state.message });
+            } else {
+                toast({ variant: "destructive", title: "Error", description: state.message });
+            }
+        }
+    }, [state, toast]);
 
     useEffect(() => {
         if (repoFullName && prNumber) {
@@ -126,7 +137,14 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                     </div>
                 </CardHeader>
                  <CardContent>
-                    <ConflictResolver repoFullName={repoFullName} prNumber={prNumber} filePath={filePath} />
+                    <form action={formAction}>
+                        <ConflictResolver
+                            repoFullName={repoFullName}
+                            prNumber={prNumber}
+                            filePath={filePath}
+                            pr={pr}
+                        />
+                    </form>
                 </CardContent>
             </Card>
         </div>

@@ -3,17 +3,16 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { intelligentConflictResolution } from "@/ai/flows/intelligent-conflict-resolution";
 import { redirect } from "next/navigation";
+import { commitAndMerge } from "../repositories/actions";
 
 
 const FormSchema = z.object({
   repoFullName: z.string(),
   pullRequestNumber: z.coerce.number(),
+  sourceBranch: z.string(),
   filePath: z.string(),
-  fileDiff: z.string(),
-  selectedSuggestion: z.string(),
-  unseenLines: z.string().optional(),
+  resolvedContent: z.string(),
 });
 
 type State = {
@@ -26,10 +25,9 @@ export async function resolveConflict(prevState: State, formData: FormData): Pro
     const parsed = FormSchema.safeParse({
         repoFullName: formData.get("repoFullName"),
         pullRequestNumber: formData.get("pullRequestNumber"),
+        sourceBranch: formData.get("sourceBranch"),
         filePath: formData.get("filePath"),
-        fileDiff: formData.get("fileDiff"),
-        selectedSuggestion: formData.get("selectedSuggestion"),
-        unseenLines: formData.get("unseenLines"),
+        resolvedContent: formData.get("resolvedContent"),
     });
 
     if (!parsed.success) {
@@ -37,25 +35,24 @@ export async function resolveConflict(prevState: State, formData: FormData): Pro
     }
 
     try {
-        const result = await intelligentConflictResolution({
-            fileDiff: parsed.data.fileDiff,
-            selectedSuggestion: parsed.data.selectedSuggestion,
-            unseenLines: parsed.data.unseenLines?.split('\n') || [],
+        const result = await commitAndMerge({
+            repoFullName: parsed.data.repoFullName,
+            sourceBranch: parsed.data.sourceBranch,
+            pullRequestNumber: parsed.data.pullRequestNumber,
+            filePath: parsed.data.filePath,
+            resolvedContent: parsed.data.resolvedContent,
         });
         
-        console.log("AI Enhanced Suggestion:", result.enhancedSuggestion);
-        
-        // In a real application, you would now commit this `enhancedSuggestion` to the repo.
-        // For this demo, we'll just log it and simulate success.
+        if (!result.success) {
+             return { success: false, message: result.error || "Failed to commit and merge." };
+        }
 
     } catch (e: any) {
-        return { success: false, message: e.message || "An unknown error occurred with the AI." };
+        return { success: false, message: e.message || "An unknown error occurred during the commit/merge process." };
     }
     
-    // For now, we will just return a success message and not actually commit.
     revalidatePath("/dashboard/merge");
     redirect("/dashboard/merge?status=resolved");
     
-    // This part would be reached if redirect didn't happen
-    return { success: true, message: "Conflict resolution submitted successfully (simulation)." };
+    return { success: true, message: "Conflict resolved and merged successfully." };
 }

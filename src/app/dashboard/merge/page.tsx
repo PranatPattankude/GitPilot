@@ -138,7 +138,7 @@ export default function MergePage() {
                             </h4>
                             <div className="border rounded-md p-2 space-y-1">
                                 {pr.conflictingFiles.map((file) => (
-                                    <ConflictFile key={file.filename} file={file} pr={pr} />
+                                    <ConflictFile key={file.sha} file={file} pr={pr} />
                                 ))}
                             </div>
                         </CardContent>

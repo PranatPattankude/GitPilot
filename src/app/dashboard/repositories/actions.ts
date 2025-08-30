@@ -16,7 +16,7 @@ async function fetchFromGitHub<T>(
     headers: {
       ...options.headers,
       Authorization: `token ${accessToken}`,
-      Accept: returnText ? "application/vnd.github.v3.raw" : "application/vnd.github.v3+json",
+      Accept: "application/vnd.github.v3+json",
     },
     // Revalidate every hour
     next: { revalidate: 3600 },
@@ -453,7 +453,11 @@ export async function getBuildLogs(
 
     const logPromises = jobsData.jobs.map(async (job) => {
       const logsUrl = `https://api.github.com/repos/${repoFullName}/actions/jobs/${job.id}/logs`;
-      const { data: logText, status: logStatus } = await fetchFromGitHub<string>(logsUrl, accessToken, {}, true);
+      const { data: logText, status: logStatus } = await fetchFromGitHub<string>(logsUrl, accessToken, {
+        headers: {
+          'Accept': 'application/vnd.github.v3.raw'
+        }
+      }, true);
 
       if (logStatus !== 200) {
         console.warn(`Could not fetch logs for job "${job.name}" (ID: ${job.id}). Status: ${logStatus}`);
@@ -592,7 +596,13 @@ export async function getPullRequest(repoFullName: string, prNumber: number): Pr
 }
 
 
-async function getFileContent(repoFullName: string, branch: string, path: string, accessToken: string): Promise<{content: string, sha: string}> {
+export async function getFileContent(repoFullName: string, branch: string, path: string): Promise<{content: string, sha: string}> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+
     const url = `https://api.github.com/repos/${repoFullName}/contents/${path}?ref=${branch}`;
     const { data } = await fetchFromGitHub<any>(url, accessToken);
     if (!data || !data.content) {
