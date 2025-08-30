@@ -18,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -218,47 +217,53 @@ export default function RepositoriesPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-1 w-full sm:w-auto">
-                  <ListFilter className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Filter by Tags</span>
-                  {selectedTags.length > 0 && (
-                    <>
-                      <Separator orientation="vertical" className="mx-1 h-4" />
-                      <Badge variant="secondary" className="rounded-sm px-1.5 font-normal">
-                        {selectedTags.length}
-                      </Badge>
-                    </>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <ScrollArea className="h-48">
-                  {allTags.length > 0 ? allTags.map(tag => (
-                     <DropdownMenuCheckboxItem
-                      key={tag}
-                      checked={selectedTags.includes(tag)}
-                      onCheckedChange={(checked) => handleTagFilterChange(tag, Boolean(checked))}
-                     >
-                       {tag}
-                     </DropdownMenuCheckboxItem>
-                  )) : (
-                    <DropdownMenuItem disabled>No tags found</DropdownMenuItem>
-                  )}
-                </ScrollArea>
-                {selectedTags.length > 0 && (
-                  <>
+            <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1 w-full sm:w-auto">
+                      <ListFilter className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Filter by Tags</span>
+                      {selectedTags.length > 0 && (
+                        <>
+                          <Separator orientation="vertical" className="mx-1 h-4" />
+                          <Badge variant="secondary" className="rounded-sm px-1.5 font-normal">
+                            {selectedTags.length}
+                          </Badge>
+                        </>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuLabel>Filter by tags</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setSelectedTags([])} className="justify-center text-center">
-                      Clear filters
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <ScrollArea className="h-48">
+                      {allTags.length > 0 ? allTags.map(tag => (
+                        <DropdownMenuCheckboxItem
+                          key={tag}
+                          checked={selectedTags.includes(tag)}
+                          onCheckedChange={(checked) => handleTagFilterChange(tag, Boolean(checked))}
+                        >
+                          {tag}
+                        </DropdownMenuCheckboxItem>
+                      )) : (
+                        <DropdownMenuItem disabled>No tags found</DropdownMenuItem>
+                      )}
+                    </ScrollArea>
+                    {selectedTags.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setSelectedTags([])} className="justify-center text-center">
+                          Clear filters
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                 <Button onClick={fetchRepos} variant="outline" size="icon" className="w-10 h-10" disabled={loading}>
+                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    <span className="sr-only">Refresh repositories</span>
+                </Button>
+            </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -537,3 +542,5 @@ export default function RepositoriesPage() {
     </>
   )
 }
+
+    
