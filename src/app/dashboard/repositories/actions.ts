@@ -432,7 +432,7 @@ export async function compareBranches(
 export async function getBuildLogs(
   repoFullName: string,
   runId: string
-): Promise<{ [jobName: string]: { logs: string; conclusion: string | null } }> {
+): Promise<{ [jobName: string]: string }> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
     throw new Error("Not authenticated");
@@ -448,7 +448,7 @@ export async function getBuildLogs(
     }
 
     if (jobsData.jobs.length === 0) {
-        return { "info": { logs: "No jobs found for this build run.", conclusion: "neutral" } };
+        return { "info": "No jobs found for this build run." };
     }
 
     const logPromises = jobsData.jobs.map(async (job) => {
@@ -457,16 +457,16 @@ export async function getBuildLogs(
 
       if (logStatus !== 200) {
         console.warn(`Could not fetch logs for job "${job.name}" (ID: ${job.id}). Status: ${logStatus}`);
-        return { name: job.name, logs: `Could not retrieve logs for this job. Status: ${logStatus}`, conclusion: job.conclusion };
+        return { name: job.name, logs: `Could not retrieve logs for this job. Status: ${logStatus}` };
       }
-      return { name: job.name, logs: logText, conclusion: job.conclusion };
+      return { name: job.name, logs: logText };
     });
 
     const logsPerJob = await Promise.all(logPromises);
 
-    const allLogs: { [jobName: string]: { logs: string; conclusion: string | null } } = {};
+    const allLogs: { [jobName: string]: string } = {};
     for (const jobLog of logsPerJob) {
-      allLogs[jobLog.name] = { logs: jobLog.logs, conclusion: jobLog.conclusion };
+      allLogs[jobLog.name] = jobLog.logs;
     }
 
     return allLogs;

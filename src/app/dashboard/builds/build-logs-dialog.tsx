@@ -143,10 +143,8 @@ interface BuildLogsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type ParsedLogs = { [jobName: string]: { logs: ParsedLog; conclusion: string | null } }
-
 export function BuildLogsDialog({ build, onOpenChange }: BuildLogsDialogProps) {
-  const [logs, setLogs] = React.useState<ParsedLogs | null>(null)
+  const [logs, setLogs] = React.useState<{ [key: string]: string } | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -154,36 +152,11 @@ export function BuildLogsDialog({ build, onOpenChange }: BuildLogsDialogProps) {
     if (build.repo && build.id) {
       setLoading(true)
       getBuildLogs(build.repo, build.id)
-        .then((rawLogs) => {
-            const parsed = Object.entries(rawLogs).reduce((acc, [jobName, jobData]) => {
-                acc[jobName] = {
-                  logs: parseGitHubLogs(jobData.logs),
-                  conclusion: jobData.conclusion
-                };
-                return acc;
-            }, {} as ParsedLogs);
-            setLogs(parsed);
-        })
+        .then(setLogs)
         .catch((err) => setError(err.message))
         .finally(() => setLoading(false))
     }
   }, [build.repo, build.id])
-
-  const isBuildFailed = build.status === "Failed";
-  const displayedJobs = React.useMemo(() => {
-    if (!logs) return [];
-    
-    const allJobs = Object.entries(logs);
-
-    if (isBuildFailed) {
-      const failedJobs = allJobs.filter(([, jobData]) => jobData.conclusion === "failure");
-      // If we found specific failed jobs, show them. Otherwise, show all jobs as a fallback.
-      return failedJobs.length > 0 ? failedJobs : allJobs;
-    }
-
-    return allJobs;
-  }, [logs, isBuildFailed]);
-
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
@@ -194,7 +167,6 @@ export function BuildLogsDialog({ build, onOpenChange }: BuildLogsDialogProps) {
           </DialogTitle>
           <DialogDescription>
             Repository: {build.repo} | Branch: {build.branch}
-             {isBuildFailed && <span className="text-destructive font-semibold"> (Showing only failed jobs)</span>}
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0">
@@ -211,33 +183,33 @@ export function BuildLogsDialog({ build, onOpenChange }: BuildLogsDialogProps) {
               <AlertTitle>Error Fetching Logs</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-          ) : logs && displayedJobs.length > 0 ? (
-            <Accordion type="single" collapsible defaultValue={displayedJobs[0][0]} className="w-full">
-              {displayedJobs.map(([jobName, jobData]) => (
-                <AccordionItem value={jobName} key={jobName}>
-                  <AccordionTrigger>
-                    <div className="flex items-center gap-2">
+          ) : logs && Object.keys(logs).length > 0 ? (
+            <Accordion type="single" collapsible defaultValue={Object.keys(logs)[0]} className="w-full">
+              {Object.entries(logs).map(([jobName, logContent]) => {
+                const parsedLog = parseGitHubLogs(logContent);
+                return (
+                  <AccordionItem value={jobName} key={jobName}>
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-2">
                         <Terminal className="size-4" />
                         <span>{jobName}</span>
-                        {jobData.conclusion && (
-                            <Badge variant={jobData.conclusion === 'failure' ? 'destructive' : 'secondary'}>{jobData.conclusion}</Badge>
-                        )}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <ScrollArea className="h-96 w-full rounded-md border bg-muted/50 p-2">
-                        <div className="p-4 text-xs font-mono space-y-1">
-                             {jobData.logs.map((item, index) => {
-                                if (item.type === 'step') {
-                                    return <LogStepComponent key={index} step={item} initialOpen={item.children.length > 0} />
-                                }
-                                return <p key={index} className="whitespace-pre-wrap">{item.content}</p>
-                             })}
-                        </div>
-                    </ScrollArea>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <ScrollArea className="h-96 w-full rounded-md border bg-muted/50 p-2">
+                          <div className="p-4 text-xs font-mono space-y-1">
+                               {parsedLog.map((item, index) => {
+                                  if (item.type === 'step') {
+                                      return <LogStepComponent key={index} step={item} initialOpen={item.children.length > 0} />
+                                  }
+                                  return <p key={index} className="whitespace-pre-wrap">{item.content}</p>
+                               })}
+                          </div>
+                      </ScrollArea>
+                    </AccordionContent>
+                  </AccordionItem>
+                )
+              })}
             </Accordion>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
