@@ -103,8 +103,10 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
         
         return allRuns.map((run: any): Build => {
             let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
+            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting') {
                 status = 'In Progress';
+            } else if (run.status === 'queued') {
+                status = 'Queued';
             } else if (run.status === 'completed') {
                 if (run.conclusion === 'success') {
                     status = 'Success';
@@ -278,8 +280,10 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
         
         return runsData.workflow_runs.map((run: any): Build => {
             let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'queued' || run.status === 'requested' || run.status === 'waiting') {
+            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting') {
                 status = 'In Progress';
+            } else if (run.status === 'queued') {
+                status = 'Queued';
             } else if (run.status === 'completed') {
                 if (run.conclusion === 'success') {
                     status = 'Success';
@@ -731,3 +735,32 @@ export async function rerunFailedJobs(
 ): Promise<{ success: boolean; error?: string }> {
   return triggerRerun(repoFullName, runId, 'rerun-failed-jobs');
 }
+
+export async function cancelWorkflowRun(
+  repoFullName: string,
+  runId: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    return { success: false, error: "Not authenticated" };
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  try {
+    const url = `https://api.github.com/repos/${repoFullName}/actions/runs/${runId}/cancel`;
+    const { status, data } = await fetchFromGitHub(url, accessToken, {
+      method: "POST",
+    });
+
+    if (status === 202) {
+      return { success: true };
+    } else {
+      return { success: false, error: data?.message || `Failed to cancel build (status: ${status})` };
+    }
+  } catch (error: any) {
+    console.error(`Failed to cancel workflow run ${runId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+    

@@ -22,7 +22,7 @@ import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTrian
 import type { Repository, Build } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { formatDistanceToNow } from 'date-fns'
-import { getBuildsForRepo, rerunAllJobs, rerunFailedJobs } from "./actions"
+import { getBuildsForRepo, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun } from "./actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -41,6 +41,7 @@ const steps = [
 
 const statusInfo = {
   "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
+  "Queued": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "Success": { icon: CheckCircle2, color: "text-accent" },
   "Failed": { icon: XCircle, color: "text-destructive" },
 }
@@ -54,7 +55,7 @@ const formatTimestamp = (date: Date) => {
     return date.toLocaleString();
 }
 
-function RerunMenuItem({ build, type, onRerun }: { build: Build, type: 'all' | 'failed', onRerun: (type: 'all' | 'failed') => void }) {
+function RerunMenuItem({ build, type, onAction }: { build: Build, type: 'all' | 'failed', onAction: () => void }) {
     const [isRerunning, setIsRerunning] = React.useState(false);
     const { toast } = useToast();
 
@@ -68,7 +69,7 @@ function RerunMenuItem({ build, type, onRerun }: { build: Build, type: 'all' | '
             
             if (result.success) {
                 toast({ title: "Success", description: `Build rerun for "${type}" jobs has been triggered.` });
-                onRerun(type);
+                onAction();
             } else {
                 toast({ variant: "destructive", title: "Error", description: result.error || "Failed to trigger rerun." });
             }
@@ -90,6 +91,42 @@ function RerunMenuItem({ build, type, onRerun }: { build: Build, type: 'all' | '
         </DropdownMenuItem>
     );
 }
+
+function CancelMenuItem({ build, onAction }: { build: Build, onAction: () => void }) {
+    const [isCancelling, setIsCancelling] = React.useState(false);
+    const { toast } = useToast();
+
+    const handleCancel = async () => {
+        if (!build.repo) return;
+        setIsCancelling(true);
+        try {
+            const result = await cancelWorkflowRun(build.repo, build.id);
+            
+            if (result.success) {
+                toast({ title: "Success", description: "Build cancellation has been requested." });
+                onAction();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error || "Failed to cancel build." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    return (
+        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleCancel(); }} disabled={isCancelling}>
+            {isCancelling ? (
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <Ban className="mr-2 h-4 w-4" />
+            )}
+            <span>{isCancelling ? 'Cancelling...' : 'Cancel build'}</span>
+        </DropdownMenuItem>
+    );
+}
+
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
   const [builds, setBuilds] = React.useState<Build[]>([]);
@@ -153,11 +190,11 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
               
               const isFailed = build.status === "Failed";
               const isSuccess = build.status === "Success";
-              const isInProgress = build.status === "In Progress";
+              const isRunning = build.status === "In Progress" || build.status === "Queued";
 
               // Mocking progress for now as GitHub API doesn't provide steps
-              const progressValue = isSuccess ? 100 : isInProgress ? 50 : isFailed ? 75 : 0;
-              const currentStep = isSuccess ? 4 : isInProgress ? 2 : isFailed ? 3 : 1;
+              const progressValue = isSuccess ? 100 : isRunning ? 50 : isFailed ? 75 : 0;
+              const currentStep = isSuccess ? 4 : isRunning ? 2 : isFailed ? 3 : 1;
 
 
               return (
@@ -175,7 +212,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                      <div className="flex items-center gap-2">
                       <SvgIcon className={`size-5 ${color} ${animation}`} />
                       <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
-                      {(isFailed || isInProgress) && (
+                      {(isFailed || isRunning) && (
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -186,15 +223,12 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                             <DropdownMenuContent align="end">
                               {isFailed && (
                                 <>
-                                  <RerunMenuItem build={build} type="failed" onRerun={fetchBuilds} />
-                                  <RerunMenuItem build={build} type="all" onRerun={fetchBuilds} />
+                                  <RerunMenuItem build={build} type="failed" onAction={fetchBuilds} />
+                                  <RerunMenuItem build={build} type="all" onAction={fetchBuilds} />
                                 </>
                               )}
-                              {isInProgress && (
-                                 <DropdownMenuItem>
-                                  <Ban className="mr-2 h-4 w-4" />
-                                  <span>Cancel build</span>
-                                </DropdownMenuItem>
+                              {isRunning && (
+                                 <CancelMenuItem build={build} onAction={fetchBuilds} />
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -241,3 +275,5 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
+
+    

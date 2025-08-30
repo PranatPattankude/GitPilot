@@ -24,7 +24,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { useAppStore, type Build } from "@/lib/store"
 import React from "react"
 import { useRouter } from "next/navigation"
-import { getAllRecentBuilds, rerunAllJobs, rerunFailedJobs } from "../repositories/actions"
+import { getAllRecentBuilds, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun } from "../repositories/actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BuildLogsDialog } from "./build-logs-dialog"
@@ -34,7 +34,7 @@ const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
   Failed: { icon: XCircle, color: "text-destructive" },
   'In Progress': { icon: Loader, color: "text-primary", animation: "animate-spin" },
-  Queued: { icon: Clock, color: "text-muted-foreground", animation: "animate-spin" },
+  Queued: { icon: Clock, color: "text-muted-foreground" },
 }
 
 const formatTimestamp = (date: Date) => {
@@ -52,7 +52,7 @@ const formatTimestamp = (date: Date) => {
 type BuildWithRepo = Build & { repo: string };
 
 
-function RerunMenuItem({ build, type, onRerun }: { build: BuildWithRepo, type: 'all' | 'failed', onRerun: (type: 'all' | 'failed') => void }) {
+function RerunMenuItem({ build, type, onAction }: { build: BuildWithRepo, type: 'all' | 'failed', onAction: () => void }) {
     const [isRerunning, setIsRerunning] = React.useState(false);
     const { toast } = useToast();
 
@@ -65,7 +65,7 @@ function RerunMenuItem({ build, type, onRerun }: { build: BuildWithRepo, type: '
             
             if (result.success) {
                 toast({ title: "Success", description: `Build rerun for "${type}" jobs has been triggered.` });
-                onRerun(type);
+                onAction();
             } else {
                 toast({ variant: "destructive", title: "Error", description: result.error || "Failed to trigger rerun." });
             }
@@ -88,6 +88,39 @@ function RerunMenuItem({ build, type, onRerun }: { build: BuildWithRepo, type: '
     );
 }
 
+function CancelMenuItem({ build, onAction }: { build: BuildWithRepo, onAction: () => void }) {
+    const [isCancelling, setIsCancelling] = React.useState(false);
+    const { toast } = useToast();
+
+    const handleCancel = async () => {
+        setIsCancelling(true);
+        try {
+            const result = await cancelWorkflowRun(build.repo, build.id);
+            
+            if (result.success) {
+                toast({ title: "Success", description: "Build cancellation has been requested." });
+                onAction();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error || "Failed to cancel build." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    return (
+        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleCancel(); }} disabled={isCancelling}>
+            {isCancelling ? (
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <Ban className="mr-2 h-4 w-4" />
+            )}
+            <span>{isCancelling ? 'Cancelling...' : 'Cancel build'}</span>
+        </DropdownMenuItem>
+    );
+}
 
 export default function BuildsPage() {
   const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
@@ -199,7 +232,8 @@ export default function BuildsPage() {
                     if (!Info) return null;
                     const { icon: Icon, color, animation } = Info
                     const isFailed = repo.status === 'Failed';
-                    const isInProgress = repo.status === 'In Progress' || repo.status === 'Queued';
+                    const isRunning = repo.status === 'In Progress' || repo.status === 'Queued';
+                    const repoAsBuildWithRepo = { ...repo, repo: repo.name || '' } as BuildWithRepo;
 
                     return (
                         <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
@@ -230,7 +264,7 @@ export default function BuildsPage() {
                               <Icon className={`size-4 ${animation || ''}`} />
                               {repo.status}
                             </span>
-                            {(isFailed || isInProgress) && (
+                            {(isFailed || isRunning) && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -241,15 +275,12 @@ export default function BuildsPage() {
                                   <DropdownMenuContent align="end">
                                     {isFailed && (
                                       <>
-                                         <RerunMenuItem build={repo as BuildWithRepo} type="failed" onRerun={fetchBuilds} />
-                                         <RerunMenuItem build={repo as BuildWithRepo} type="all" onRerun={fetchBuilds} />
+                                         <RerunMenuItem build={repoAsBuildWithRepo} type="failed" onAction={fetchBuilds} />
+                                         <RerunMenuItem build={repoAsBuildWithRepo} type="all" onAction={fetchBuilds} />
                                       </>
                                     )}
-                                    {isInProgress && (
-                                      <DropdownMenuItem>
-                                        <Ban className="mr-2 h-4 w-4" />
-                                        <span>Cancel build</span>
-                                      </DropdownMenuItem>
+                                    {isRunning && (
+                                      <CancelMenuItem build={repoAsBuildWithRepo} onAction={fetchBuilds} />
                                     )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -305,7 +336,7 @@ export default function BuildsPage() {
           const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation || ""
           if (!SvgIcon) return null;
           const isFailed = build.status === 'Failed';
-          const isRunning = build.status === 'In Progress';
+          const isRunning = build.status === 'In Progress' || build.status === 'Queued';
 
 
           return (
@@ -326,15 +357,12 @@ export default function BuildsPage() {
                           <DropdownMenuContent align="end">
                             {isFailed && (
                               <>
-                                <RerunMenuItem build={build} type="failed" onRerun={fetchBuilds} />
-                                <RerunMenuItem build={build} type="all" onRerun={fetchBuilds} />
+                                <RerunMenuItem build={build} type="failed" onAction={fetchBuilds} />
+                                <RerunMenuItem build={build} type="all" onAction={fetchBuilds} />
                               </>
                             )}
                             {isRunning && (
-                              <DropdownMenuItem>
-                                <Ban className="mr-2 h-4 w-4" />
-                                <span>Cancel build</span>
-                              </DropdownMenuItem>
+                                <CancelMenuItem build={build} onAction={fetchBuilds} />
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -381,3 +409,5 @@ export default function BuildsPage() {
     </>
   )
 }
+
+    
