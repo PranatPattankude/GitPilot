@@ -57,9 +57,8 @@ export default function RepositoriesPage() {
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
-  const fetchRepos = useCallback(() => {
-    // Only set loading for the initial fetch
-    if (localRepos.length === 0) {
+  const fetchRepos = useCallback((isInitialFetch = false) => {
+    if (isInitialFetch) {
       setLoading(true);
     }
     setError(null);
@@ -75,27 +74,31 @@ export default function RepositoriesPage() {
          });
       })
       .finally(() => {
-         startTransition(() => {
-          setLoading(false);
-        });
+         if (isInitialFetch) {
+            startTransition(() => {
+              setLoading(false);
+            });
+         }
       });
-  }, [localRepos.length]);
+  }, []);
 
   useEffect(() => {
-    fetchRepos(); // Initial fetch
+    fetchRepos(true); // Initial fetch
     
     // Set up polling to refresh every 30 seconds
     const intervalId = setInterval(() => {
       console.log("Auto-refreshing repositories...");
-      fetchRepos();
+      fetchRepos(false);
     }, 30000); 
     
+    // Cleanup on component unmount
     return () => {
-      clearInterval(intervalId); // Cleanup on component unmount
+      clearInterval(intervalId); 
       setSearchQuery('');
       clearRepos();
     }
-  }, [fetchRepos, clearRepos, setSearchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchRepos]);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()
@@ -484,7 +487,7 @@ export default function RepositoriesPage() {
                                 </p>
                                 {error && <p className="text-destructive text-sm mt-2">{error}</p>}
                                 {!searchQuery && (
-                                    <Button onClick={fetchRepos} variant="outline" size="sm">
+                                    <Button onClick={() => fetchRepos(true)} variant="outline" size="sm">
                                         <RefreshCw className="mr-2 size-4" />
                                         Try Again
                                     </Button>
@@ -548,5 +551,3 @@ export default function RepositoriesPage() {
     </>
   )
 }
-
-    
