@@ -2,31 +2,16 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { useFormState, useFormStatus } from "react-dom"
 import { getPullRequest } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
+import ConflictResolver from "../conflict-resolver";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, GitBranch, ChevronsRight, FileCode, GitMerge, Loader2 } from "lucide-react";
+import { AlertTriangle, GitBranch, ChevronsRight, FileCode } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { resolveConflictAndMerge } from "../actions";
-import { useToast } from "@/hooks/use-toast";
-
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" disabled={pending} size="lg">
-      {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
-      {pending ? "Committing & Merging..." : "Commit Fix and Merge Pull Request"}
-      <GitMerge className="ml-2 size-4" />
-    </Button>
-  )
-}
 
 export default function MergeConflictPage({ params }: { params: { slug: string[] } }) {
     const [pr, setPr] = useState<PullRequest | null>(null);
@@ -54,19 +39,6 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             .finally(() => setLoading(false));
         }
     }, [repoFullName, prNumber]);
-    
-    const { toast } = useToast();
-    const [state, formAction] = useFormState(resolveConflictAndMerge, { success: false, message: null });
-
-    useEffect(() => {
-        if (state.message) {
-            if (state.success) {
-                toast({ title: "Conflict Resolved!", description: state.message });
-            } else {
-                toast({ variant: "destructive", title: "Error", description: state.message });
-            }
-        }
-    }, [state, toast]);
 
     const header = (
         <header>
@@ -154,35 +126,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                     </div>
                 </CardHeader>
                  <CardContent>
-                     <Card className="bg-background/50 border-0 shadow-none">
-                        <form action={formAction}>
-                            <input type="hidden" name="repoFullName" value={pr.repoFullName} />
-                            <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
-                            <input type="hidden" name="pullRequestNumber" value={pr.number} />
-                            <input type="hidden" name="filePath" value={filePath} />
-
-                            <CardContent className="space-y-6 p-0">
-                                <CardDescription>
-                                    To resolve the conflict, paste the entire content of the file (including conflict markers) from your local editor or GitHub into the textarea below. Then, edit the content to fix the conflict, and commit the final version.
-                                </CardDescription>
-                                
-                                <div className="space-y-2">
-                                  <Label htmlFor="resolved-content">Resolved File Content for <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{filePath}</span></Label>
-                                  <Textarea
-                                    id="resolved-content"
-                                    name="resolvedContent"
-                                    rows={20}
-                                    className="font-mono"
-                                    placeholder="Paste the entire file content here, then edit it to resolve the conflicts."
-                                    required
-                                  />
-                                </div>
-                            </CardContent>
-                            <div className="flex justify-end items-center p-0 pt-6">
-                              <SubmitButton />
-                            </div>
-                        </form>
-                    </Card>
+                    <ConflictResolver repoFullName={repoFullName} prNumber={prNumber} filePath={filePath} />
                 </CardContent>
             </Card>
         </div>
