@@ -58,7 +58,10 @@ export default function RepositoriesPage() {
   const [isBulkMerging, setIsBulkMerging] = useState(false)
 
   const fetchRepos = useCallback(() => {
-    setLoading(true);
+    // Only set loading for the initial fetch
+    if (localRepos.length === 0) {
+      setLoading(true);
+    }
     setError(null);
     getRepositories()
       .then((repos) => {
@@ -76,12 +79,19 @@ export default function RepositoriesPage() {
           setLoading(false);
         });
       });
-  }, []);
+  }, [localRepos.length]);
 
   useEffect(() => {
-    fetchRepos();
+    fetchRepos(); // Initial fetch
+    
+    // Set up polling to refresh every 30 seconds
+    const intervalId = setInterval(() => {
+      console.log("Auto-refreshing repositories...");
+      fetchRepos();
+    }, 30000); 
     
     return () => {
+      clearInterval(intervalId); // Cleanup on component unmount
       setSearchQuery('');
       clearRepos();
     }
@@ -259,10 +269,6 @@ export default function RepositoriesPage() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                 <Button onClick={fetchRepos} variant="outline" size="icon" className="w-10 h-10" disabled={loading}>
-                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                    <span className="sr-only">Refresh repositories</span>
-                </Button>
             </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -542,5 +548,3 @@ export default function RepositoriesPage() {
     </>
   )
 }
-
-    
