@@ -22,9 +22,10 @@ import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTrian
 import type { Repository, Build } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { formatDistanceToNow } from 'date-fns'
-import { getBuildsForRepo } from "./actions"
+import { getBuildsForRepo, rerunAllJobs, rerunFailedJobs } from "./actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface BuildStatusDialogProps {
   repo: Repository
@@ -53,20 +54,64 @@ const formatTimestamp = (date: Date) => {
     return date.toLocaleString();
 }
 
+function RerunMenuItem({ build, type, onRerun }: { build: Build, type: 'all' | 'failed', onRerun: (type: 'all' | 'failed') => void }) {
+    const [isRerunning, setIsRerunning] = React.useState(false);
+    const { toast } = useToast();
+
+    const handleRerun = async () => {
+        if (!build.repo) return;
+        setIsRerunning(true);
+        try {
+            const result = type === 'all' 
+                ? await rerunAllJobs(build.repo, build.id)
+                : await rerunFailedJobs(build.repo, build.id);
+            
+            if (result.success) {
+                toast({ title: "Success", description: `Build rerun for "${type}" jobs has been triggered.` });
+                onRerun(type);
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error || "Failed to trigger rerun." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        } finally {
+            setIsRerunning(false);
+        }
+    };
+
+    return (
+        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleRerun(); }} disabled={isRerunning}>
+            {isRerunning ? (
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            <span>{isRerunning ? `Rerunning...` : `Rerun ${type} jobs`}</span>
+        </DropdownMenuItem>
+    );
+}
+
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
   const [builds, setBuilds] = React.useState<Build[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (repo.fullName) {
+  const fetchBuilds = React.useCallback(() => {
+     if (repo.fullName) {
       setLoading(true);
       getBuildsForRepo(repo.fullName)
-        .then(setBuilds)
+        .then((buildData) => {
+            const buildsWithRepo = buildData.map(b => ({ ...b, repo: repo.fullName }))
+            setBuilds(buildsWithRepo)
+        })
         .catch(err => setError(err.message))
         .finally(() => setLoading(false));
     }
   }, [repo.fullName]);
+
+  React.useEffect(() => {
+    fetchBuilds();
+  }, [fetchBuilds]);
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
@@ -141,14 +186,8 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                             <DropdownMenuContent align="end">
                               {isFailed && (
                                 <>
-                                  <DropdownMenuItem>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    <span>Rerun failed jobs</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    <span>Rerun all jobs</span>
-                                  </DropdownMenuItem>
+                                  <RerunMenuItem build={build} type="failed" onRerun={fetchBuilds} />
+                                  <RerunMenuItem build={build} type="all" onRerun={fetchBuilds} />
                                 </>
                               )}
                               {isInProgress && (

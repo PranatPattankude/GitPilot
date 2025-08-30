@@ -24,16 +24,17 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { useAppStore, type Build } from "@/lib/store"
 import React from "react"
 import { useRouter } from "next/navigation"
-import { getAllRecentBuilds } from "../repositories/actions"
+import { getAllRecentBuilds, rerunAllJobs, rerunFailedJobs } from "../repositories/actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BuildLogsDialog } from "./build-logs-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
   Failed: { icon: XCircle, color: "text-destructive" },
   'In Progress': { icon: Loader, color: "text-primary", animation: "animate-spin" },
-  Queued: { icon: Clock, color: "text-muted-foreground" },
+  Queued: { icon: Clock, color: "text-muted-foreground", animation: "animate-spin" },
 }
 
 const formatTimestamp = (date: Date) => {
@@ -50,6 +51,44 @@ const formatTimestamp = (date: Date) => {
 
 type BuildWithRepo = Build & { repo: string };
 
+
+function RerunMenuItem({ build, type, onRerun }: { build: BuildWithRepo, type: 'all' | 'failed', onRerun: (type: 'all' | 'failed') => void }) {
+    const [isRerunning, setIsRerunning] = React.useState(false);
+    const { toast } = useToast();
+
+    const handleRerun = async () => {
+        setIsRerunning(true);
+        try {
+            const result = type === 'all' 
+                ? await rerunAllJobs(build.repo, build.id)
+                : await rerunFailedJobs(build.repo, build.id);
+            
+            if (result.success) {
+                toast({ title: "Success", description: `Build rerun for "${type}" jobs has been triggered.` });
+                onRerun(type);
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error || "Failed to trigger rerun." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Error", description: err.message });
+        } finally {
+            setIsRerunning(false);
+        }
+    };
+
+    return (
+        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleRerun(); }} disabled={isRerunning}>
+            {isRerunning ? (
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            <span>{isRerunning ? `Rerunning...` : `Rerun ${type} jobs`}</span>
+        </DropdownMenuItem>
+    );
+}
+
+
 export default function BuildsPage() {
   const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
   const [singleBuilds, setSingleBuilds] = React.useState<BuildWithRepo[]>([]);
@@ -58,35 +97,35 @@ export default function BuildsPage() {
   const [viewingLogsBuild, setViewingLogsBuild] = React.useState<BuildWithRepo | null>(null);
   const router = useRouter();
 
+  const fetchBuilds = React.useCallback(async () => {
+    try {
+        setLoading(true);
+        const buildsData = await getAllRecentBuilds();
+        const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
+            !searchQuery || 
+            build.repo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            build.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            build.commit.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setSingleBuilds(filteredBuilds);
+    } catch (err: any) {
+        setError(err.message || "Failed to fetch recent builds.");
+    } finally {
+        setLoading(false);
+    }
+  }, [searchQuery]);
+
   React.useEffect(() => {
     // Clear search when navigating to this page
     setSearchQuery('');
-
-    async function fetchBuilds() {
-        try {
-            setLoading(true);
-            const buildsData = await getAllRecentBuilds();
-            const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
-                !searchQuery || 
-                build.repo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                build.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                build.commit.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setSingleBuilds(filteredBuilds);
-        } catch (err: any) {
-            setError(err.message || "Failed to fetch recent builds.");
-        } finally {
-            setLoading(false);
-        }
-    }
 
     if (!bulkBuild) {
         fetchBuilds();
     } else {
         setLoading(false);
     }
-  }, [setSearchQuery, bulkBuild, searchQuery]);
+  }, [setSearchQuery, bulkBuild, fetchBuilds]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -202,14 +241,8 @@ export default function BuildsPage() {
                                   <DropdownMenuContent align="end">
                                     {isFailed && (
                                       <>
-                                        <DropdownMenuItem>
-                                          <RefreshCw className="mr-2 h-4 w-4" />
-                                          <span>Rerun failed jobs</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <RefreshCw className="mr-2 h-4 w-4" />
-                                          <span>Rerun all jobs</span>
-                                        </DropdownMenuItem>
+                                         <RerunMenuItem build={repo as BuildWithRepo} type="failed" onRerun={fetchBuilds} />
+                                         <RerunMenuItem build={repo as BuildWithRepo} type="all" onRerun={fetchBuilds} />
                                       </>
                                     )}
                                     {isInProgress && (
@@ -293,14 +326,8 @@ export default function BuildsPage() {
                           <DropdownMenuContent align="end">
                             {isFailed && (
                               <>
-                                <DropdownMenuItem>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  <span>Rerun failed jobs</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  <span>Rerun all jobs</span>
-                                </DropdownMenuItem>
+                                <RerunMenuItem build={build} type="failed" onRerun={fetchBuilds} />
+                                <RerunMenuItem build={build} type="all" onRerun={fetchBuilds} />
                               </>
                             )}
                             {isRunning && (

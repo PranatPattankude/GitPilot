@@ -689,3 +689,45 @@ export async function commitAndMerge(
         return { success: false, error: `An unexpected error occurred: ${error.message}` };
     }
 }
+
+async function triggerRerun(
+  repoFullName: string,
+  runId: string,
+  endpoint: 'rerun' | 'rerun-failed-jobs'
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    return { success: false, error: "Not authenticated" };
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  try {
+    const url = `https://api.github.com/repos/${repoFullName}/actions/runs/${runId}/${endpoint}`;
+    const { status, data } = await fetchFromGitHub(url, accessToken, {
+      method: "POST",
+    });
+
+    if (status === 201) {
+      return { success: true };
+    } else {
+      return { success: false, error: data?.message || `Failed to trigger rerun (status: ${status})` };
+    }
+  } catch (error: any) {
+    console.error(`Failed to trigger ${endpoint} for run ${runId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function rerunAllJobs(
+  repoFullName: string,
+  runId: string
+): Promise<{ success: boolean; error?: string }> {
+  return triggerRerun(repoFullName, runId, 'rerun');
+}
+
+export async function rerunFailedJobs(
+  repoFullName: string,
+  runId: string
+): Promise<{ success: boolean; error?: string }> {
+  return triggerRerun(repoFullName, runId, 'rerun-failed-jobs');
+}
