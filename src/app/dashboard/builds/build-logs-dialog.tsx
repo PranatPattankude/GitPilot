@@ -56,21 +56,32 @@ function parseGitHubLogs(logContent: string): ParsedLog {
 
     const groupEndMatch = line.match(/##\[endgroup]/);
     if (groupEndMatch) {
-      stack.pop();
+      const finishedStep = stack.pop();
+      if (finishedStep && !finishedStep.outcome) {
+          // If no explicit outcome was found, assume success for any ended group
+          // This handles cases where steps complete without a specific outcome line
+          // but are visually grouped.
+          finishedStep.outcome = 'success';
+      }
       return;
     }
 
     const outcomeMatch = line.match(outcomeRegex);
     if (outcomeMatch) {
         const [, outcome, stepTitle] = outcomeMatch;
-        // Try to find the matching step at the current level and update its outcome
-        const currentLevel = stack.length > 0 ? stack[stack.length - 1].children : result;
-        const stepToUpdate = currentLevel.find(s => s.type === 'step' && s.title === stepTitle) as LogStep;
+        // This outcome belongs to the *last* step that was pushed to the stack
+        // that matches the title, which is usually the one that just finished.
+        const stepToUpdate = (stack.length > 0 ? stack[stack.length - 1].children : result)
+            .slice()
+            .reverse()
+            .find(s => s.type === 'step' && s.title === stepTitle) as LogStep;
+
         if (stepToUpdate) {
             stepToUpdate.outcome = outcome as 'success' | 'failure';
         }
         return; // Don't add this meta-line to the visible log
     }
+
 
     const parent = stack.length > 0 ? stack[stack.length - 1] : null;
     const logLine: LogLine = { type: 'line', content: line };
@@ -81,6 +92,13 @@ function parseGitHubLogs(logContent: string): ParsedLog {
       result.push(logLine);
     }
   });
+  
+  // Ensure any remaining steps on the stack (e.g. for logs that end abruptly)
+  // are marked as success if they don't have a failure.
+  stack.forEach(step => {
+    if (!step.outcome) step.outcome = 'success';
+  });
+
 
   return result;
 }
@@ -92,17 +110,19 @@ const LogStepComponent: React.FC<{ step: LogStep; initialOpen?: boolean }> = ({ 
 
     const OutcomeIcon = step.outcome === 'success' ? CheckCircle : step.outcome === 'failure' ? XCircle : ChevronRight;
     const outcomeColor = step.outcome === 'success' ? 'text-green-500' : step.outcome === 'failure' ? 'text-destructive' : 'text-muted-foreground';
+    const isJustChevron = !step.outcome || (step.outcome !== 'success' && step.outcome !== 'failure');
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
-                <div className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded-sm">
-                    <OutcomeIcon className={cn("size-4 transition-transform duration-200", isOpen ? 'rotate-90' : '', outcomeColor)} />
+                <div className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded-sm -ml-1">
+                    <ChevronRight className={cn("size-4 transition-transform duration-200", isOpen ? 'rotate-90' : '', isJustChevron ? 'text-muted-foreground' : 'text-transparent')} />
+                    <OutcomeIcon className={cn("size-4 -ml-6", outcomeColor, isJustChevron ? 'hidden' : '')} />
                     <span className="font-medium text-sm">{step.title}</span>
                 </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-                <div className="pl-6 border-l border-dashed ml-3">
+                <div className="pl-6 border-l border-dashed ml-2 my-1">
                    {step.children.map((child, index) => {
                        if (child.type === 'step') {
                            return <LogStepComponent key={index} step={child} />;
@@ -184,7 +204,7 @@ export function BuildLogsDialog({ build, onOpenChange }: BuildLogsDialogProps) {
                         <div className="p-4 text-xs font-mono space-y-1">
                              {parsedLogContent.map((item, index) => {
                                 if (item.type === 'step') {
-                                    return <LogStepComponent key={index} step={item} initialOpen={true} />
+                                    return <LogStepComponent key={index} step={item} initialOpen={item.children.length > 0} />
                                 }
                                 return <p key={index} className="whitespace-pre-wrap">{item.content}</p>
                              })}
