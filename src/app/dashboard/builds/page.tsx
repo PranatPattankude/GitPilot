@@ -32,8 +32,7 @@ import { BuildLogsDialog } from "./build-logs-dialog"
 const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
   Failed: { icon: XCircle, color: "text-destructive" },
-  Running: { icon: Loader, color: "text-primary", animation: "animate-spin" },
-  "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
+  'In Progress': { icon: Loader, color: "text-primary", animation: "animate-spin" },
   Queued: { icon: Clock, color: "text-muted-foreground" },
 }
 
@@ -140,7 +139,7 @@ export default function BuildsPage() {
                     if (!Info) return null;
                     const { icon: Icon, color, animation } = Info
                     const isFailed = repo.status === 'Failed';
-                    const isInProgress = repo.status === 'In Progress';
+                    const isInProgress = repo.status === 'In Progress' || repo.status === 'Queued';
 
                     return (
                         <li key={repo.name} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/50">
