@@ -1,9 +1,27 @@
 "use client"
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 const AnimatedBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    // Function to update theme state from DOM
+    const checkTheme = () => {
+      const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+      setTheme(currentTheme);
+    };
+
+    // Initial check
+    checkTheme();
+
+    // Use a MutationObserver to watch for class changes on the <html> element
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -14,10 +32,18 @@ const AnimatedBackground: React.FC = () => {
 
     let animationFrameId: number;
     let particles: Particle[];
+    
+    const lightColors = {
+        particleColor: 'rgba(0, 0, 0, 0.5)',
+        lineColor: 'rgba(0, 0, 0, 0.1)',
+    };
+    
+    const darkColors = {
+        particleColor: 'rgba(255, 255, 255, 0.5)',
+        lineColor: 'rgba(255, 255, 255, 0.1)',
+    }
 
     const options = {
-      particleColor: 'rgba(255, 255, 255, 0.5)',
-      lineColor: 'rgba(255, 255, 255, 0.1)',
       particleAmount: 50,
       defaultRadius: 2,
       variantRadius: 2,
@@ -28,6 +54,8 @@ const AnimatedBackground: React.FC = () => {
 
     let w = canvas.width = window.innerWidth;
     let h = canvas.height = window.innerHeight;
+    
+    const getColors = () => theme === 'dark' ? darkColors : lightColors;
 
     const handleResize = () => {
         w = canvas.width = window.innerWidth;
@@ -62,7 +90,7 @@ const AnimatedBackground: React.FC = () => {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.closePath();
-        ctx.fillStyle = options.particleColor;
+        ctx.fillStyle = getColors().particleColor;
         ctx.fill();
       }
 
@@ -88,6 +116,7 @@ const AnimatedBackground: React.FC = () => {
 
     function linkParticles() {
         if (!ctx) return;
+        const currentLineColor = getColors().lineColor;
         for (let i = 0; i < particles.length; i++) {
             for (let j = i + 1; j < particles.length; j++) {
                 const distance = Math.sqrt(
@@ -97,7 +126,9 @@ const AnimatedBackground: React.FC = () => {
                 
                 if (distance < options.linkRadius) {
                     const opacity = 1 - (distance / options.linkRadius);
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.2})`;
+                    ctx.strokeStyle = theme === 'dark' 
+                        ? `rgba(255, 255, 255, ${opacity * 0.2})` 
+                        : `rgba(0, 0, 0, ${opacity * 0.2})`;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(particles[i].x, particles[i].y);
@@ -135,7 +166,7 @@ const AnimatedBackground: React.FC = () => {
         cancelAnimationFrame(animationFrameId);
     };
 
-  }, []);
+  }, [theme]);
 
   return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full object-cover" />;
 };
