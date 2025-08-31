@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +42,21 @@ export default function ConflictResolver({ repoFullName, prNumber, filePath, pr 
   const [fileContent, setFileContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lineCount, setLineCount] = useState(1);
+  
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleTextareaScroll = () => {
+    if (lineNumbersRef.current && textareaRef.current) {
+        lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  };
+
+  useEffect(() => {
+    const count = fileContent.split('\n').length;
+    setLineCount(count);
+  }, [fileContent]);
 
   useEffect(() => {
     if (repoFullName && pr.sourceBranch && filePath) {
@@ -59,7 +74,7 @@ export default function ConflictResolver({ repoFullName, prNumber, filePath, pr 
         setError("Could not load file content. You may need to fetch it manually. " + err.message);
         // Provide a link to the file on GitHub as a fallback
         const fileUrl = `${pr.url}/files#diff-${source.sha}`;
-        setFileContent(`Error loading file. Please open the file on GitHub to view the conflict and paste the resolved content here.\n\nFile URL: ${fileUrl}`);
+        setFileContent(`Error loading file. Please open the file on GitHub to view the resolved content and paste it here.\n\nFile URL: ${fileUrl}`);
       }).finally(() => {
         setLoading(false);
       });
@@ -95,17 +110,31 @@ export default function ConflictResolver({ repoFullName, prNumber, filePath, pr 
                     <CardDescription>
                         The editor below shows the content from both branches. Edit the code to resolve the conflict, removing the `&lt;&lt;&lt;&lt;&lt;&lt;&lt;`, `=======`, and `&gt;&gt;&gt;&gt;&gt;&gt;&gt;` markers. The final content should be what you want to commit.
                     </CardDescription>
-                  <Textarea
-                      id="resolvedContent"
-                      name="resolvedContent"
-                      rows={20}
-                      className="font-mono"
-                      placeholder="Resolve the conflict here."
-                      value={fileContent}
-                      onChange={(e) => setFileContent(e.target.value)}
-                      required
-                      disabled={loading || !!error}
-                  />
+                  <div className="flex w-full rounded-md border border-input focus-within:ring-2 focus-within:ring-ring">
+                      <div 
+                        ref={lineNumbersRef}
+                        className="p-2 text-right text-muted-foreground select-none bg-muted/50 border-r border-input font-mono text-sm" 
+                        style={{ lineHeight: '1.75rem', minHeight: '80px', overflowY: 'hidden' }}
+                      >
+                        {Array.from({ length: lineCount }, (_, i) => (
+                            <div key={i}>{i + 1}</div>
+                        ))}
+                      </div>
+                      <Textarea
+                          id="resolvedContent"
+                          name="resolvedContent"
+                          ref={textareaRef}
+                          rows={20}
+                          className="font-mono flex-1 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                          style={{ lineHeight: '1.75rem' }}
+                          placeholder="Resolve the conflict here."
+                          value={fileContent}
+                          onChange={(e) => setFileContent(e.target.value)}
+                          onScroll={handleTextareaScroll}
+                          required
+                          disabled={loading || !!error}
+                      />
+                  </div>
               </div>
 
           </CardContent>
