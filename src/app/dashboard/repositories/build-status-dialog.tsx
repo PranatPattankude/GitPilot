@@ -132,24 +132,32 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const fetchBuilds = React.useCallback(() => {
+  const fetchBuilds = React.useCallback((isInitialFetch = false) => {
      if (repo.fullName) {
-      if (!loading) setLoading(true);
+      if (isInitialFetch) setLoading(true);
       getBuildsForRepo(repo.fullName)
         .then((buildData) => {
             const buildsWithRepo = buildData.map(b => ({ ...b, repo: repo.fullName }))
             setBuilds(buildsWithRepo)
         })
         .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
+        .finally(() => {
+          if (isInitialFetch) setLoading(false)
+        });
     }
-  }, [repo.fullName, loading]);
+  }, [repo.fullName]);
 
   React.useEffect(() => {
-    fetchBuilds();
-    const interval = setInterval(fetchBuilds, 15000); // Refresh every 15 seconds
+    fetchBuilds(true);
+    const interval = setInterval(() => {
+      const hasInProgressBuilds = builds.some(b => b.status === 'In Progress');
+      if (hasInProgressBuilds) {
+        console.log(`Refreshing in-progress builds for ${repo.name}...`);
+        fetchBuilds(false);
+      }
+    }, 15000); // Refresh every 15 seconds
     return () => clearInterval(interval);
-  }, [fetchBuilds]);
+  }, [fetchBuilds, builds, repo.name]);
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
@@ -224,12 +232,12 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                             <DropdownMenuContent align="end">
                               {isFailed && (
                                 <>
-                                  <RerunMenuItem build={build} type="failed" onAction={fetchBuilds} />
-                                  <RerunMenuItem build={build} type="all" onAction={fetchBuilds} />
+                                  <RerunMenuItem build={build} type="failed" onAction={() => fetchBuilds(true)} />
+                                  <RerunMenuItem build={build} type="all" onAction={() => fetchBuilds(true)} />
                                 </>
                               )}
                               {isRunning && (
-                                 <CancelMenuItem build={build} onAction={fetchBuilds} />
+                                 <CancelMenuItem build={build} onAction={() => fetchBuilds(true)} />
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -276,3 +284,5 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
+
+    

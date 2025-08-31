@@ -130,9 +130,11 @@ export default function BuildsPage() {
   const [viewingLogsBuild, setViewingLogsBuild] = React.useState<BuildWithRepo | null>(null);
   const router = useRouter();
 
-  const fetchBuilds = React.useCallback(async () => {
+ const fetchBuilds = React.useCallback(async (isInitialFetch = false) => {
+    if (isInitialFetch) {
+        setLoading(true);
+    }
     try {
-        if (!loading) setLoading(true); // show loader on manual refresh
         const buildsData = await getAllRecentBuilds();
         const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
             !searchQuery || 
@@ -145,29 +147,36 @@ export default function BuildsPage() {
     } catch (err: any) {
         setError(err.message || "Failed to fetch recent builds.");
     } finally {
-        setLoading(false);
+        if (isInitialFetch) {
+            setLoading(false);
+        }
     }
-  }, [searchQuery, loading]);
+  }, [searchQuery]);
 
   React.useEffect(() => {
     // Clear search when navigating to this page
     setSearchQuery('');
 
     if (!bulkBuild) {
-        fetchBuilds();
+        fetchBuilds(true); // Initial fetch
     } else {
         setLoading(false);
     }
     
-    // Auto-refresh builds every 15 seconds
+    // Auto-refresh builds that are in progress
     const interval = setInterval(() => {
-        console.log("Refreshing builds...");
-        fetchBuilds();
+        const hasInProgressBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued');
+        const isBulkBuildInProgress = bulkBuild?.status === 'In Progress';
+        
+        if (hasInProgressBuilds || isBulkBuildInProgress) {
+            console.log("Refreshing in-progress builds...");
+            fetchBuilds(false);
+        }
     }, 15000);
 
     return () => clearInterval(interval);
 
-  }, [setSearchQuery, bulkBuild, fetchBuilds]);
+  }, [setSearchQuery, bulkBuild, fetchBuilds, singleBuilds]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -195,7 +204,7 @@ export default function BuildsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Build Status</h1>
             <p className="text-muted-foreground mt-1">Live status of your CI/CD pipelines.</p>
         </div>
-        <Button variant="outline" onClick={fetchBuilds} disabled={loading}>
+        <Button variant="outline" onClick={() => fetchBuilds(true)} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
         </Button>
@@ -290,12 +299,12 @@ export default function BuildsPage() {
                                   <DropdownMenuContent align="end">
                                     {isFailed && (
                                       <>
-                                         <RerunMenuItem build={repoAsBuildWithRepo} type="failed" onAction={fetchBuilds} />
-                                         <RerunMenuItem build={repoAsBuildWithRepo} type="all" onAction={fetchBuilds} />
+                                         <RerunMenuItem build={repoAsBuildWithRepo} type="failed" onAction={() => fetchBuilds(true)} />
+                                         <RerunMenuItem build={repoAsBuildWithRepo} type="all" onAction={() => fetchBuilds(true)} />
                                       </>
                                     )}
                                     {isRunning && (
-                                      <CancelMenuItem build={repoAsBuildWithRepo} onAction={fetchBuilds} />
+                                      <CancelMenuItem build={repoAsBuildWithRepo} onAction={() => fetchBuilds(true)} />
                                     )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -372,12 +381,12 @@ export default function BuildsPage() {
                           <DropdownMenuContent align="end">
                             {isFailed && (
                               <>
-                                <RerunMenuItem build={build} type="failed" onAction={fetchBuilds} />
-                                <RerunMenuItem build={build} type="all" onAction={fetchBuilds} />
+                                <RerunMenuItem build={build} type="failed" onAction={() => fetchBuilds(true)} />
+                                <RerunMenuItem build={build} type="all" onAction={() => fetchBuilds(true)} />
                               </>
                             )}
                             {isRunning && (
-                                <CancelMenuItem build={build} onAction={fetchBuilds} />
+                                <CancelMenuItem build={build} onAction={() => fetchBuilds(true)} />
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -424,3 +433,5 @@ export default function BuildsPage() {
     </>
   )
 }
+
+    
