@@ -175,23 +175,15 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
     const resolvedContent = useMemo(() => reassembleFile(blocks), [blocks]);
 
     useEffect(() => {
-      let lineCount = 0;
-      blocks.forEach(block => {
-        if (block.type === 'code') {
-          lineCount += block.line.split('\n').length;
-        } else {
-           const blockContent = reassembleFile([block]);
-           lineCount += blockContent.split('\n').length;
-        }
-      });
-      setTotalLines(lineCount);
+      const reassembled = reassembleFile(blocks);
+      setTotalLines(reassembled.split('\n').length);
     }, [blocks]);
 
 
     const handleResolve = (conflictId: number, resolution: 'current' | 'incoming' | 'both') => {
         setBlocks(prevBlocks => prevBlocks.map(block => {
             if (block.type === 'conflict' && block.id === conflictId) {
-                return { ...block, resolution };
+                return { ...block, resolution, manualContent: undefined };
             }
             return block;
         }));
@@ -255,8 +247,7 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                 }
                                 
                                 const isResolved = block.resolution !== 'none';
-                                const blockContent = reassembleFile([block]);
-
+                                
                                 return (
                                     <div key={block.id} className={cn("my-2 border rounded-md overflow-hidden", isResolved ? "border-green-500/50 bg-green-500/5" : "border-destructive/50")}>
                                        <div className="flex justify-between items-center text-xs p-2 bg-muted/50 border-b">
@@ -276,34 +267,26 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                         </div>
                                        
                                        {isResolved ? (
-                                            <div className="p-2 bg-background">
-                                                <pre className="whitespace-pre-wrap text-muted-foreground">
-                                                    {blockContent}
-                                                </pre>
-                                           </div>
+                                             <Textarea 
+                                                className="w-full h-auto bg-background border-0 focus-visible:ring-0 resize-none font-mono"
+                                                value={reassembleFile([block])}
+                                                onChange={(e) => handleManualChange(block.id, e.target.value)}
+                                                placeholder="Manually resolve the conflict here..."
+                                                rows={reassembleFile([block]).split('\n').length}
+                                            />
                                        ) : (
                                             <div className='flex flex-col'>
                                                 <div className="p-2 bg-blue-500/10">
                                                     <div className="flex items-center justify-between pb-1">
-                                                        <Badge variant="outline" className="border-blue-400/50 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">Current Change</Badge>
+                                                        <Badge variant="outline" className="border-blue-400/50 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">Current Change ({pr.targetBranch})</Badge>
                                                     </div>
                                                     <pre className="whitespace-pre-wrap text-blue-800 dark:text-blue-300">{block.current.join('\n')}</pre>
                                                 </div>
                                                 <div className="p-2 bg-purple-500/10">
                                                      <div className="flex items-center justify-between pb-1">
-                                                        <Badge variant="outline" className="border-purple-400/50 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Incoming Change</Badge>
+                                                        <Badge variant="outline" className="border-purple-400/50 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Incoming Change ({pr.sourceBranch})</Badge>
                                                     </div>
                                                     <pre className="whitespace-pre-wrap text-purple-800 dark:text-purple-300">{block.incoming.join('\n')}</pre>
-                                                </div>
-                                                <div>
-                                                   <Label htmlFor={`manual-resolve-${block.id}`} className='text-xs pl-2 text-muted-foreground'>Manual Resolution</Label>
-                                                    <Textarea 
-                                                        id={`manual-resolve-${block.id}`}
-                                                        className="w-full h-auto bg-background border-0 focus-visible:ring-0"
-                                                        value={block.manualContent ?? ''}
-                                                        onChange={(e) => handleManualChange(block.id, e.target.value)}
-                                                        placeholder="Manually resolve the conflict here..."
-                                                    />
                                                 </div>
                                             </div>
                                        )}
@@ -322,6 +305,12 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                     .line-numbers > div {
                         height: 1.5rem; /* Match with pre/textarea line-height */
                     }
+                     .line-numbers + .flex-1 .p-4 {
+                        line-height: 1.5rem;
+                    }
+                    .line-numbers + .flex-1 textarea {
+                        line-height: 1.5rem;
+                    }
                 `}</style>
             </div>
           </div>
@@ -332,3 +321,5 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
       </>
   );
 }
+
+    
