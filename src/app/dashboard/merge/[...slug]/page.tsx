@@ -42,27 +42,31 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     }, [state, toast]);
 
     useEffect(() => {
-        if (repoFullName && prNumber) {
+        async function fetchData() {
+            if (!repoFullName || !prNumber) return;
+
             setLoading(true);
-            getPullRequest(repoFullName, prNumber)
-            .then(prData => {
+            try {
+                const prData = await getPullRequest(repoFullName, prNumber);
                 if (!prData) throw new Error("Pull Request not found.");
                 setPr(prData);
-                return getFileContent(repoFullName, prData.sourceBranch, filePath)
-            })
-            .then((data) => {
-                setSourceContent(data.content);
-                // In a real scenario, you'd fetch the base branch content too.
-                // For this example, we'll simulate a conflict.
-                return getFileDiff(repoFullName, pr.targetBranch, pr.sourceBranch, filePath);
-            })
-            .then((diff) => {
-                 setTargetContent(sourceContent); // This will be improved
-            })
-            .catch((err) => setError(err.message))
-            .finally(() => setLoading(false));
+
+                // Now that prData is confirmed to exist, we can use it directly
+                const sourceData = await getFileContent(repoFullName, prData.sourceBranch, filePath);
+                setSourceContent(sourceData.content);
+
+                const targetData = await getFileContent(repoFullName, prData.targetBranch, filePath);
+                setTargetContent(targetData.content);
+
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
         }
-    }, [repoFullName, prNumber, filePath, pr?.targetBranch, pr?.sourceBranch, sourceContent]);
+
+        fetchData();
+    }, [repoFullName, prNumber, filePath]);
 
     const header = (
         <header>
