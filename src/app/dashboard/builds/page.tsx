@@ -137,14 +137,7 @@ export default function BuildsPage() {
     setError(null);
     try {
         const buildsData = await getAllRecentBuilds();
-        const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
-            !searchQuery || 
-            build.repo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            build.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            build.commit.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setSingleBuilds(filteredBuilds);
+        setSingleBuilds(buildsData as BuildWithRepo[]);
     } catch (err: any) {
         setError(err.message || "Failed to fetch recent builds.");
     } finally {
@@ -152,20 +145,15 @@ export default function BuildsPage() {
             setLoading(false);
         }
     }
-  }, [searchQuery]);
+  }, []);
 
   React.useEffect(() => {
     setSearchQuery('');
-
-    if (!bulkBuild) {
-        fetchBuilds(true);
-    } else {
-        setLoading(false);
-    }
+    fetchBuilds(true);
     
+    // Cleanup on unmount
     return () => setSearchQuery('');
-  }, [bulkBuild, fetchBuilds, setSearchQuery]);
-
+  }, [fetchBuilds, setSearchQuery]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -176,7 +164,19 @@ export default function BuildsPage() {
       }, 30000); // Clear after 30 seconds
       return () => clearTimeout(timer);
     }
-  }, [bulkBuild, clearBulkBuild]);
+
+    // Set up polling if there are any builds in progress
+    const hasInProgressBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued') 
+        || (bulkBuild && bulkBuild.repos.some(r => r.status === 'In Progress' || r.status === 'Queued'));
+
+    if (hasInProgressBuilds) {
+        const interval = setInterval(() => {
+            console.log("Refreshing in-progress builds...");
+            fetchBuilds(false);
+        }, 15000); // Refresh every 15 seconds
+        return () => clearInterval(interval);
+    }
+  }, [singleBuilds, bulkBuild, fetchBuilds, clearBulkBuild]);
   
   const filteredSingleBuilds = singleBuilds.filter(build => 
       !searchQuery ||
