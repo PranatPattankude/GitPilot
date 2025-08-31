@@ -348,13 +348,7 @@ export async function createPullRequest(
     if (status === 422) {
       const errorDetails = data?.errors?.[0]?.message || data?.message || "An unprocessable request was made.";
       if (errorDetails.includes("A pull request already exists")) {
-        // Find existing PR
-        const { data: existingPRs } = await fetchFromGitHub<any[]>(`${url}?head=${sourceBranch.split(':')[1]}&base=${targetBranch}`, accessToken);
-        const existingPR = existingPRs.find(pr => pr.head.ref === sourceBranch);
-        if (existingPR) {
-            return { success: true, data: existingPR };
-        }
-        return { success: false, error: "A pull request for these branches already exists, but could not be retrieved." };
+        return { success: false, error: "A pull request for these branches already exists." };
       }
       if (errorDetails.includes("No commits between")) {
         return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
@@ -457,16 +451,13 @@ export async function compareBranches(
       return { status: "no-changes" };
     }
     
-    // To determine conflicts, we must create a PR and check its mergeable state.
-    // This is a placeholder; the actual conflict check happens during PR creation.
     if (data.status === 'diverged' || data.status === 'ahead' || data.status === 'behind') {
       return { status: "can-merge" };
     }
     
     return { status: "has-conflicts", error: data.status ? `Unknown branch status: ${data.status}` : "Could not determine mergeability." };
 
-  } catch (error: any)
-  {
+  } catch (error: any) {
     console.error(`Failed to compare branches for ${repoFullName}:`, error);
      if (error.message && error.message.includes("No common ancestor")) {
         return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
@@ -805,6 +796,7 @@ export async function cancelWorkflowRun(
   }
 }
 
+<<<<<<< HEAD
 async function checkWorkflowsExistence(
   repoFullName: string,
   accessToken: string
@@ -817,65 +809,42 @@ async function checkWorkflowsExistence(
     return false;
   }
 }
+=======
+>>>>>>> parent of 7c8d7b9 (in Repository Management page while doing bulk merge check every repo co)
 
-export async function processBulkComparison(
-  repos: Repository[],
-  sourceBranch: string,
-  targetBranch: string
-): Promise<Array<{ repo: Repository, status: 'no-changes' | 'has-conflicts' | 'can-merge' | 'skipped-no-workflow' | 'skipped-no-branch', prUrl?: string, prNumber?: number, message?: string }>> {
+export async function checkWorkflowsExistence(
+  repoFullNames: string[]
+): Promise<Record<string, boolean>> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
     throw new Error("Not authenticated");
   }
   const accessToken = (session as any).accessToken as string;
 
-  const results = await Promise.all(
-    repos.map(async (repo) => {
-      const repoBranches = repo.branches || [];
-      const hasSource = repoBranches.includes(sourceBranch);
-      const hasTarget = repoBranches.includes(targetBranch);
+  const results: Record<string, boolean> = {};
 
-      if (!hasSource || !hasTarget) {
-        return { repo, status: 'skipped-no-branch' as const, message: !hasSource ? 'Source branch not found' : 'Target branch not found' };
+  await Promise.all(
+    repoFullNames.map(async (repoFullName) => {
+      const url = `https://api.github.com/repos/${repoFullName}/contents/.github/workflows`;
+      try {
+        const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET' });
+        results[repoFullName] = status === 200;
+      } catch (error) {
+        // A 404 error from fetchFromGitHub is thrown, which we can interpret as "no workflows"
+        results[repoFullName] = false;
       }
-      
-      const hasWorkflows = await checkWorkflowsExistence(repo.fullName, accessToken);
-      if (!hasWorkflows) {
-        return { repo, status: 'skipped-no-workflow' as const };
-      }
-
-      const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
-
-      if (compareResult.status === 'no-changes') {
-        return { repo, status: 'no-changes' as const };
-      }
-
-      if (compareResult.status === 'can-merge' || compareResult.status === 'has-conflicts') {
-        const prResult = await createPullRequest(repo.fullName, sourceBranch, targetBranch);
-        
-        if (!prResult.success || !prResult.data) {
-          return { repo, status: 'has-conflicts' as const, message: prResult.error };
-        }
-
-        // Wait a moment for GitHub to calculate mergeability
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const detailedPr = await getPullRequest(repo.fullName, prResult.data.number);
-
-        if (detailedPr?.mergeable_state === 'dirty') {
-          return { repo, status: 'has-conflicts' as const, prUrl: prResult.data.html_url, prNumber: prResult.data.number };
-        }
-        
-        return { repo, status: 'can-merge' as const, prUrl: prResult.data.html_url, prNumber: prResult.data.number };
-      }
-
-      // Default case for errors
-      return { repo, status: 'has-conflicts' as const, message: compareResult.error || "An unknown comparison error occurred." };
     })
   );
 
   return results;
 }
+    
 
+    
+
+
+
+<<<<<<< HEAD
 export async function mergeCleanPullRequests(
   pullRequests: { repoFullName: string; prNumber: number }[]
 ): Promise<void> {
@@ -890,3 +859,5 @@ export async function mergeCleanPullRequests(
 }
 
     
+=======
+>>>>>>> parent of 7c8d7b9 (in Repository Management page while doing bulk merge check every repo co)
