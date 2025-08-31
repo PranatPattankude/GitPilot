@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GithubIcon, GitPilotLogo } from "@/components/icons"
 import { ThemeToggle } from "../dashboard/theme-toggle"
-import Image from "next/image"
+import AnimatedBackground from "./animated-background"
 
 export default function LoginPage() {
   return (
@@ -14,16 +14,10 @@ export default function LoginPage() {
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center bg-muted p-12 text-center relative overflow-hidden">
-        <Image 
-          src="https://picsum.photos/1200/1800"
-          alt="Abstract DevOps background"
-          data-ai-hint="devops futuristic"
-          fill
-          className="object-cover"
-        />
+      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center bg-gray-900 p-12 text-center relative overflow-hidden">
+        <AnimatedBackground />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-blue-900/50 opacity-50"></div>
-        <div className="relative z-10 flex flex-col items-center justify-center backdrop-blur-md bg-background/30 p-10 rounded-xl border border-white/10 shadow-2xl">
+        <div className="relative z-10 flex flex-col items-center justify-center backdrop-blur-md bg-background/20 p-10 rounded-xl border border-white/10 shadow-2xl">
           <div className="flex items-center gap-4">
               <GitPilotLogo className="w-16 h-16 text-white" />
               <h1 className="text-4xl font-bold tracking-tight text-white">GitPilot</h1>
