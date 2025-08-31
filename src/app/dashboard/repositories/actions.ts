@@ -318,7 +318,8 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
 export async function createPullRequest(
   repoFullName: string,
   sourceBranch: string,
-  targetBranch: string
+  targetBranch: string,
+  isDraft: boolean = false
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
@@ -338,6 +339,7 @@ export async function createPullRequest(
         head: sourceBranch,
         base: targetBranch,
         body: `Automated PR created by GitPilot to merge ${sourceBranch} into ${targetBranch}.`,
+        draft: isDraft,
       }),
     });
 
@@ -348,7 +350,13 @@ export async function createPullRequest(
     if (status === 422) {
       const errorDetails = data?.errors?.[0]?.message || data?.message || "An unprocessable request was made.";
       if (errorDetails.includes("A pull request already exists")) {
-        return { success: false, error: "A pull request for these branches already exists." };
+        // Find the existing PR
+        const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${sourceBranch}&base=${targetBranch}&state=open`;
+        const { data: existingPrs } = await fetchFromGitHub<any[]>(prsUrl, accessToken);
+        if (existingPrs && existingPrs.length > 0) {
+          return { success: true, data: existingPrs[0], error: "A pull request for these branches already exists." };
+        }
+        return { success: false, error: "A pull request for these branches already exists, but could not be retrieved." };
       }
       if (errorDetails.includes("No commits between")) {
         return { success: false, error: "The source and target branches are identical. There is nothing to merge." };
@@ -397,7 +405,7 @@ export async function mergePullRequest(
     if (pr.mergeable_state === "blocked") {
       return { success: false, error: "PR is blocked by required checks or branch protections." };
     }
-    if (pr.mergeable_state !== 'clean') {
+    if (pr.mergeable_state !== 'clean' && pr.mergeable_state !== 'unstable') {
        return { success: false, error: `Mergeability is '${pr.mergeable_state}'. Please resolve issues or try again.` };
     }
 
@@ -451,11 +459,44 @@ export async function compareBranches(
       return { status: "no-changes" };
     }
     
-    if (data.status === 'diverged' || data.status === 'ahead' || data.status === 'behind') {
-      return { status: "can-merge" };
+    // To check for conflicts, we must create a PR and check its mergeable state.
+    // This is the most reliable way. We will create a draft PR.
+    const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch, true);
+    if (!prResult.success || !prResult.data) {
+        // If PR creation fails but not because it exists, it might be due to no diffs.
+        if (prResult.error?.includes("No commits between")) {
+            return { status: "no-changes" };
+        }
+        return { status: "has-conflicts", error: prResult.error || "Could not create a temporary PR to check for conflicts." };
+    }
+
+    const pr = prResult.data;
+    const prUrl = `https://api.github.com/repos/${repoFullName}/pulls/${pr.number}`;
+    
+    // Poll for mergeability status
+    let mergeableState = 'unknown';
+    for (let i = 0; i < 5; i++) { // Poll for up to 10 seconds
+        const { data: prData } = await fetchFromGitHub<any>(prUrl, accessToken);
+        if (prData.mergeable_state !== 'unknown') {
+            mergeableState = prData.mergeable_state;
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
-    return { status: "has-conflicts", error: data.status ? `Unknown branch status: ${data.status}` : "Could not determine mergeability." };
+    // We don't need the draft PR anymore, so close it.
+    // We don't await this as it can happen in the background.
+    fetchFromGitHub(prUrl, accessToken, {
+        method: 'PATCH',
+        body: JSON.stringify({ state: 'closed' }),
+    });
+
+    if (mergeableState === 'dirty') {
+        return { status: "has-conflicts" };
+    }
+
+    return { status: "can-merge" };
+    
 
   } catch (error: any) {
     console.error(`Failed to compare branches for ${repoFullName}:`, error);
@@ -809,16 +850,31 @@ export async function checkWorkflowsExistence(
 
   await Promise.all(
     repoFullNames.map(async (repoFullName) => {
-      const url = `https://api.github.com/repos/${repoFullName}/contents/.github/workflows`;
+      const url = `https://api.github.com/repos/${repoFullName}/actions/workflows`;
       try {
-        const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET' });
-        results[repoFullName] = status === 200;
+        const { data, status } = await fetchFromGitHub<{workflows: any[]}>(url, accessToken, { method: 'GET' });
+        // Check if there's at least one active workflow
+        results[repoFullName] = status === 200 && data.workflows && data.workflows.some(w => w.state === 'active');
       } catch (error) {
-        // A 404 error from fetchFromGitHub is thrown, which we can interpret as "no workflows"
         results[repoFullName] = false;
       }
     })
   );
 
   return results;
+}
+
+
+export async function mergeCleanPullRequests(
+  pullRequests: { repoFullName: string; prNumber: number }[]
+): Promise<void> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  // We don't need to return anything, just fire off the merge requests
+  for (const pr of pullRequests) {
+    mergePullRequest(pr.repoFullName, pr.prNumber);
+  }
 }

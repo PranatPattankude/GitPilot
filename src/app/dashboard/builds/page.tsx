@@ -186,6 +186,12 @@ export default function BuildsPage() {
       build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handlePullRequestClick = (pr: any) => {
+    if (pr.url) {
+      window.open(pr.url, '_blank');
+    }
+  };
+
   return (
     <>
       <header className="flex items-center justify-between">
@@ -253,21 +259,23 @@ export default function BuildsPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-muted-foreground w-6 text-right">{index + 1}.</span>
                             <div className="flex flex-col gap-1">
-                              <span>{repo.name}</span>
-                              <div className="flex items-center gap-4">
+                              <span className="font-medium">{repo.name}</span>
+                               <div className="flex items-center gap-4 text-muted-foreground">
+                                {repo.prUrl && (
+                                  <a href={repo.prUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:underline text-primary">
+                                    <GitPullRequest className="size-3" />
+                                    <span className="text-xs">PR #{repo.prNumber}</span>
+                                  </a>
+                                )}
                                 <div className="flex items-center gap-1.5">
-                                  <GitCommit className="size-3 text-muted-foreground" />
-                                  <span className="font-mono bg-background/50 px-2 py-1 rounded text-xs">
+                                  <GitCommit className="size-3" />
+                                  <span className="font-mono bg-background/50 px-1 rounded text-xs">
                                     {repo.commit}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  <Clock className="size-3 text-muted-foreground" />
+                                  <Clock className="size-3" />
                                   <span className="text-xs">{repo.duration}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Calendar className="size-3 text-muted-foreground" />
-                                  <span className="text-xs">{formatTimestamp(repo.timestamp)}</span>
                                 </div>
                               </div>
                             </div>
@@ -306,7 +314,6 @@ export default function BuildsPage() {
               </ScrollArea>
             </CardContent>
             <CardFooter className="gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewingLogsBuild(bulkBuild as any)}>View Bulk Log</Button>
                {bulkBuild.status !== "In Progress" && (
                  <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard/repositories")}>Back to Repositories</Button>
                )}

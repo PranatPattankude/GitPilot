@@ -41,6 +41,7 @@ const steps = [
 
 const statusInfo = {
   "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
+  "Queued": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "Success": { icon: CheckCircle2, color: "text-accent" },
   "Failed": { icon: XCircle, color: "text-destructive" },
 }
@@ -149,15 +150,18 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
 
   React.useEffect(() => {
     fetchBuilds(true);
-    const interval = setInterval(() => {
-      const hasInProgressBuilds = builds.some(b => b.status === 'In Progress');
-      if (hasInProgressBuilds) {
+  }, [fetchBuilds]);
+  
+  React.useEffect(() => {
+    const hasInProgressBuilds = builds.some(b => b.status === 'In Progress' || b.status === 'Queued');
+    if (hasInProgressBuilds) {
+      const interval = setInterval(() => {
         console.log(`Refreshing in-progress builds for ${repo.name}...`);
         fetchBuilds(false);
-      }
-    }, 15000); // Refresh every 15 seconds
-    return () => clearInterval(interval);
-  }, [fetchBuilds, builds, repo.name]);
+      }, 15000); // Refresh every 15 seconds
+      return () => clearInterval(interval);
+    }
+  }, [builds, repo.name, fetchBuilds]);
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
@@ -193,13 +197,14 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
             </div>
           ) : (
             builds.map((build) => {
-              const SvgIcon = statusInfo[build.status as keyof typeof statusInfo].icon;
-              const color = statusInfo[build.status as keyof typeof statusInfo].color;
-              const animation = statusInfo[build.status as keyof typeof statusInfo].animation || '';
+              const info = statusInfo[build.status as keyof typeof statusInfo];
+              if (!info) return null;
+              
+              const {icon: SvgIcon, color, animation} = info;
               
               const isFailed = build.status === "Failed";
               const isSuccess = build.status === "Success";
-              const isRunning = build.status === "In Progress";
+              const isRunning = build.status === "In Progress" || build.status === "Queued";
 
               // Mocking progress for now as GitHub API doesn't provide steps
               const progressValue = isSuccess ? 100 : isRunning ? 50 : isFailed ? 75 : 0;
@@ -219,7 +224,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                       </div>
                     </div>
                      <div className="flex items-center gap-2">
-                      <SvgIcon className={`size-5 ${color} ${animation}`} />
+                      <SvgIcon className={`size-5 ${color} ${animation || ''}`} />
                       <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
                       {(isFailed || isRunning) && (
                          <DropdownMenu>
@@ -250,7 +255,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                       <div className="flex justify-between text-xs text-muted-foreground">
                         {steps.map((step, index) => {
                           const isCompleted = index < currentStep || isSuccess;
-                          const isCurrent = index + 1 === currentStep && build.status === "In Progress";
+                          const isCurrent = index + 1 === currentStep && isRunning;
                           
                           return (
                             <div key={step.name} className="flex flex-col items-center text-center">
@@ -284,5 +289,3 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
-
-    

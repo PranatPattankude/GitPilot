@@ -14,6 +14,8 @@ export type Build = {
   duration?: string;
   name?: string;
   repo?: string;
+  prUrl?: string;
+  prNumber?: number;
 }
 
 export type Repository = {

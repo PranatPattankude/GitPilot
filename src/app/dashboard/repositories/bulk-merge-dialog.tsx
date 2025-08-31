@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, useTransition } from "react"
+import { useState, useMemo, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   Dialog,
@@ -11,11 +11,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader, FolderCog } from "lucide-react"
+import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader, FolderCog, Info, CheckCircle, ExternalLink, RefreshCw } from "lucide-react"
 import { useAppStore, type Repository } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import {
     Select,
@@ -28,26 +27,35 @@ import { Label } from "@/components/ui/label"
 import { addReleaseToHistory } from "@/ai/flows/release-history"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
-import { checkWorkflowsExistence } from "./actions"
+import { checkWorkflowsExistence, compareBranches, createPullRequest, mergeCleanPullRequests } from "./actions"
+import Link from "next/link"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-const conflictRepo = { id: '3', name: 'react-fire-hooks', owner: 'acme-corp', url: 'https://github.com/acme-corp/react-fire-hooks', lastUpdated: '5 minutes ago' };
+type RepoComparisonStatus = {
+    repo: Repository;
+    status: 'pending' | 'no-changes' | 'has-conflicts' | 'can-merge' | 'skipped-no-workflows' | 'skipped-no-branches' | 'error';
+    error?: string;
+    pullRequest?: {
+        number: number;
+        url: string;
+    };
+}
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   const { selectedRepos, startBulkBuild } = useAppStore()
   const [sourceBranch, setSourceBranch] = useState("develop")
   const [targetBranch, setTargetBranch] = useState("main")
+  const [comparisonStatuses, setComparisonStatuses] = useState<RepoComparisonStatus[]>([]);
   const [isComparing, setIsComparing] = useState(false)
   const [isMerging, setIsMerging] = useState(false)
-  const [comparisonDone, setComparisonDone] = useState(false)
-  const [workflowStatus, setWorkflowStatus] = useState<Record<string, boolean>>({});
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
-  const [isPending, startTransition] = useTransition()
 
   const availableBranches = useMemo(() => {
     const allBranches = new Set<string>();
@@ -59,98 +67,146 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
 
 
   const handleCompare = async () => {
-    setIsComparing(true)
-    setComparisonDone(false)
+    setIsComparing(true);
+    setComparisonStatuses(selectedRepos.map(repo => ({ repo, status: 'pending' })));
+
     try {
-        const repoNames = selectedRepos.map(r => r.fullName);
-        const statuses = await checkWorkflowsExistence(repoNames);
-        setWorkflowStatus(statuses);
-    } catch(e: any) {
+        const repoFullNames = selectedRepos.map(r => r.fullName);
+        const workflowStatus = await checkWorkflowsExistence(repoFullNames);
+
+        await Promise.all(selectedRepos.map(async (repo, index) => {
+            const updateStatus = (newStatus: Partial<RepoComparisonStatus>) => {
+                setComparisonStatuses(prev => {
+                    const newStatuses = [...prev];
+                    newStatuses[index] = { ...newStatuses[index], ...newStatus };
+                    return newStatuses;
+                });
+            };
+
+            const repoBranches = repo.branches || [];
+            if (!repoBranches.includes(sourceBranch) || !repoBranches.includes(targetBranch)) {
+                updateStatus({ status: 'skipped-no-branches', error: 'Source or target branch not found' });
+                return;
+            }
+
+            if (!workflowStatus[repo.fullName]) {
+                updateStatus({ status: 'skipped-no-workflows', error: 'No active CI/CD workflows found' });
+                return;
+            }
+            
+            const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
+            updateStatus({ status: compareResult.status, error: compareResult.error });
+            
+            // If there are changes or conflicts, create a PR
+            if (compareResult.status === 'can-merge' || compareResult.status === 'has-conflicts') {
+                const isDraft = compareResult.status === 'has-conflicts';
+                const prResult = await createPullRequest(repo.fullName, sourceBranch, targetBranch, isDraft);
+                if (prResult.success && prResult.data) {
+                    updateStatus({ pullRequest: { number: prResult.data.number, url: prResult.data.html_url } });
+                } else {
+                     updateStatus({ status: 'error', error: prResult.error || 'Failed to create Pull Request' });
+                }
+            }
+        }));
+    } catch (e: any) {
         toast({
             variant: "destructive",
-            title: "Error checking workflows",
+            title: "Error during comparison",
             description: e.message || "An unexpected error occurred."
-        })
+        });
     } finally {
-        setIsComparing(false)
-        setComparisonDone(true)
+        setIsComparing(false);
     }
-  }
-
-  const getSkippedRepoInfo = (repo: Repository) => {
-    const repoBranches = repo.branches || [];
-    const hasSource = repoBranches.includes(sourceBranch);
-    const hasTarget = repoBranches.includes(targetBranch);
-    const hasWorkflows = workflowStatus[repo.fullName];
-
-    if (!hasWorkflows) return { reason: `No workflow files found`, icon: FolderCog };
-    if (!hasSource && !hasTarget) return { reason: `Source & Target branch not found`, icon: XCircle };
-    if (!hasSource) return { reason: `Source branch not found`, icon: XCircle };
-    if (!hasTarget) return { reason: `Target branch not found`, icon: XCircle };
-    if (sourceBranch === targetBranch) return { reason: `Source and Target branches are the same`, icon: XCircle };
-    return null;
-  }
-
-  const reposMissingInfo = comparisonDone ? selectedRepos.map(repo => ({
-      repo,
-      skipInfo: getSkippedRepoInfo(repo)
-  })).filter(item => item.skipInfo !== null) : [];
-
-  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingInfo.find(r => r.repo.id === repo.id)) : [];
-  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingInfo.find(r => r.repo.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
-
-
+  };
+  
   const handleBulkMerge = async () => {
-    setIsMerging(true)
+    setIsMerging(true);
     const user = session?.user?.name || 'Unknown User';
+
+    const cleanReposForMerge = comparisonStatuses.filter(s => s.status === 'can-merge');
     
-    // In a real app, you would loop through `cleanRepos` and call the merge actions.
-    // For now, we'll simulate the process and set up the state for the builds page.
+    if (cleanReposForMerge.length === 0) {
+        toast({ title: "Nothing to Merge", description: "There are no repositories ready for a clean merge." });
+        setIsMerging(false);
+        return;
+    }
+    
+    const reposForBuildPage = cleanReposForMerge.map(s => ({
+        name: s.repo.name,
+        status: 'Queued',
+        commit: '...'.padStart(7, '.'), // Placeholder
+        duration: '-',
+        timestamp: new Date(),
+        prUrl: s.pullRequest?.url,
+        prNumber: s.pullRequest?.number,
+    }));
+
     startBulkBuild({
         id: new Date().getTime().toString(),
         sourceBranch,
         targetBranch,
-        repos: cleanRepos.map(repo => ({
-          name: repo.name,
-          status: 'Queued',
-          commit: '...'.padStart(7, '.'), // Placeholder
-          duration: '-',
-          timestamp: new Date()
-        })),
+        repos: reposForBuildPage as any,
         status: 'In Progress',
         duration: '0s',
         timestamp: new Date(),
         triggeredBy: user,
     });
-
+    
     try {
-        await addReleaseToHistory({
-            type: 'bulk',
-            repos: cleanRepos.map(r => r.name),
-            branch: `${sourceBranch} → ${targetBranch}`,
-            user: user,
-            status: 'In Progress'
-        });
-    } catch(e) {
-        console.error("Failed to add release to history", e);
+      const pullRequestsToMerge = cleanReposForMerge
+        .filter(s => s.pullRequest)
+        .map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number }));
+
+      await mergeCleanPullRequests(pullRequestsToMerge);
+      
+      await addReleaseToHistory({
+          type: 'bulk',
+          repos: cleanReposForMerge.map(r => r.repo.name),
+          branch: `${sourceBranch} → ${targetBranch}`,
+          user: user,
+          status: 'In Progress'
+      });
+
+      toast({
+          title: "Bulk Merge Started",
+          description: `Merging ${cleanReposForMerge.length} repositories. You are being redirected to the build status page.`,
+      });
+      
+      startTransition(() => {
+          onOpenChange(false);
+          router.push('/dashboard/builds');
+      });
+
+    } catch (e: any) {
+       console.error("Failed during bulk merge process", e);
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Could not log release to Google Sheets. Check console for details.",
+            description: e.message || "Could not complete bulk merge. Check console for details.",
         });
+        setIsMerging(false);
     }
+  };
 
-    toast({
-        title: "Bulk Build Started",
-        description: `Merging ${cleanRepos.length} repositories. You are being redirected to the build status page.`,
-    });
-    
-    startTransition(() => {
-        onOpenChange(false);
-        router.push('/dashboard/builds');
-    })
-
-    // No need to set isMerging to false as we are navigating away.
+  const getStatusInfo = (status: RepoComparisonStatus['status']) => {
+    switch (status) {
+      case 'can-merge':
+        return { icon: CheckCircle, text: 'Ready to Merge', color: 'text-accent', bg: 'bg-accent/10' };
+      case 'has-conflicts':
+        return { icon: AlertTriangle, text: 'Conflicts Found', color: 'text-destructive', bg: 'bg-destructive/10' };
+      case 'no-changes':
+        return { icon: Info, text: 'No Changes', color: 'text-sky-500', bg: 'bg-sky-500/10' };
+      case 'skipped-no-workflows':
+        return { icon: FolderCog, text: 'Skipped (No Workflows)', color: 'text-muted-foreground', bg: 'bg-muted/50' };
+      case 'skipped-no-branches':
+        return { icon: XCircle, text: 'Skipped (Branch Missing)', color: 'text-muted-foreground', bg: 'bg-muted/50' };
+      case 'error':
+        return { icon: XCircle, text: 'Error', color: 'text-destructive', bg: 'bg-destructive/10' };
+      case 'pending':
+        return { icon: Loader, text: 'Comparing...', color: 'text-primary', bg: 'bg-transparent', animation: 'animate-spin' };
+      default:
+        return { icon: Loader, text: 'Pending...', color: 'text-muted-foreground', bg: 'bg-muted/50' };
+    }
   }
 
   if (selectedRepos.length === 0) {
@@ -171,19 +227,21 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     )
   }
 
+  const cleanReposCount = comparisonStatuses.filter(s => s.status === 'can-merge').length;
+
   return (
      <Dialog open={true} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
                 <DialogTitle>Bulk Branch Merging</DialogTitle>
                 <DialogDescription>
-                    Compare and merge branches across your selected repositories.
+                    Compare branches, create Pull Requests, and merge them across multiple repositories.
                 </DialogDescription>
             </DialogHeader>
             <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-6">
                 <Card>
                     <CardHeader>
-                    <CardTitle>Select Branches</CardTitle>
+                    <CardTitle>1. Select Branches</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
@@ -220,82 +278,61 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     </div>
                     <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
                         {isComparing && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
-                        {isComparing ? "Comparing..." : "Compare Branches"}
+                        {isComparing ? "Comparing..." : "2. Compare & Create PRs"}
                     </Button>
                     </CardContent>
                 </Card>
 
-                {comparisonDone && (
+                {comparisonStatuses.length > 0 && (
                     <Card>
-                    <CardHeader>
-                        <CardTitle>Comparison Result</CardTitle>
-                        <CardDescription>
-                        Review the status of each repository before proceeding with the merge.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ul className="space-y-4">
-                        {reposMissingInfo.length > 0 && (
-                          <>
-                           <h3 className="text-lg font-semibold text-muted-foreground">Skipped Repositories</h3>
-                            {reposMissingInfo.map(({ repo, skipInfo }) => {
-                                const Icon = skipInfo!.icon;
-                                return (
-                                <li key={repo.id} className="p-4 border rounded-lg bg-muted/50">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                        <h4 className="font-semibold">{repo.name}</h4>
-                                        <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
-                                        </div>
-                                        <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
-                                            <Icon className="size-4" />
-                                            {skipInfo!.reason}
-                                        </Badge>
-                                    </div>
-                                </li>
-                                )
-                            })}
-                          </>
-                        )}
-                        
-                        {(cleanRepos.length > 0 || reposWithConflicts.length > 0) && <h3 className="text-lg font-semibold text-muted-foreground mt-4">Ready for Merge</h3>}
-
-                        {cleanRepos.map((repo) => (
-                           <li key={repo.id} className="p-4 border rounded-lg">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                <h4 className="font-semibold">{repo.name}</h4>
-                                <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
-                                </div>
-                               <Badge variant="secondary" className="bg-accent/20 text-accent-foreground border-accent/50">Can be merged cleanly</Badge>
+                        <CardHeader>
+                            <CardTitle>3. Review and Merge</CardTitle>
+                            <CardDescription>
+                            Review the status of each repository. Pull Requests are created automatically. You can then merge all clean PRs.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-72">
+                                <ul className="space-y-3 pr-4">
+                                {comparisonStatuses.map(({ repo, status, error, pullRequest }) => {
+                                    const { icon: Icon, text, color, bg, animation } = getStatusInfo(status);
+                                    return (
+                                        <li key={repo.id} className={`p-3 border rounded-lg ${bg}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex flex-col">
+                                                    <h4 className="font-semibold">{repo.name}</h4>
+                                                    <p className="text-xs text-muted-foreground">{repo.owner.login}</p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                   {pullRequest && (
+                                                        <Button variant="ghost" size="sm" asChild className="h-auto px-2 py-1 text-xs gap-1.5">
+                                                            <a href={pullRequest.url} target="_blank" rel="noopener noreferrer">
+                                                                View PR #{pullRequest.number}
+                                                                <ExternalLink className="size-3" />
+                                                            </a>
+                                                        </Button>
+                                                   )}
+                                                    <Badge variant="outline" className={`flex items-center gap-2 text-sm ${color} border-current`}>
+                                                        <Icon className={`size-4 ${animation || ''}`} />
+                                                        {text}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            {error && (
+                                                <p className="text-xs text-destructive mt-2 pl-1">{error}</p>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                                </ul>
+                            </ScrollArea>
+                            <div className="flex justify-end mt-6">
+                            <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={isComparing || cleanReposCount === 0 || isMerging || isPending} onClick={handleBulkMerge}>
+                                {(isMerging || isPending) ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
+                                Merge All Clean PRs ({cleanReposCount})
+                            </Button>
                             </div>
-                            </li>
-                        ))}
-
-                        {reposWithConflicts.map((repo) => (
-                             <li key={repo.id} className="p-4 border rounded-lg bg-destructive/5">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                    <h4 className="font-semibold">{repo.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
-                                    </div>
-                                    <Badge variant="destructive" className="flex items-center gap-2">
-                                        <AlertTriangle className="size-4" />
-                                        Conflicts found
-                                    </Badge>
-                                </div>
-                                <Separator className="my-4" />
-                                <p className="text-center text-sm text-muted-foreground py-4">Conflict resolution for bulk merges is not yet supported. Please resolve conflicts in this PR individually.</p>
-                                </li>
-                        ))}
-                        </ul>
-                        <div className="flex justify-end mt-6">
-                        <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={cleanRepos.length === 0 || reposWithConflicts.length > 0 || isMerging || isPending} onClick={handleBulkMerge}>
-                            {(isMerging || isPending) ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
-                            Merge All Clean Branches ({cleanRepos.length})
-                        </Button>
-                        </div>
-                    </CardContent>
+                        </CardContent>
                     </Card>
                 )}
             </div>

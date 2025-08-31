@@ -27,10 +27,10 @@ import { compareBranches } from "./actions"
 interface MergeDialogProps {
   repo: Repository
   onOpenChange: (open: boolean) => void
-  onMerge: (repoFullName: string, sourceBranch: string, targetBranch: string) => Promise<{ success: boolean; data?: any; error?: string }>
+  onMerge: (repoFullName: string, sourceBranch: string, targetBranch: string, isDraft: boolean) => Promise<{ success: boolean; data?: any; error?: string }>
 }
 
-type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes"
+type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes" | "error"
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
@@ -74,13 +74,14 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           setComparisonError(result.error);
       }
     } catch (e: any) {
-        setComparisonStatus("has-conflicts");
+        setComparisonStatus("error");
         setComparisonError(e.message || "An unexpected error occurred during comparison.");
     }
   }
 
   const handleMerge = async () => {
-    if (comparisonStatus !== "can-merge") {
+    const isDraft = comparisonStatus === 'has-conflicts';
+    if (comparisonStatus !== "can-merge" && !isDraft) {
       toast({
         variant: "destructive",
         title: "Cannot Merge",
@@ -89,7 +90,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
       return
     }
     setIsMerging(true);
-    await onMerge(repo.fullName, sourceBranch, targetBranch);
+    await onMerge(repo.fullName, sourceBranch, targetBranch, isDraft);
     setIsMerging(false);
     onOpenChange(false)
   }
@@ -100,7 +101,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
         <DialogHeader>
           <DialogTitle>Create and Merge PR in {repo.name}</DialogTitle>
           <DialogDescription>
-            Compare branches and then create and automatically merge a pull request.
+            Compare branches and then create a pull request. Clean merges can be automated.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -140,14 +141,14 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           {comparisonStatus === "can-merge" && (
             <div className="p-3 rounded-md bg-accent/20 text-accent-foreground border border-accent/50 flex items-center gap-2 text-sm">
                 <CheckCircle className="size-4 text-accent" />
-                <p>Branches can be merged.</p>
+                <p>Branches can be merged cleanly.</p>
             </div>
           )}
 
           {comparisonStatus === "has-conflicts" && (
              <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
                 <AlertTriangle className="size-4" />
-                <p>{comparisonError || "Merge conflicts detected. Please resolve them manually."}</p>
+                <p>{comparisonError || "Merge conflicts detected. A draft PR will be created."}</p>
             </div>
           )}
 
@@ -158,18 +159,25 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
             </div>
           )}
 
+          {comparisonStatus === "error" && (
+             <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
+                <AlertTriangle className="size-4" />
+                <p>{comparisonError || "An unexpected error occurred."}</p>
+            </div>
+          )}
+
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          {comparisonStatus !== "can-merge" ? (
+          {(comparisonStatus !== "can-merge" && comparisonStatus !== "has-conflicts") ? (
             <Button onClick={handleCompare} disabled={comparisonStatus === 'comparing' || !sourceBranch || !targetBranch}>
               {comparisonStatus === 'comparing' ? <Loader className="mr-2 size-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
               {comparisonStatus === 'comparing' ? 'Comparing...' : 'Compare Branches'}
             </Button>
           ) : (
-            <Button onClick={handleMerge} disabled={isMerging} className="bg-accent hover:bg-accent/90">
+            <Button onClick={handleMerge} disabled={isMerging} className={comparisonStatus === 'can-merge' ? 'bg-accent hover:bg-accent/90' : ''}>
               {isMerging ? <Loader className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-              {isMerging ? 'Merging...' : 'Create and Merge PR'}
+              {isMerging ? 'Processing...' : comparisonStatus === 'has-conflicts' ? 'Create Draft PR' : 'Create & Merge PR'}
             </Button>
           )}
         </DialogFooter>

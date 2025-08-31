@@ -44,6 +44,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useRouter } from "next/navigation"
 
 export default function RepositoriesPage() {
   const { toast } = useToast()
@@ -57,6 +58,8 @@ export default function RepositoriesPage() {
   const [rebuildingRepo, setRebuildingRepo] = useState<Repository | null>(null)
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
   const [isBulkMerging, setIsBulkMerging] = useState(false)
+  const router = useRouter();
+
 
   const fetchRepos = useCallback((isInitialFetch = false) => {
     if (isInitialFetch) {
@@ -134,8 +137,8 @@ export default function RepositoriesPage() {
       });
   };
 
-  const handleMerge = async (repoFullName: string, sourceBranch: string, targetBranch: string) => {
-    const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch);
+  const handleMerge = async (repoFullName: string, sourceBranch: string, targetBranch: string, isDraft: boolean) => {
+    const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch, isDraft);
     
     if (!prResult.success || !prResult.data) {
       toast({
@@ -151,6 +154,23 @@ export default function RepositoriesPage() {
         description: `Successfully created PR #${prResult.data.number}. Now attempting to merge...`,
     });
     
+    if (isDraft) {
+      toast({
+        title: "Draft PR Created",
+        description: (
+          <span>
+            Draft PR #{prResult.data.number} created due to conflicts. Please{" "}
+            <a href={prResult.data.html_url} target="_blank" rel="noopener noreferrer" className="underline font-bold">
+              resolve them on GitHub
+            </a>
+            .
+          </span>
+        ),
+      });
+       fetchRepos(); // Refresh data to show new PR
+       return { ...prResult, success: false }; // Not a "success" in terms of merging
+    }
+    
     const mergeResult = await mergePullRequest(repoFullName, prResult.data.number);
 
     if (mergeResult.success) {
@@ -162,6 +182,7 @@ export default function RepositoriesPage() {
           </a>
         ),
       });
+      router.push('/dashboard/builds');
     } else {
        toast({
         variant: "destructive",
@@ -170,6 +191,7 @@ export default function RepositoriesPage() {
       });
     }
     
+    fetchRepos(); // Refresh data
     return mergeResult;
   };
 
