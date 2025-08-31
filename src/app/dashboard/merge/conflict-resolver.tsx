@@ -92,6 +92,9 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
     }, [initialContent]);
 
     useEffect(() => {
+        // This effect runs when the server action completes.
+        // It's crucial that state.message is checked to prevent
+        // running on initial render.
         if (state.message) {
             if (state.success) {
                 toast({ title: "Success", description: state.message });

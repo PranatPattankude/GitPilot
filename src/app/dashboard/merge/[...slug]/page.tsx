@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition, useMemo } from "react"
+import { useEffect, useState, useTransition, useMemo, useCallback } from "react"
 import { getPullRequest, getFileContent, mergePullRequest as mergePrAction } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card";
@@ -76,6 +76,10 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             }
         });
     }
+    
+    const handleResolved = useCallback(() => {
+        setIsResolved(true);
+    }, []);
 
     const header = (
         <header>
@@ -165,7 +169,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                           filePath={filePath}
                           targetContent={targetContent}
                           sourceContent={sourceContent}
-                          onResolved={() => setIsResolved(true)}
+                          onResolved={handleResolved}
                       />
                   </CardContent>
                   <CardFooter className="flex justify-end items-center gap-4 border-t pt-6">
