@@ -642,6 +642,29 @@ export async function getFileContent(repoFullName: string, branch: string, path:
     return { content, sha: data.sha };
 }
 
+export async function getFileDiff(repoFullName: string, base: string, head: string, path: string): Promise<string> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${base}...${head}`;
+    const { data: compareData } = await fetchFromGitHub<any>(compareUrl, accessToken);
+
+    if (!compareData || !compareData.files) {
+        throw new Error(`Could not compare branches ${base} and ${head}`);
+    }
+
+    const file = compareData.files.find((f: any) => f.filename === path);
+    if (!file || !file.patch) {
+        return "No changes found for this file in the diff.";
+    }
+
+    return file.patch;
+}
+
+
 export async function commitAndMerge(
     { repoFullName, sourceBranch, pullRequestNumber, filePath, resolvedContent }:
     { repoFullName: string; sourceBranch: string; pullRequestNumber: number; filePath: string; resolvedContent: string }
