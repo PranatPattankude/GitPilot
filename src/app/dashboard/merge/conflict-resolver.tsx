@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect, useActionState } from 'react';
-import { useFormStatus, useFormState } from 'react-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { GitMerge, Loader2, Wand2, CheckCircle } from 'lucide-react';
@@ -78,13 +78,14 @@ interface ConflictResolverProps {
 export default function ConflictResolver({ pr, filePath, sourceContent, targetContent, onResolved }: ConflictResolverProps) {
     const [resolvedContent, setResolvedContent] = useState('');
     const [isAiResolving, setIsAiResolving] = useState(false);
+    const [isMarkedAsResolved, setIsMarkedAsResolved] = useState(false);
     const { toast } = useToast();
 
     const initialContent = useMemo(() => {
         return `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`;
     }, [targetContent, sourceContent, pr.targetBranch, pr.sourceBranch]);
 
-    const [state, formAction] = useActionState(resolveConflictFile, { success: false, message: '' });
+    const [state, formAction] = useFormState(resolveConflictFile, { success: false, message: '' });
 
     useEffect(() => {
         setResolvedContent(initialContent);
@@ -94,6 +95,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
         if (state.message) {
             if (state.success) {
                 toast({ title: "Success", description: state.message });
+                setIsMarkedAsResolved(true);
                 onResolved();
             } else {
                 toast({ variant: "destructive", title: "Error", description: state.message });
@@ -155,9 +157,9 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                     Use the buttons to accept a version, get an AI suggestion, or manually edit the code below to resolve the conflict. When ready, mark it as resolved.
                 </p>
                 <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={acceptTarget}>Accept Current</Button>
-                    <Button type="button" variant="outline" onClick={acceptSource}>Accept Incoming</Button>
-                    <Button type="button" variant="outline" onClick={handleAiSuggestion} disabled={isAiResolving}>
+                    <Button type="button" variant="outline" onClick={acceptTarget} disabled={isMarkedAsResolved}>Accept Current</Button>
+                    <Button type="button" variant="outline" onClick={acceptSource} disabled={isMarkedAsResolved}>Accept Incoming</Button>
+                    <Button type="button" variant="outline" onClick={handleAiSuggestion} disabled={isAiResolving || isMarkedAsResolved}>
                         {isAiResolving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                         {isAiResolving ? 'Generating...' : 'AI Suggestion'}
                     </Button>
@@ -168,11 +170,11 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                     onChange={(e) => setResolvedContent(e.target.value)}
                     className="font-mono text-sm resize-y"
                     rows={15}
-                    disabled={state.success}
+                    disabled={isMarkedAsResolved}
                 />
             </div>
              <div className="flex justify-end items-center gap-4 pt-6">
-                {!state.success ? (
+                {!isMarkedAsResolved ? (
                     <MarkAsResolvedButton />
                 ) : (
                     <div className="flex items-center gap-2 text-sm font-medium text-accent">

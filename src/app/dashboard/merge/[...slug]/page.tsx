@@ -70,7 +70,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             const result = await mergePrAction(pr.repoFullName, pr.number);
             if (result.success) {
                 toast({ title: "Success!", description: "Pull request has been successfully merged." });
-                router.push("/dashboard/merge?status=resolved");
+                router.push(`/dashboard/repositories?merged=${pr.number}`);
             } else {
                  toast({ variant: "destructive", title: "Merge Failed", description: result.error || "An unknown error occurred during the merge." });
             }
@@ -168,22 +168,26 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                           onResolved={() => setIsResolved(true)}
                       />
                   </CardContent>
-                  {isResolved && (
-                    <CardFooter className="flex justify-end items-center gap-4 border-t pt-6">
-                         <Button onClick={handleFinalMerge} disabled={isMerging} size="lg">
-                              {isMerging ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Merging...
-                                </>
-                              ) : (
-                                <>
-                                  Commit Resolution & Merge PR <GitMerge className="ml-2 h-4 w-4" />
-                                </>
-                              )}
-                         </Button>
-                    </CardFooter>
-                  )}
+                  <CardFooter className="flex justify-end items-center gap-4 border-t pt-6">
+                      {isResolved ? (
+                          <Button onClick={handleFinalMerge} disabled={isMerging} size="lg">
+                               {isMerging ? (
+                                 <>
+                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                   Merging...
+                                 </>
+                               ) : (
+                                 <>
+                                   Merge Pull Request <GitMerge className="ml-2 h-4 w-4" />
+                                 </>
+                               )}
+                          </Button>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                            Resolve the conflict and mark the file as resolved to proceed with merging.
+                        </p>
+                      )}
+                 </CardFooter>
               </Card>
         </div>
     )
