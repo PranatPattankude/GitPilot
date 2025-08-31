@@ -6,7 +6,7 @@ import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardFooter } from '@/components/ui/card';
-import { GitMerge, Loader2, Check, Wand2 } from 'lucide-react';
+import { GitMerge, Loader2, Check } from 'lucide-react';
 import { type PullRequest } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -235,12 +235,12 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                            <div key={i}>{i + 1}</div>
                         ))}
                     </div>
-                    <ScrollArea className="flex-1" onScroll={syncScroll} ref={contentRef}>
-                        <div className="p-4">
+                    <ScrollArea className="flex-1">
+                        <div className="p-4" onScroll={syncScroll} ref={contentRef}>
                             {blocks.map((block, i) => {
                                 if (block.type === 'code') {
                                     return (
-                                        <div key={`code-${i}-${block.line.substring(0, 10)}`} className="relative">
+                                        <div key={`code-${i}-${block.line}`} className="relative">
                                              <pre className="whitespace-pre-wrap">{block.line}</pre>
                                         </div>
                                     )
@@ -285,7 +285,7 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                                 <div className="p-2 bg-purple-500/10">
                                                      <div className="flex items-center justify-between pb-1">
                                                         <Badge variant="outline" className="border-purple-400/50 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Incoming Change ({pr.sourceBranch})</Badge>
-                                                    </div>
+                                                     </div>
                                                     <pre className="whitespace-pre-wrap text-purple-800 dark:text-purple-300">{block.incoming.join('\n')}</pre>
                                                 </div>
                                             </div>
@@ -316,9 +316,12 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
           </div>
           
           <CardFooter className="p-0 pt-6 flex justify-end">
-            <SubmitButton />
+             {allResolved ? (
+                <SubmitButton />
+             ) : (
+                <Button size="lg" disabled>Resolve all conflicts to continue</Button>
+             )}
           </CardFooter>
       </>
   );
 }
-
