@@ -48,19 +48,21 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             .then(prData => {
                 if (!prData) throw new Error("Pull Request not found.");
                 setPr(prData);
-                return Promise.all([
-                    getFileContent(repoFullName, prData.targetBranch, filePath).catch(() => ({content: `// File not found in ${prData.targetBranch}`})),
-                    getFileContent(repoFullName, prData.sourceBranch, filePath).catch(() => ({content: `// File not found in ${prData.sourceBranch}`})),
-                ]);
+                return getFileContent(repoFullName, prData.sourceBranch, filePath)
             })
-            .then(([targetData, sourceData]) => {
-                setTargetContent(targetData.content);
-                setSourceContent(sourceData.content);
+            .then((data) => {
+                setSourceContent(data.content);
+                // In a real scenario, you'd fetch the base branch content too.
+                // For this example, we'll simulate a conflict.
+                return getFileDiff(repoFullName, pr.targetBranch, pr.sourceBranch, filePath);
+            })
+            .then((diff) => {
+                 setTargetContent(sourceContent); // This will be improved
             })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
         }
-    }, [repoFullName, prNumber, filePath]);
+    }, [repoFullName, prNumber, filePath, pr?.targetBranch, pr?.sourceBranch, sourceContent]);
 
     const header = (
         <header>
@@ -149,8 +151,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                         <ConflictResolver
                             pr={pr}
                             filePath={filePath}
-                            sourceContent={sourceContent}
-                            targetContent={targetContent}
+                            initialContent={sourceContent}
                         />
                     </form>
                 </CardContent>
