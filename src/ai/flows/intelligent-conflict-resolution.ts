@@ -61,7 +61,6 @@ const intelligentConflictResolutionFlow = ai.defineFlow(
         output: {
             schema: IntelligentConflictResolutionOutputSchema,
         },
-        model: ai.getModel(),
     });
 
     const result = llmResponse.output();
