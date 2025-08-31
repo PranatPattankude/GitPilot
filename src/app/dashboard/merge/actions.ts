@@ -44,8 +44,6 @@ export async function resolveConflictFile(prevState: State, formData: FormData):
              return { success: false, message: commitResult.error || "Failed to commit the resolved file." };
         }
         
-        // The merge happens on the next button click now.
-        // We just return success for the commit part.
         return { success: true, message: "File conflict has been successfully resolved and committed." };
 
     } catch (e: any) {

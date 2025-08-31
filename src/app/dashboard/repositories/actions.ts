@@ -382,23 +382,25 @@ export async function mergePullRequest(
   const accessToken = (session as any).accessToken as string;
 
   try {
-    // Check mergeable_state before merging
     const prUrl = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}`;
-    let pr = (await fetchFromGitHub<any>(prUrl, accessToken)).data;
-
-    // It can take a few seconds for GitHub to compute mergeability
-    if (pr.mergeable_state === "unknown" || pr.mergeable_state === null) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      pr = (await fetchFromGitHub<any>(prUrl, accessToken)).data;
-    }
     
+    // Poll for mergeability status
+    let pr;
+    for (let i = 0; i < 5; i++) { // Poll for up to 10 seconds
+        pr = (await fetchFromGitHub<any>(prUrl, accessToken)).data;
+        if (pr.mergeable_state !== 'unknown') {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
     if (pr.mergeable_state === "dirty") {
       return { success: false, error: "PR has conflicts. Resolve them before merging." };
     }
     if (pr.mergeable_state === "blocked") {
       return { success: false, error: "PR is blocked by required checks or branch protections." };
     }
-     if (pr.mergeable_state !== 'clean') {
+    if (pr.mergeable_state !== 'clean') {
        return { success: false, error: `Mergeability is '${pr.mergeable_state}'. Please resolve issues or try again.` };
     }
 
@@ -800,4 +802,5 @@ export async function cancelWorkflowRun(
     
 
     
+
 
