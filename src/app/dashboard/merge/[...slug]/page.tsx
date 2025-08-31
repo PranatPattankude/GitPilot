@@ -1,10 +1,9 @@
-
 "use client"
 
 import { useEffect, useState, useActionState } from "react"
-import { getPullRequest } from "../../repositories/actions";
+import { getPullRequest, getFileDiff, getFileContent } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, GitBranch, ChevronsRight, FileCode } from "lucide-react";
@@ -18,6 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function MergeConflictPage({ params }: { params: { slug: string[] } }) {
     const [pr, setPr] = useState<PullRequest | null>(null);
+    const [diff, setDiff] = useState<string | null>(null);
+    const [initialContent, setInitialContent] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
@@ -44,11 +45,23 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
         if (repoFullName && prNumber) {
             setLoading(true);
             getPullRequest(repoFullName, prNumber)
-            .then(setPr)
+            .then(prData => {
+                setPr(prData);
+                if (!prData) throw new Error("Pull Request not found.");
+
+                return Promise.all([
+                    getFileDiff(repoFullName, prData.targetBranch, prData.sourceBranch, filePath),
+                    getFileContent(repoFullName, prData.sourceBranch, filePath)
+                ]);
+            })
+            .then(([diffData, contentData]) => {
+                setDiff(diffData);
+                setInitialContent(contentData.content);
+            })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
         }
-    }, [repoFullName, prNumber]);
+    }, [repoFullName, prNumber, filePath]);
 
     const header = (
         <header>
@@ -90,7 +103,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                     <CardContent className="py-6">
                         <Alert variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Failed to load Pull Request</AlertTitle>
+                            <AlertTitle>Failed to load conflict data</AlertTitle>
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     </CardContent>
@@ -99,13 +112,13 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
         )
     }
 
-    if (!pr || !repoFullName || !prNumber || !filePath) {
+    if (!pr || diff === null) {
         return (
             <div className="space-y-6">
                 {header}
                 <Card>
                     <CardContent className="py-6 text-center text-muted-foreground">
-                        Pull Request not found or file path is missing.
+                        Pull Request or file diff not found.
                     </CardContent>
                 </Card>
             </div>
@@ -119,15 +132,12 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                 <CardHeader>
                     <div className="flex justify-between items-start">
                         <div className="space-y-2">
+                             <CardTitle>Resolve Conflict in <span className="font-mono text-lg">{filePath}</span></CardTitle>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <GitBranch className="h-4 w-4" />
                                 <Badge variant="secondary">{pr.sourceBranch}</Badge>
                                 <ChevronsRight className="size-4" />
                                 <Badge variant="secondary">{pr.targetBranch}</Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <FileCode className="h-4 w-4" />
-                                <span className="font-mono">{filePath}</span>
                             </div>
                         </div>
                          <Button asChild variant="outline">
@@ -138,10 +148,10 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                  <CardContent>
                     <form action={formAction}>
                         <ConflictResolver
-                            repoFullName={repoFullName}
-                            prNumber={prNumber}
-                            filePath={filePath}
                             pr={pr}
+                            filePath={filePath}
+                            diff={diff}
+                            initialContent={initialContent}
                         />
                     </form>
                 </CardContent>
