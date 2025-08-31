@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState, useActionState } from "react"
+import { useEffect, useState, useActionState, useMemo } from "react"
 import { getPullRequest, getFileContent } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, GitBranch, ChevronsRight } from "lucide-react";
@@ -25,8 +25,8 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const repoOwner = params.slug[0];
     const repoName = params.slug[1];
     const prNumber = parseInt(params.slug[2], 10);
-    const repoFullName = `${repoOwner}/${repoName}`;
-    const filePath = params.slug.slice(3).join('/');
+    const repoFullName = useMemo(() => `${repoOwner}/${repoName}`, [repoOwner, repoName]);
+    const filePath = useMemo(() => params.slug.slice(3).join('/'), [params.slug]);
 
     const [state, formAction] = useActionState(resolveConflict, { success: false, message: '' });
     const { toast } = useToast();
@@ -137,34 +137,34 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     return (
          <div className="space-y-6">
             {header}
-            <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-2">
-                             <CardTitle>Resolve Conflict in <span className="font-mono text-lg">{filePath}</span></CardTitle>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <GitBranch className="h-4 w-4" />
-                                <Badge variant="secondary">{pr.sourceBranch}</Badge>
-                                <ChevronsRight className="size-4" />
-                                <Badge variant="secondary">{pr.targetBranch}</Badge>
-                            </div>
-                        </div>
-                         <Button asChild variant="outline">
-                            <Link href="/dashboard/merge">Back to Conflicts</Link>
-                         </Button>
-                    </div>
-                </CardHeader>
-                 <CardContent>
-                    <form action={formAction}>
-                        <ConflictResolver
-                            pr={pr}
-                            filePath={filePath}
-                            targetContent={targetContent}
-                            sourceContent={sourceContent}
-                        />
-                    </form>
-                </CardContent>
-            </Card>
+            <form action={formAction}>
+              <Card>
+                  <CardHeader>
+                      <div className="flex justify-between items-start">
+                          <div className="space-y-2">
+                               <CardTitle>Resolve Conflict in <span className="font-mono text-lg">{filePath}</span></CardTitle>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <GitBranch className="h-4 w-4" />
+                                  <Badge variant="secondary">{pr.sourceBranch}</Badge>
+                                  <ChevronsRight className="size-4" />
+                                  <Badge variant="secondary">{pr.targetBranch}</Badge>
+                              </div>
+                          </div>
+                           <Button asChild variant="outline">
+                              <Link href="/dashboard/merge">Back to Conflicts</Link>
+                           </Button>
+                      </div>
+                  </CardHeader>
+                   <CardContent>
+                          <ConflictResolver
+                              pr={pr}
+                              filePath={filePath}
+                              targetContent={targetContent}
+                              sourceContent={sourceContent}
+                          />
+                  </CardContent>
+              </Card>
+            </form>
         </div>
     )
 }

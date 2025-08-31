@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useRef, useLayoutEffect, useMemo, type RefObject, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardFooter } from '@/components/ui/card';
-import { GitMerge, Loader2, Undo2 } from 'lucide-react';
+import { GitMerge, Loader2, Wand2 } from 'lucide-react';
 import { type PullRequest } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { DiffEditor } from '@monaco-editor/react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { intelligentConflictResolution } from '@/ai/flows/intelligent-conflict-resolution';
+import { useToast } from '@/hooks/use-toast';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -39,13 +41,17 @@ interface ConflictResolverProps {
 
 export default function ConflictResolver({ pr, filePath, sourceContent, targetContent }: ConflictResolverProps) {
     const [resolvedContent, setResolvedContent] = useState('');
+    const [isAiResolving, setIsAiResolving] = useState(false);
     const editorRef = useRef<any>(null);
+    const { toast } = useToast();
 
-    // This effect combines the two versions with conflict markers to initialize the editor.
+    const initialContent = useMemo(() => {
+        return `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`;
+    }, [targetContent, sourceContent, pr.targetBranch, pr.sourceBranch]);
+
     useEffect(() => {
-        const initialContent = `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`;
         setResolvedContent(initialContent);
-    }, [sourceContent, targetContent, pr.sourceBranch, pr.targetBranch]);
+    }, [initialContent]);
 
     function handleEditorDidMount(editor: any) {
         editorRef.current = editor;
@@ -57,23 +63,35 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
 
     const acceptTarget = () => {
         setResolvedContent(targetContent);
-        editorRef.current?.getModel()?.setValue(targetContent);
     }
     
     const acceptSource = () => {
         setResolvedContent(sourceContent);
-        editorRef.current?.getModel()?.setValue(sourceContent);
+    }
+
+    const handleAiSuggestion = async () => {
+        setIsAiResolving(true);
+        toast({ title: 'AI Thinking...', description: 'Generating a suggested resolution for the conflict.' });
+        try {
+            const result = await intelligentConflictResolution({ fileDiff: initialContent });
+            setResolvedContent(result.suggestedResolution);
+            toast({ title: 'AI Suggestion Applied', description: 'The AI-generated resolution has been applied. Please review and commit.' });
+        } catch (error: any) {
+            console.error("AI suggestion failed:", error);
+            toast({ variant: 'destructive', title: 'AI Suggestion Failed', description: error.message || 'An unknown error occurred.' });
+        } finally {
+            setIsAiResolving(false);
+        }
     }
 
     return (
       <>
-        <input type="hidden" name="repoFullName" value={pr.repoFullName} />
-        <input type="hidden" name="pullRequestNumber" value={pr.number} />
-        <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
-        <input type="hidden" name="filePath" value={filePath} />
-        <input type="hidden" name="resolvedContent" value={resolvedContent} />
-
         <div className="space-y-4">
+            <input type="hidden" name="repoFullName" value={pr.repoFullName} />
+            <input type="hidden" name="pullRequestNumber" value={pr.number} />
+            <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
+            <input type="hidden" name="filePath" value={filePath} />
+            
             <div className="grid grid-cols-2 gap-4 text-center text-sm font-medium">
                 <Label>Current change from <Badge variant="secondary">{pr.targetBranch}</Badge></Label>
                 <Label>Incoming change from <Badge variant="secondary">{pr.sourceBranch}</Badge></Label>
@@ -92,11 +110,15 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
             <div className="space-y-2">
                 <Label className="font-bold text-base">Resolution</Label>
                 <p className="text-sm text-muted-foreground">
-                    Use the buttons to accept a version or manually edit the code below to resolve the conflict. The final content in the text area below will be committed.
+                    Use the buttons to accept a version, get an AI suggestion, or manually edit the code below to resolve the conflict. The final content will be committed.
                 </p>
                 <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={acceptTarget}>Accept Current</Button>
                     <Button type="button" variant="outline" onClick={acceptSource}>Accept Incoming</Button>
+                    <Button type="button" variant="outline" onClick={handleAiSuggestion} disabled={isAiResolving}>
+                        {isAiResolving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                        {isAiResolving ? 'Generating...' : 'AI Suggestion'}
+                    </Button>
                 </div>
                 <Textarea
                     name="resolvedContent"
