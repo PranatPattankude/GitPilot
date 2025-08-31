@@ -5,7 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardFooter } from '@/components/ui/card';
-import { GitMerge, Loader2, Wand2 } from 'lucide-react';
+import { GitMerge, Loader2, Wand2, CheckCircle } from 'lucide-react';
 import { type PullRequest } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +42,7 @@ interface ConflictResolverProps {
 export default function ConflictResolver({ pr, filePath, sourceContent, targetContent }: ConflictResolverProps) {
     const [resolvedContent, setResolvedContent] = useState('');
     const [isAiResolving, setIsAiResolving] = useState(false);
+    const [isMarkedAsResolved, setIsMarkedAsResolved] = useState(false);
     const editorRef = useRef<any>(null);
     const { toast } = useToast();
 
@@ -52,6 +53,11 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
     useEffect(() => {
         setResolvedContent(initialContent);
     }, [initialContent]);
+    
+    useEffect(() => {
+        // When content changes, user must re-confirm
+        setIsMarkedAsResolved(false);
+    }, [resolvedContent]);
 
     function handleEditorDidMount(editor: any) {
         editorRef.current = editor;
@@ -130,8 +136,18 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
             </div>
         </div>
         
-        <CardFooter className="p-0 pt-6 flex justify-end">
-           <SubmitButton />
+        <CardFooter className="p-0 pt-6 flex justify-end items-center gap-4">
+            {!isMarkedAsResolved ? (
+                <Button type="button" variant="outline" onClick={() => setIsMarkedAsResolved(true)}>
+                    Mark as Resolved
+                </Button>
+            ) : (
+                <div className="flex items-center gap-2 text-sm font-medium text-accent">
+                    <CheckCircle className="size-5" />
+                    <span>Marked as Resolved</span>
+                </div>
+            )}
+           {isMarkedAsResolved && <SubmitButton />}
         </CardFooter>
       </>
   );
