@@ -54,5 +54,6 @@ export async function resolveConflict(prevState: State, formData: FormData): Pro
     revalidatePath("/dashboard/merge");
     redirect("/dashboard/merge?status=resolved");
     
+    // This line is technically unreachable because of the redirect, but it satisfies the function signature.
     return { success: true, message: "Conflict resolved and merged successfully." };
 }
