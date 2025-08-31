@@ -796,22 +796,6 @@ export async function cancelWorkflowRun(
   }
 }
 
-<<<<<<< HEAD
-async function checkWorkflowsExistence(
-  repoFullName: string,
-  accessToken: string
-): Promise<boolean> {
-  const url = `https://api.github.com/repos/${repoFullName}/contents/.github/workflows`;
-  try {
-    const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET', cache: 'no-store' });
-    return status === 200;
-  } catch (error) {
-    return false;
-  }
-}
-=======
->>>>>>> parent of 7c8d7b9 (in Repository Management page while doing bulk merge check every repo co)
-
 export async function checkWorkflowsExistence(
   repoFullNames: string[]
 ): Promise<Record<string, boolean>> {
@@ -838,26 +822,3 @@ export async function checkWorkflowsExistence(
 
   return results;
 }
-    
-
-    
-
-
-
-<<<<<<< HEAD
-export async function mergeCleanPullRequests(
-  pullRequests: { repoFullName: string; prNumber: number }[]
-): Promise<void> {
-  // This can run in the background without returning a value to the UI
-  const mergePromises = pullRequests.map(pr => 
-    mergePullRequest(pr.repoFullName, pr.prNumber).catch(e => {
-        console.error(`Failed to merge PR #${pr.prNumber} in ${pr.repoFullName}:`, e)
-    })
-  );
-  await Promise.all(mergePromises);
-  console.log(`Finished attempting to merge ${pullRequests.length} pull requests.`);
-}
-
-    
-=======
->>>>>>> parent of 7c8d7b9 (in Repository Management page while doing bulk merge check every repo co)
