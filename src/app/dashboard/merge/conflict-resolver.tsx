@@ -237,10 +237,10 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                     </div>
                     <ScrollArea className="flex-1" onScroll={syncScroll} ref={contentRef}>
                         <div className="p-4">
-                            {blocks.map((block) => {
+                            {blocks.map((block, i) => {
                                 if (block.type === 'code') {
                                     return (
-                                        <div key={`code-${block.line.substring(0, 10)}`} className="relative">
+                                        <div key={`code-${i}-${block.line.substring(0, 10)}`} className="relative">
                                              <pre className="whitespace-pre-wrap">{block.line}</pre>
                                         </div>
                                     )
@@ -269,7 +269,7 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                        {isResolved ? (
                                              <Textarea 
                                                 className="w-full h-auto bg-background border-0 focus-visible:ring-0 resize-none font-mono"
-                                                value={reassembleFile([block])}
+                                                value={block.manualContent ?? (block.resolution === 'current' ? block.current.join('\n') : block.resolution === 'incoming' ? block.incoming.join('\n') : [...block.current, ...block.incoming].join('\n'))}
                                                 onChange={(e) => handleManualChange(block.id, e.target.value)}
                                                 placeholder="Manually resolve the conflict here..."
                                                 rows={reassembleFile([block]).split('\n').length}
@@ -322,4 +322,3 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
   );
 }
 
-    
