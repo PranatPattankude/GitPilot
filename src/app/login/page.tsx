@@ -15,8 +15,7 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="relative z-10 flex flex-col items-center justify-center space-y-6">
-        <div className="flex items-center gap-4 text-white">
-          <GitPilotLogo className="w-16 h-16" />
+        <div className="text-white">
           <h1 className="text-5xl font-bold tracking-tight">
             Welcome to GitPilot
           </h1>
@@ -27,6 +26,7 @@ export default function LoginPage() {
         <Button
           size="lg"
           onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+          className="transform transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/50"
         >
           <GithubIcon className="mr-2 h-5 w-5" />
           Sign in with GitHub to Get Started
