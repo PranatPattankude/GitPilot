@@ -20,7 +20,7 @@ async function fetchFromGitHub<T>(
       Accept: "application/vnd.github.v3+json",
     },
     // Revalidate every hour
-    next: { revalidate: 3600 },
+    cache: 'no-store',
   });
 
   const responseStatus = response.status;
@@ -104,10 +104,8 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
         
         return allRuns.map((run: any): Build => {
             let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting') {
+            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting' || run.status === 'queued') {
                 status = 'In Progress';
-            } else if (run.status === 'queued') {
-                status = 'Queued';
             } else if (run.status === 'completed') {
                 if (run.conclusion === 'success') {
                     status = 'Success';
@@ -115,7 +113,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                     status = 'Failed';
                 }
             } else {
-                status = 'Failed';
+                status = 'Failed'; // Covers cancelled, failure, timed_out, etc.
             }
 
             let duration = 'N/A';
@@ -281,10 +279,8 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
         
         return runsData.workflow_runs.map((run: any): Build => {
             let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting') {
+            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting' || run.status === 'queued') {
                 status = 'In Progress';
-            } else if (run.status === 'queued') {
-                status = 'Queued';
             } else if (run.status === 'completed') {
                 if (run.conclusion === 'success') {
                     status = 'Success';

@@ -41,7 +41,6 @@ const steps = [
 
 const statusInfo = {
   "In Progress": { icon: Loader, color: "text-primary", animation: "animate-spin" },
-  "Queued": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "Success": { icon: CheckCircle2, color: "text-accent" },
   "Failed": { icon: XCircle, color: "text-destructive" },
 }
@@ -135,7 +134,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
 
   const fetchBuilds = React.useCallback(() => {
      if (repo.fullName) {
-      setLoading(true);
+      if (!loading) setLoading(true);
       getBuildsForRepo(repo.fullName)
         .then((buildData) => {
             const buildsWithRepo = buildData.map(b => ({ ...b, repo: repo.fullName }))
@@ -144,10 +143,12 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
         .catch(err => setError(err.message))
         .finally(() => setLoading(false));
     }
-  }, [repo.fullName]);
+  }, [repo.fullName, loading]);
 
   React.useEffect(() => {
     fetchBuilds();
+    const interval = setInterval(fetchBuilds, 15000); // Refresh every 15 seconds
+    return () => clearInterval(interval);
   }, [fetchBuilds]);
 
   return (
@@ -190,7 +191,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
               
               const isFailed = build.status === "Failed";
               const isSuccess = build.status === "Success";
-              const isRunning = build.status === "In Progress" || build.status === "Queued";
+              const isRunning = build.status === "In Progress";
 
               // Mocking progress for now as GitHub API doesn't provide steps
               const progressValue = isSuccess ? 100 : isRunning ? 50 : isFailed ? 75 : 0;
@@ -275,5 +276,3 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
-
-    

@@ -132,7 +132,7 @@ export default function BuildsPage() {
 
   const fetchBuilds = React.useCallback(async () => {
     try {
-        setLoading(true);
+        if (!loading) setLoading(true); // show loader on manual refresh
         const buildsData = await getAllRecentBuilds();
         const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
             !searchQuery || 
@@ -147,7 +147,7 @@ export default function BuildsPage() {
     } finally {
         setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, loading]);
 
   React.useEffect(() => {
     // Clear search when navigating to this page
@@ -158,6 +158,15 @@ export default function BuildsPage() {
     } else {
         setLoading(false);
     }
+    
+    // Auto-refresh builds every 15 seconds
+    const interval = setInterval(() => {
+        console.log("Refreshing builds...");
+        fetchBuilds();
+    }, 15000);
+
+    return () => clearInterval(interval);
+
   }, [setSearchQuery, bulkBuild, fetchBuilds]);
   
   React.useEffect(() => {
@@ -181,9 +190,15 @@ export default function BuildsPage() {
 
   return (
     <>
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">Build Status</h1>
-        <p className="text-muted-foreground mt-1">Live status of your CI/CD pipelines.</p>
+      <header className="flex items-center justify-between">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Build Status</h1>
+            <p className="text-muted-foreground mt-1">Live status of your CI/CD pipelines.</p>
+        </div>
+        <Button variant="outline" onClick={fetchBuilds} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+        </Button>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {bulkBuild && (
@@ -300,7 +315,7 @@ export default function BuildsPage() {
             </CardFooter>
           </Card>
         )}
-        {loading ? (
+        {loading && !bulkBuild ? (
             Array.from({ length: 3 }).map((_, i) => (
                 <Card key={i}>
                     <CardHeader>
@@ -409,5 +424,3 @@ export default function BuildsPage() {
     </>
   )
 }
-
-    
