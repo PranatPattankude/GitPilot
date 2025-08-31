@@ -6,24 +6,29 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GithubIcon, GitPilotLogo } from "@/components/icons"
 import { ThemeToggle } from "../dashboard/theme-toggle"
-import { DevOpsCycleAnimation } from "./devops-animation"
+import Image from "next/image"
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full">
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
       <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center bg-muted p-12 text-center relative overflow-hidden">
-        
-        <DevOpsCycleAnimation />
-
-        <div className="relative z-[1] flex flex-col items-center justify-center backdrop-blur-sm bg-muted/50 p-10 rounded-xl border">
+        <Image 
+          src="https://picsum.photos/1200/1800"
+          alt="Abstract DevOps background"
+          data-ai-hint="devops futuristic"
+          fill
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-blue-900/50 opacity-50"></div>
+        <div className="relative z-10 flex flex-col items-center justify-center backdrop-blur-md bg-background/30 p-10 rounded-xl border border-white/10 shadow-2xl">
           <div className="flex items-center gap-4">
-              <GitPilotLogo className="w-16 h-16 text-primary" />
-              <h1 className="text-4xl font-bold tracking-tight">GitPilot</h1>
+              <GitPilotLogo className="w-16 h-16 text-white" />
+              <h1 className="text-4xl font-bold tracking-tight text-white">GitPilot</h1>
           </div>
-          <p className="mt-4 text-lg text-muted-foreground">
+          <p className="mt-4 text-lg text-white/80">
               Merge branches, resolve conflicts, and track releases with ease.
           </p>
         </div>
