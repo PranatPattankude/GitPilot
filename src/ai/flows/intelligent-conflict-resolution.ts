@@ -37,10 +37,10 @@ const intelligentConflictResolutionFlow = ai.defineFlow(
   async (input) => {
     const llmResponse = await ai.generate({
         prompt: `You are an expert software engineer specializing in resolving git merge conflicts.
-        You will be given a file diff that contains conflict markers (<<<<<<<, =======, >>>>>>>).
-        Your task is to analyze the conflict and produce a clean, resolved version of the file content.
+        You will be given a file diff that may contain one or more conflict sections marked with (<<<<<<<, =======, >>>>>>>).
+        Your task is to analyze all conflicts and produce a single, clean, resolved version of the file content.
 
-        Analyze the code between the markers:
+        Analyze the code between the markers for each conflict:
         - The code between '<<<<<<<' and '=======' is the target branch's version.
         - The code between '=======' and '>>>>>>>' is the source branch's version.
 
@@ -49,21 +49,25 @@ const intelligentConflictResolutionFlow = ai.defineFlow(
         - Choose one side over the other if they are conflicting.
         - Refactor the code slightly to accommodate both changes if possible.
 
-        You must output ONLY the resolved code, without any conflict markers or extra explanations. The output should be the final, complete content of the file.
+        You must output ONLY the resolved code, without any conflict markers or extra explanations. 
+        Your response must be a JSON object that strictly adheres to the following schema:
+        { "suggestedResolution": "<final resolved file content>" }
 
-        Here is the file diff with the conflict:
+        Here is the file diff with the conflict(s):
         \`\`\`
         ${input.fileDiff}
         \`\`\`
         `,
         output: {
-            schema: z.object({
-                suggestedResolution: z.string(),
-            })
+            schema: IntelligentConflictResolutionOutputSchema,
         },
         model: ai.getModel(),
     });
 
-    return llmResponse.output()!;
+    const result = llmResponse.output();
+    if (!result) {
+      throw new Error("AI did not return a valid suggestedResolution");
+    }
+    return result;
   }
 );
