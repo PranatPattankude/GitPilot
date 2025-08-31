@@ -145,7 +145,7 @@ export default function MergePage() {
                     <FileWarning className="size-4 text-destructive" />
                     Conflicting Files ({pr.conflictingFiles.length})
                   </h4>
-                  <div className="border rounded-md p-2 space-y-1">
+                  <div className="border rounded-md p-2 space-y-1 max-h-64 overflow-y-auto">
                     {pr.conflictingFiles.map((file) => (
                       <ConflictFile key={file.filename} file={file} pr={pr} />
                     ))}
