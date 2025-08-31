@@ -375,43 +375,48 @@ export async function mergePullRequest(
   repoFullName: string,
   pullRequestNumber: number
 ): Promise<{ success: boolean; error?: string }> {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session as any).accessToken) {
-        return { success: false, error: "Not authenticated" };
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    return { success: false, error: "Not authenticated" };
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  try {
+    // Check mergeable_state before merging
+    const prUrl = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}`;
+    const { data: pr } = await fetchFromGitHub<any>(prUrl, accessToken);
+
+    if (pr.mergeable_state === "dirty") {
+      return { success: false, error: "PR has conflicts. Resolve them before merging." };
     }
-    const accessToken = (session as any).accessToken as string;
-
-    try {
-        const url = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}/merge`;
-        const { status, data } = await fetchFromGitHub<any>(url, accessToken, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                commit_title: `Merge PR #${pullRequestNumber} via GitPilot`,
-                commit_message: `Merged by GitPilot.`,
-                merge_method: "merge",
-            }),
-        });
-
-        if (status === 405) {
-            return { success: false, error: "Pull request is not mergeable. It may have conflicts or require checks to pass." };
-        }
-
-        if (status === 409) {
-             return { success: false, error: "Could not merge due to a conflict. Please resolve conflicts on GitHub." };
-        }
-
-        if (status >= 400) {
-            return { success: false, error: data?.message || `Failed to merge, status: ${status}` };
-        }
-
-        return { success: true };
-    } catch (error: any) {
-        console.error(`Failed to merge pull request #${pullRequestNumber} for ${repoFullName}:`, error);
-        return { success: false, error: `Failed to merge pull request: ${error.message}` };
+    if (pr.mergeable_state === "blocked") {
+      return { success: false, error: "PR is blocked by required checks or branch protections." };
     }
+    if (pr.mergeable_state === "unknown" || pr.mergeable_state === null) {
+      return { success: false, error: "Mergeability not yet determined. Try again in a few seconds." };
+    }
+
+    // Attempt merge
+    const url = `https://api.github.com/repos/${repoFullName}/pulls/${pullRequestNumber}/merge`;
+    const { status, data } = await fetchFromGitHub<any>(url, accessToken, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        commit_title: `Merge PR #${pullRequestNumber} via GitPilot`,
+        commit_message: `Merged by GitPilot.`,
+        merge_method: "merge",
+      }),
+    });
+
+    if (status >= 400) {
+      return { success: false, error: data?.message || `Failed to merge, status: ${status}` };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(`Failed to merge pull request #${pullRequestNumber} for ${repoFullName}:`, error);
+    return { success: false, error: `Failed to merge pull request: ${error.message}` };
+  }
 }
 
 export async function compareBranches(
@@ -786,5 +791,7 @@ export async function cancelWorkflowRun(
     return { success: false, error: error.message };
   }
 }
+
+    
 
     
