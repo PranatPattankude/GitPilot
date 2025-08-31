@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useLayoutEffect, useMemo, useRef, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,7 @@ function reassembleFile(blocks: ParsedBlock[]): string {
                 case 'both':
                     return [...block.current, ...block.incoming].join('\n');
                 case 'manual':
-                     return block.manualContent || '';
+                     return block.manualContent ?? '';
                 default:
                     // If unresolved, keep markers for validation
                     return [block.header, ...block.current, '=======', ...block.incoming, block.footer].join('\n');
@@ -166,12 +166,27 @@ interface ConflictResolverProps {
 
 export default function ConflictResolver({ pr, filePath, diff, initialContent }: ConflictResolverProps) {
     const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
+    const [totalLines, setTotalLines] = useState(0);
 
     useLayoutEffect(() => {
         setBlocks(parseConflict(initialContent));
     }, [initialContent]);
     
     const resolvedContent = useMemo(() => reassembleFile(blocks), [blocks]);
+
+    useEffect(() => {
+      let lineCount = 0;
+      blocks.forEach(block => {
+        if (block.type === 'code') {
+          lineCount += block.line.split('\n').length;
+        } else {
+           const blockContent = reassembleFile([block]);
+           lineCount += blockContent.split('\n').length;
+        }
+      });
+      setTotalLines(lineCount);
+    }, [blocks]);
+
 
     const handleResolve = (conflictId: number, resolution: 'current' | 'incoming' | 'both') => {
         setBlocks(prevBlocks => prevBlocks.map(block => {
@@ -202,7 +217,6 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
         }
     };
     
-    let totalLines = 0;
 
   return (
       <>
@@ -225,17 +239,16 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                 </p>
                 <div className="flex w-full rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 font-mono text-sm h-[60vh] overflow-hidden">
                     <div ref={lineNumbersRef} className="line-numbers bg-muted/50 text-right pr-2 pt-4 select-none text-muted-foreground w-12 overflow-y-hidden">
-                        {/* Line numbers will be rendered here dynamically */}
+                        {Array.from({ length: totalLines }, (_, i) => (
+                           <div key={i}>{i + 1}</div>
+                        ))}
                     </div>
                     <ScrollArea className="flex-1" onScroll={syncScroll} ref={contentRef}>
                         <div className="p-4">
                             {blocks.map((block) => {
                                 if (block.type === 'code') {
-                                    const lineCount = block.line.split('\n').length;
-                                    const startLine = totalLines + 1;
-                                    totalLines += lineCount;
                                     return (
-                                        <div key={`code-${startLine}`} className="relative">
+                                        <div key={`code-${block.line.substring(0, 10)}`} className="relative">
                                              <pre className="whitespace-pre-wrap">{block.line}</pre>
                                         </div>
                                     )
@@ -243,9 +256,6 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                 
                                 const isResolved = block.resolution !== 'none';
                                 const blockContent = reassembleFile([block]);
-                                const lineCount = blockContent.split('\n').length;
-                                const startLine = totalLines + 1;
-                                totalLines += lineCount;
 
                                 return (
                                     <div key={block.id} className={cn("my-2 border rounded-md overflow-hidden", isResolved ? "border-green-500/50 bg-green-500/5" : "border-destructive/50")}>
@@ -286,8 +296,9 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                                     <pre className="whitespace-pre-wrap text-purple-800 dark:text-purple-300">{block.incoming.join('\n')}</pre>
                                                 </div>
                                                 <div>
-                                                   <Label className='text-xs pl-2 text-muted-foreground'>Manual Resolution</Label>
+                                                   <Label htmlFor={`manual-resolve-${block.id}`} className='text-xs pl-2 text-muted-foreground'>Manual Resolution</Label>
                                                     <Textarea 
+                                                        id={`manual-resolve-${block.id}`}
                                                         className="w-full h-auto bg-background border-0 focus-visible:ring-0"
                                                         value={block.manualContent ?? ''}
                                                         onChange={(e) => handleManualChange(block.id, e.target.value)}
@@ -306,22 +317,12 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                 <style>{`
                     .line-numbers {
                         padding-top: 1rem;
+                        line-height: 1.5rem; /* Match with pre/textarea line-height */
                     }
                     .line-numbers > div {
-                        line-height: 1.5rem; /* Match with pre/textarea line-height */
                         height: 1.5rem; /* Match with pre/textarea line-height */
                     }
                 `}</style>
-                <script
-                    dangerouslySetInnerHTML={{
-                        __html: `
-                            const lineNumbersEl = document.querySelector('.line-numbers');
-                            if (lineNumbersEl) {
-                                lineNumbersEl.innerHTML = Array.from({length: ${totalLines}}, (_, i) => \`<div>\${i + 1}</div>\`).join('');
-                            }
-                        `
-                    }}
-                />
             </div>
           </div>
           
@@ -331,5 +332,3 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
       </>
   );
 }
-
-    
