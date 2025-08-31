@@ -811,7 +811,7 @@ async function checkWorkflowsExistence(
 ): Promise<boolean> {
   const url = `https://api.github.com/repos/${repoFullName}/contents/.github/workflows`;
   try {
-    const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET' });
+    const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET', cache: 'no-store' });
     return status === 200;
   } catch (error) {
     return false;
@@ -888,3 +888,5 @@ export async function mergeCleanPullRequests(
   await Promise.all(mergePromises);
   console.log(`Finished attempting to merge ${pullRequests.length} pull requests.`);
 }
+
+    

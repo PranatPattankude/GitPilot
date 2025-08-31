@@ -163,25 +163,29 @@ export default function BuildsPage() {
         setLoading(false);
     }
     
-    // Auto-refresh builds that are in progress
+    return () => setSearchQuery('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkBuild, fetchBuilds]);
+
+  React.useEffect(() => {
+    // Set up interval for polling
     const interval = setInterval(() => {
         const hasInProgressBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued');
-        const isBulkBuildInProgress = bulkBuild?.status === 'In Progress';
+        const isBulkBuildInProgress = bulkBuild?.status === 'In Progress' || bulkBuild?.repos.some(r => r.status === 'In Progress' || r.status === 'Queued');
         
         if (hasInProgressBuilds || isBulkBuildInProgress) {
-            console.log("Refreshing in-progress builds...");
+            console.log("Polling for build status updates...");
             fetchBuilds(false);
         }
-    }, 15000);
+    }, 15000); // Poll every 15 seconds
 
-    return () => clearInterval(interval);
-
-  }, [setSearchQuery, bulkBuild, fetchBuilds, singleBuilds]);
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+  }, [singleBuilds, bulkBuild, fetchBuilds]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
     // to allow the user to see the result.
-    if (bulkBuild && bulkBuild.status !== 'In Progress') {
+    if (bulkBuild && bulkBuild.status !== 'In Progress' && !bulkBuild.repos.some(r => r.status === 'In Progress')) {
       const timer = setTimeout(() => {
         clearBulkBuild();
       }, 30000); // Clear after 30 seconds
