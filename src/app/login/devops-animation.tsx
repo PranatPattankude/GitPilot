@@ -8,7 +8,7 @@ const stages = [
   { name: "Build", icon: GitCommit, delay: "2s" },
   { name: "Test", icon: TestTube, delay: "4s" },
   { name: "Deploy", icon: Rocket, delay: "6s" },
-]
+];
 
 export function DevOpsCycleAnimation() {
   return (
@@ -27,7 +27,6 @@ export function DevOpsCycleAnimation() {
           </linearGradient>
         </defs>
         
-        {/* Connection Path */}
         <path
           d="M 50 200 C 150 100, 150 100, 250 200 S 350 300, 450 200 S 550 100, 550 200"
           stroke="currentColor"
@@ -37,7 +36,6 @@ export function DevOpsCycleAnimation() {
           strokeDasharray="5 10"
         />
 
-        {/* Animated Pulse on Path */}
         <path
           d="M 50 200 C 150 100, 150 100, 250 200 S 350 300, 450 200 S 550 100, 550 200"
           stroke="url(#pulse-gradient)"
@@ -48,7 +46,6 @@ export function DevOpsCycleAnimation() {
           className="pipeline-pulse"
         />
 
-        {/* Stages */}
         <g transform="translate(50 200)">
           <circle r="30" fill="currentColor" className="stage-glow" style={{ animationDelay: stages[0].delay }} />
           <stages[0].icon className="text-primary-foreground/80" x="-16" y="-16" width="32" height="32" />
