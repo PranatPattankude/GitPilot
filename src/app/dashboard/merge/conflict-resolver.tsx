@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -92,9 +93,6 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
     }, [initialContent]);
 
     useEffect(() => {
-        // This effect runs when the server action completes.
-        // It's crucial that state.message is checked to prevent
-        // running on initial render.
         if (state.message) {
             if (state.success) {
                 toast({ title: "Success", description: state.message });
@@ -104,7 +102,8 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                 toast({ variant: "destructive", title: "Error", description: state.message });
             }
         }
-    }, [state, toast, onResolved]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.message]);
 
 
     const acceptTarget = () => {
