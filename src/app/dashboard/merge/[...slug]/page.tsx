@@ -1,6 +1,7 @@
+
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useActionState } from "react"
 import { getPullRequest } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
@@ -11,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ConflictResolver from "../conflict-resolver";
-import { useFormState } from 'react-dom';
 import { resolveConflict } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,7 +27,7 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const repoFullName = `${repoOwner}/${repoName}`;
     const filePath = params.slug.slice(3).join('/');
 
-    const [state, formAction] = useFormState(resolveConflict, { success: false, message: '' });
+    const [state, formAction] = useActionState(resolveConflict, { success: false, message: '' });
     const { toast } = useToast();
 
     useEffect(() => {
