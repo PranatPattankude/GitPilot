@@ -39,3 +39,60 @@ export function GithubIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function GitBranchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M6 3v12" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
+    </svg>
+  );
+}
+
+export function CodeBracketsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M8 17.929H6c-1.105 0-2-.895-2-2V8.07c0-1.105.895-2 2-2h2" />
+      <path d="M16 6.071h2c1.105 0 2 .895 2 2v7.859c0 1.105-.895 2-2 2h-2" />
+    </svg>
+  );
+}
+
+export function GitCommitIcon(props: SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            {...props}
+        >
+            <circle cx="12" cy="12" r="3" />
+            <line x1="3" y1="12" x2="9" y2="12" />
+            <line x1="15" y1="12" x2="21" y2="12" />
+        </svg>
+    )
+}
