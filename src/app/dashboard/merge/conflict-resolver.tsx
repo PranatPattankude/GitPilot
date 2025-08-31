@@ -267,9 +267,9 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
                                         </div>
                                        
                                        {isResolved ? (
-                                             <Textarea 
+                                             <Textarea
                                                 className="w-full h-auto bg-background border-0 focus-visible:ring-0 resize-none font-mono"
-                                                value={block.manualContent ?? (block.resolution === 'current' ? block.current.join('\n') : block.resolution === 'incoming' ? block.incoming.join('\n') : [...block.current, ...block.incoming].join('\n'))}
+                                                value={block.manualContent ?? (block.resolution === 'current' ? block.current.join('\n') : block.resolution === 'incoming' ? block.incoming.join('\n') : block.resolution === 'both' ? [...block.current, ...block.incoming].join('\n') : '')}
                                                 onChange={(e) => handleManualChange(block.id, e.target.value)}
                                                 placeholder="Manually resolve the conflict here..."
                                                 rows={reassembleFile([block]).split('\n').length}
@@ -325,3 +325,4 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
       </>
   );
 }
+
