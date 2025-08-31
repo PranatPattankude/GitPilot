@@ -1,102 +1,16 @@
-
 "use client"
 
-import { useState, useLayoutEffect, useMemo, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardFooter } from '@/components/ui/card';
-import { GitMerge, Loader2, Check } from 'lucide-react';
+import { GitMerge, Loader2 } from 'lucide-react';
 import { type PullRequest } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-
-// Types for parsed conflict blocks
-type CodeLine = { type: 'code'; line: string };
-type ConflictBlock = {
-  type: 'conflict';
-  id: number;
-  header: string;
-  current: string[];
-  incoming: string[];
-  footer: string;
-  resolution: 'current' | 'incoming' | 'both' | 'none' | 'manual';
-  manualContent?: string;
-};
-type ParsedBlock = CodeLine | ConflictBlock;
-
-
-function parseConflict(fileContent: string): ParsedBlock[] {
-  const lines = fileContent.split('\n');
-  const blocks: ParsedBlock[] = [];
-  let inConflict = false;
-  let currentBlock: Partial<ConflictBlock> = {};
-  let conflictId = 0;
-  let inIncoming = false;
-
-  for (const line of lines) {
-    if (line.startsWith('<<<<<<<')) {
-      inConflict = true;
-      inIncoming = false;
-      currentBlock = {
-        type: 'conflict',
-        id: conflictId++,
-        header: line,
-        current: [],
-        incoming: [],
-        resolution: 'none',
-      };
-    } else if (line.startsWith('=======')) {
-        if (inConflict) {
-            inIncoming = true;
-        }
-    } else if (line.startsWith('>>>>>>>')) {
-      if (inConflict) {
-        currentBlock.footer = line;
-        blocks.push(currentBlock as ConflictBlock);
-        inConflict = false;
-        currentBlock = {};
-        inIncoming = false;
-      }
-    } else if (inConflict) {
-      if (inIncoming) {
-        currentBlock.incoming!.push(line);
-      } else {
-        currentBlock.current!.push(line);
-      }
-    } else {
-      blocks.push({ type: 'code', line });
-    }
-  }
-  return blocks;
-}
-
-// Re-assembles the file content based on resolutions
-function reassembleFile(blocks: ParsedBlock[]): string {
-    return blocks.map(block => {
-        if (block.type === 'code') {
-            return block.line;
-        }
-        if (block.type === 'conflict') {
-            switch (block.resolution) {
-                case 'current':
-                    return block.current.join('\n');
-                case 'incoming':
-                    return block.incoming.join('\n');
-                case 'both':
-                    return [...block.current, ...block.incoming].join('\n');
-                case 'manual':
-                     return block.manualContent ?? '';
-                default:
-                    // If unresolved, keep markers for validation
-                    return [block.header, ...block.current, '=======', ...block.incoming, block.footer].join('\n');
-            }
-        }
-        return '';
-    }).join('\n');
-}
+import { DiffEditor } from '@monaco-editor/react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -116,99 +30,39 @@ function SubmitButton() {
   );
 }
 
-function DiffViewer({ diff }: { diff: string }) {
-    if (!diff || diff.trim() === "No changes found for this file in the diff.") {
-        return (
-            <div className="bg-muted p-4 rounded-md font-mono text-sm text-center text-muted-foreground">
-                <p>No textual changes detected between branches for this file.</p>
-                <p className="text-xs">The conflict might be due to the file being added in both branches.</p>
-            </div>
-        )
-    }
-    return (
-        <ScrollArea className="bg-muted p-4 rounded-md font-mono text-sm overflow-x-auto max-h-80">
-            <div className="whitespace-pre-wrap">
-                {diff.split('\n').slice(4).map((line, i) => (
-                    <div
-                    key={i}
-                    className={cn(
-                        line.startsWith('+') && 'bg-green-600/10',
-                        line.startsWith('-') && 'bg-red-600/10'
-                    )}
-                    >
-                        <span className={cn(
-                            "inline-block w-8 select-none text-center",
-                            line.startsWith('+') && 'text-green-600',
-                            line.startsWith('-') && 'text-red-600',
-                            !line.startsWith('+') && !line.startsWith('-') && 'text-muted-foreground'
-                        )}>
-                            {line.startsWith('+') ? '+' : line.startsWith('-') ? ' ' : ' '}
-                        </span>
-                        <span className="inline pr-4">
-                            {line.startsWith('-') ? '-' : ' '}
-                        </span>
-                        <span className="inline-block whitespace-pre-wrap">
-                            {line.substring(1)}
-                        </span>
-                    </div>
-                ))}
-            </div>
-        </ScrollArea>
-    );
-}
-
 interface ConflictResolverProps {
     pr: PullRequest;
     filePath: string;
-    diff: string;
-    initialContent: string;
+    sourceContent: string;
+    targetContent: string;
 }
 
-export default function ConflictResolver({ pr, filePath, diff, initialContent }: ConflictResolverProps) {
-    const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
-    const [totalLines, setTotalLines] = useState(0);
+export default function ConflictResolver({ pr, filePath, sourceContent, targetContent }: ConflictResolverProps) {
+    const [resolvedContent, setResolvedContent] = useState(
+        `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`
+    );
 
-    useLayoutEffect(() => {
-        setBlocks(parseConflict(initialContent));
-    }, [initialContent]);
-    
-    const resolvedContent = useMemo(() => reassembleFile(blocks), [blocks]);
-
-    useEffect(() => {
-      const reassembled = reassembleFile(blocks);
-      setTotalLines(reassembled.split('\n').length);
-    }, [blocks]);
-
-
-    const handleResolve = (conflictId: number, resolution: 'current' | 'incoming' | 'both') => {
-        setBlocks(prevBlocks => prevBlocks.map(block => {
-            if (block.type === 'conflict' && block.id === conflictId) {
-                return { ...block, resolution, manualContent: undefined };
-            }
-            return block;
-        }));
-    };
-    
-    const handleManualChange = (conflictId: number, content: string) => {
-         setBlocks(prevBlocks => prevBlocks.map(block => {
-            if (block.type === 'conflict' && block.id === conflictId) {
-                return { ...block, resolution: 'manual', manualContent: content };
-            }
-            return block;
-        }));
-    }
-
-    const allResolved = useMemo(() => blocks.every(b => b.type === 'code' || b.resolution !== 'none'), [blocks]);
-    
-    const contentRef = useRef<HTMLDivElement>(null);
-    const lineNumbersRef = useRef<HTMLDivElement>(null);
-
-    const syncScroll = () => {
-        if (contentRef.current && lineNumbersRef.current) {
-            lineNumbersRef.current.scrollTop = contentRef.current.scrollTop;
+    function getFileLanguage(filePath: string) {
+        const extension = filePath.split('.').pop();
+        switch (extension) {
+            case 'js':
+            case 'jsx':
+                return 'javascript';
+            case 'ts':
+            case 'tsx':
+                return 'typescript';
+            case 'json':
+                return 'json';
+            case 'css':
+                return 'css';
+            case 'html':
+                return 'html';
+            case 'md':
+                return 'markdown';
+            default:
+                return 'plaintext';
         }
-    };
-    
+    }
 
   return (
       <>
@@ -219,110 +73,44 @@ export default function ConflictResolver({ pr, filePath, diff, initialContent }:
           <input type="hidden" name="resolvedContent" value={resolvedContent} />
 
           <div className="space-y-6">
-            <div>
-                <Label>Changes between <Badge variant="secondary">{pr.targetBranch}</Badge> and <Badge variant="secondary">{pr.sourceBranch}</Badge></Label>
-                <DiffViewer diff={diff} />
+             <div>
+                <Label>Changes between <Badge variant="secondary">{pr.targetBranch}</Badge> (left) and <Badge variant="secondary">{pr.sourceBranch}</Badge> (right)</Label>
+                 <div className="border rounded-md overflow-hidden mt-2">
+                    <DiffEditor
+                        height="50vh"
+                        language={getFileLanguage(filePath)}
+                        original={targetContent}
+                        modified={sourceContent}
+                        theme="vs-dark"
+                         loading={<Skeleton className="h-full w-full" />}
+                        options={{
+                            readOnly: true,
+                            renderSideBySide: true,
+                            minimap: { enabled: false }
+                        }}
+                    />
+                 </div>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="resolvedContent">Resolve Conflicts</Label>
+                <Label htmlFor="resolvedContent">Final Resolved Code</Label>
                  <p className="text-sm text-muted-foreground">
-                    For each conflict block, choose which version to keep, or manually edit the final code. The final resolved code will be committed to <Badge variant="secondary">{pr.sourceBranch}</Badge>.
+                    Manually resolve any conflicts from the diff viewer above and place the final, correct code here. This content will be committed to <Badge variant="secondary">{pr.sourceBranch}</Badge>.
                 </p>
-                <div className="flex w-full rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 font-mono text-sm h-[60vh] overflow-hidden">
-                    <div ref={lineNumbersRef} className="line-numbers bg-muted/50 text-right pr-2 pt-4 select-none text-muted-foreground w-12 overflow-y-hidden">
-                        {Array.from({ length: totalLines }, (_, i) => (
-                           <div key={i}>{i + 1}</div>
-                        ))}
-                    </div>
-                    <ScrollArea className="flex-1">
-                        <div className="p-4" onScroll={syncScroll} ref={contentRef}>
-                            {blocks.map((block, i) => {
-                                if (block.type === 'code') {
-                                    return (
-                                        <div key={`code-${i}-${block.line}`} className="relative">
-                                             <pre className="whitespace-pre-wrap">{block.line}</pre>
-                                        </div>
-                                    )
-                                }
-                                
-                                const isResolved = block.resolution !== 'none';
-                                
-                                return (
-                                    <div key={block.id} className={cn("my-2 border rounded-md overflow-hidden", isResolved ? "border-green-500/50 bg-green-500/5" : "border-destructive/50")}>
-                                       <div className="flex justify-between items-center text-xs p-2 bg-muted/50 border-b">
-                                            <span className="font-sans text-muted-foreground">Conflict #{block.id + 1}</span>
-                                            {isResolved ? (
-                                                <div className="flex items-center gap-2 text-green-600">
-                                                    <Check className="size-4" />
-                                                    <span>Resolved as <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">{block.resolution}</Badge></span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleResolve(block.id, 'current')}>Accept Current</Button>
-                                                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleResolve(block.id, 'incoming')}>Accept Incoming</Button>
-                                                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleResolve(block.id, 'both')}>Accept Both</Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                       
-                                       {isResolved ? (
-                                             <Textarea
-                                                className="w-full h-auto bg-background border-0 focus-visible:ring-0 resize-none font-mono"
-                                                value={block.manualContent ?? (block.resolution === 'current' ? block.current.join('\n') : block.resolution === 'incoming' ? block.incoming.join('\n') : block.resolution === 'both' ? [...block.current, ...block.incoming].join('\n') : '')}
-                                                onChange={(e) => handleManualChange(block.id, e.target.value)}
-                                                placeholder="Manually resolve the conflict here..."
-                                                rows={reassembleFile([block]).split('\n').length}
-                                            />
-                                       ) : (
-                                            <div className='flex flex-col'>
-                                                <div className="p-2 bg-blue-500/10">
-                                                    <div className="flex items-center justify-between pb-1">
-                                                        <Badge variant="outline" className="border-blue-400/50 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">Current Change ({pr.targetBranch})</Badge>
-                                                    </div>
-                                                    <pre className="whitespace-pre-wrap text-blue-800 dark:text-blue-300">{block.current.join('\n')}</pre>
-                                                </div>
-                                                <div className="p-2 bg-purple-500/10">
-                                                     <div className="flex items-center justify-between pb-1">
-                                                        <Badge variant="outline" className="border-purple-400/50 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">Incoming Change ({pr.sourceBranch})</Badge>
-                                                     </div>
-                                                    <pre className="whitespace-pre-wrap text-purple-800 dark:text-purple-300">{block.incoming.join('\n')}</pre>
-                                                </div>
-                                            </div>
-                                       )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </ScrollArea>
-                </div>
-                 {/* This is a bit of a hack to dynamically update line numbers */}
-                <style>{`
-                    .line-numbers {
-                        padding-top: 1rem;
-                        line-height: 1.5rem; /* Match with pre/textarea line-height */
-                    }
-                    .line-numbers > div {
-                        height: 1.5rem; /* Match with pre/textarea line-height */
-                    }
-                     .line-numbers + .flex-1 .p-4 {
-                        line-height: 1.5rem;
-                    }
-                    .line-numbers + .flex-1 textarea {
-                        line-height: 1.5rem;
-                    }
-                `}</style>
+                 <Textarea
+                    id="resolvedContent"
+                    name="resolvedContent"
+                    value={resolvedContent}
+                    onChange={(e) => setResolvedContent(e.target.value)}
+                    className="min-h-[300px] font-mono text-sm border rounded-md"
+                    placeholder="// Your final resolved code goes here"
+                 />
             </div>
           </div>
           
           <CardFooter className="p-0 pt-6 flex justify-end">
-             {allResolved ? (
-                <SubmitButton />
-             ) : (
-                <Button size="lg" disabled>Resolve all conflicts to continue</Button>
-             )}
+             <SubmitButton />
           </CardFooter>
       </>
   );
 }
-

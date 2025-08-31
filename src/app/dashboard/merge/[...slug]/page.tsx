@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useState, useActionState } from "react"
-import { getPullRequest, getFileDiff, getFileContent } from "../../repositories/actions";
+import { getPullRequest, getFileContent, getFileDiff } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, GitBranch, ChevronsRight, FileCode } from "lucide-react";
+import { AlertTriangle, GitBranch, ChevronsRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function MergeConflictPage({ params }: { params: { slug: string[] } }) {
     const [pr, setPr] = useState<PullRequest | null>(null);
-    const [diff, setDiff] = useState<string | null>(null);
-    const [initialContent, setInitialContent] = useState<string>("");
+    const [targetContent, setTargetContent] = useState<string | null>(null);
+    const [sourceContent, setSourceContent] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
@@ -46,17 +46,16 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             setLoading(true);
             getPullRequest(repoFullName, prNumber)
             .then(prData => {
-                setPr(prData);
                 if (!prData) throw new Error("Pull Request not found.");
-
+                setPr(prData);
                 return Promise.all([
-                    getFileDiff(repoFullName, prData.targetBranch, prData.sourceBranch, filePath),
-                    getFileContent(repoFullName, prData.sourceBranch, filePath)
+                    getFileContent(repoFullName, prData.targetBranch, filePath).catch(() => ({content: `// File not found in ${prData.targetBranch}`})),
+                    getFileContent(repoFullName, prData.sourceBranch, filePath).catch(() => ({content: `// File not found in ${prData.sourceBranch}`})),
                 ]);
             })
-            .then(([diffData, contentData]) => {
-                setDiff(diffData);
-                setInitialContent(contentData.content);
+            .then(([targetData, sourceData]) => {
+                setTargetContent(targetData.content);
+                setSourceContent(sourceData.content);
             })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
@@ -112,13 +111,13 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
         )
     }
 
-    if (!pr || diff === null) {
+    if (!pr || sourceContent === null || targetContent === null) {
         return (
             <div className="space-y-6">
                 {header}
                 <Card>
                     <CardContent className="py-6 text-center text-muted-foreground">
-                        Pull Request or file diff not found.
+                        Pull Request or file content not found.
                     </CardContent>
                 </Card>
             </div>
@@ -150,8 +149,8 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                         <ConflictResolver
                             pr={pr}
                             filePath={filePath}
-                            diff={diff}
-                            initialContent={initialContent}
+                            sourceContent={sourceContent}
+                            targetContent={targetContent}
                         />
                     </form>
                 </CardContent>
