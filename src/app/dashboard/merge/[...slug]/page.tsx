@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useActionState, useMemo, useTransition } from "react"
+import { useEffect, useState, useTransition, useMemo } from "react"
 import { getPullRequest, getFileContent, mergePullRequest as mergePrAction } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card";
@@ -159,17 +159,17 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                            </Button>
                       </div>
                   </CardHeader>
-                   <CardContent>
-                          <ConflictResolver
-                              pr={pr}
-                              filePath={filePath}
-                              targetContent={targetContent}
-                              sourceContent={sourceContent}
-                              onResolved={() => setIsResolved(true)}
-                          />
+                  <CardContent>
+                      <ConflictResolver
+                          pr={pr}
+                          filePath={filePath}
+                          targetContent={targetContent}
+                          sourceContent={sourceContent}
+                          onResolved={() => setIsResolved(true)}
+                      />
                   </CardContent>
-                  <CardFooter className="flex justify-end items-center gap-4">
-                     {isResolved && (
+                  {isResolved && (
+                    <CardFooter className="flex justify-end items-center gap-4 border-t pt-6">
                          <Button onClick={handleFinalMerge} disabled={isMerging} size="lg">
                               {isMerging ? (
                                 <>
@@ -178,12 +178,12 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                                 </>
                               ) : (
                                 <>
-                                  Merge Pull Request <GitMerge className="ml-2 h-4 w-4" />
+                                  Commit Resolution & Merge PR <GitMerge className="ml-2 h-4 w-4" />
                                 </>
                               )}
                          </Button>
-                     )}
-                  </CardFooter>
+                    </CardFooter>
+                  )}
               </Card>
         </div>
     )

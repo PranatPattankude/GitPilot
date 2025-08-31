@@ -2,7 +2,7 @@
 "use server"
 
 import { z } from "zod";
-import { commitResolvedFile } from "../repositories/actions";
+import { commitResolvedFile, mergePullRequest } from "../repositories/actions";
 
 
 const FormSchema = z.object({
@@ -10,6 +10,7 @@ const FormSchema = z.object({
   sourceBranch: z.string(),
   filePath: z.string(),
   resolvedContent: z.string(),
+  pullRequestNumber: z.coerce.number(),
 });
 
 type State = {
@@ -24,6 +25,7 @@ export async function resolveConflictFile(prevState: State, formData: FormData):
         sourceBranch: formData.get("sourceBranch"),
         filePath: formData.get("filePath"),
         resolvedContent: formData.get("resolvedContent"),
+        pullRequestNumber: formData.get("pullRequestNumber"),
     });
 
     if (!parsed.success) {
@@ -31,23 +33,23 @@ export async function resolveConflictFile(prevState: State, formData: FormData):
     }
 
     try {
-        const result = await commitResolvedFile(
+        const commitResult = await commitResolvedFile(
             parsed.data.repoFullName,
             parsed.data.sourceBranch,
             parsed.data.filePath,
             parsed.data.resolvedContent
         );
         
-        if (!result.success) {
-             return { success: false, message: result.error || "Failed to commit the resolved file." };
+        if (!commitResult.success) {
+             return { success: false, message: commitResult.error || "Failed to commit the resolved file." };
         }
         
-        // Give GitHub a moment to process the commit
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        // The merge happens on the next button click now.
+        // We just return success for the commit part.
         return { success: true, message: "File conflict has been successfully resolved and committed." };
 
     } catch (e: any) {
-        return { success: false, message: e.message || "An unknown error occurred during the commit process." };
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        return { success: false, message: errorMessage || "An unknown error occurred during the commit process." };
     }
 }

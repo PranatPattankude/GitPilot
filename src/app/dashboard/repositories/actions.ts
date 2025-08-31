@@ -42,19 +42,19 @@ async function fetchFromGitHub<T>(
     return { data: null as T, nextUrl: null, status: responseStatus };
   }
 
-  const errorData = await response.json().catch(() => null);
+  const jsonData = await response.json().catch(() => null);
   
   if (!response.ok) {
     console.error(`GitHub API Error for ${url}:`, {
         status: response.status,
-        message: errorData?.message,
+        message: jsonData?.message,
     });
     
     if ([422, 404, 409, 405].includes(response.status)) {
-       return { data: errorData, nextUrl: null, status: responseStatus };
+       return { data: jsonData, nextUrl: null, status: responseStatus };
     }
 
-    const errorMessage = errorData?.message || `Failed to fetch data, status: ${response.status}`;
+    const errorMessage = jsonData?.message || `Failed to fetch data, status: ${response.status}`;
     
     if (response.status === 403 && errorMessage.includes('rate limit')) {
         throw new Error("GitHub API rate limit exceeded. Please try again later.");
@@ -74,7 +74,7 @@ async function fetchFromGitHub<T>(
     }
   }
 
-  return { data: errorData, nextUrl, status: responseStatus };
+  return { data: jsonData, nextUrl, status: responseStatus };
 }
 
 function formatDuration(startTime: Date, endTime: Date): string {
@@ -721,8 +721,9 @@ export async function commitResolvedFile(
         return { success: true };
 
     } catch (error: any) {
-        console.error("Error in commitAndMerge:", error);
-        return { success: false, error: `An unexpected error occurred: ${error.message}` };
+        console.error("Error in commitResolvedFile:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `An unexpected error occurred: ${errorMessage}` };
     }
 }
 
@@ -798,3 +799,4 @@ export async function cancelWorkflowRun(
     
 
     
+

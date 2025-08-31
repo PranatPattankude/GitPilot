@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormStatus, useFormState } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { GitMerge, Loader2, Wand2, CheckCircle } from 'lucide-react';
@@ -14,6 +14,41 @@ import { intelligentConflictResolution } from '@/ai/flows/intelligent-conflict-r
 import { useToast } from '@/hooks/use-toast';
 import { resolveConflictFile } from './actions';
 
+function getMonacoLanguage(filePath: string): string {
+    const extension = filePath.split('.').pop()?.toLowerCase();
+    switch (extension) {
+        case 'js':
+        case 'jsx':
+            return 'javascript';
+        case 'ts':
+        case 'tsx':
+            return 'typescript';
+        case 'py':
+            return 'python';
+        case 'java':
+            return 'java';
+        case 'c':
+        case 'cpp':
+        case 'h':
+            return 'csharp';
+        case 'json':
+            return 'json';
+        case 'html':
+            return 'html';
+        case 'css':
+            return 'css';
+        case 'scss':
+            return 'scss';
+        case 'md':
+            return 'markdown';
+        case 'yaml':
+        case 'yml':
+            return 'yaml';
+        default:
+            return 'plaintext';
+    }
+}
+
 function MarkAsResolvedButton() {
   const { pending } = useFormStatus();
   return (
@@ -21,7 +56,7 @@ function MarkAsResolvedButton() {
        {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Resolving...
+          Committing...
         </>
       ) : (
         <>
@@ -84,7 +119,8 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
             toast({ title: 'AI Suggestion Applied', description: 'The AI-generated resolution has been applied. Please review and commit.' });
         } catch (error: any) {
             console.error("AI suggestion failed:", error);
-            toast({ variant: 'destructive', title: 'AI Suggestion Failed', description: error.message || 'An unknown error occurred.' });
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            toast({ variant: 'destructive', title: 'AI Suggestion Failed', description: errorMessage || 'An unknown error occurred.' });
         } finally {
             setIsAiResolving(false);
         }
@@ -107,7 +143,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                     height="50vh"
                     original={targetContent}
                     modified={sourceContent}
-                    language="typescript" // You can make this dynamic based on file extension
+                    language={getMonacoLanguage(filePath)}
                     theme="vs-dark"
                     loading={<Skeleton className="h-full w-full" />}
                  />
