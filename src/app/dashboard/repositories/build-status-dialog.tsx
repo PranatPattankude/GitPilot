@@ -158,7 +158,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
       const interval = setInterval(() => {
         console.log(`Refreshing in-progress builds for ${repo.name}...`);
         fetchBuilds(false);
-      }, 15000); // Refresh every 15 seconds
+      }, 40000); // Refresh every 40 seconds
       return () => clearInterval(interval);
     }
   }, [builds, repo.name, fetchBuilds]);

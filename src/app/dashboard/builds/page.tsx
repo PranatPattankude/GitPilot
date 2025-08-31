@@ -173,7 +173,7 @@ export default function BuildsPage() {
         const interval = setInterval(() => {
             console.log("Refreshing in-progress builds...");
             fetchBuilds(false);
-        }, 15000); // Refresh every 15 seconds
+        }, 40000); // Refresh every 40 seconds
         return () => clearInterval(interval);
     }
   }, [singleBuilds, bulkBuild, fetchBuilds, clearBulkBuild]);
