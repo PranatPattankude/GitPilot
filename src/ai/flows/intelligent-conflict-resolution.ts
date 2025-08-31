@@ -63,7 +63,7 @@ const intelligentConflictResolutionFlow = ai.defineFlow(
         },
     });
 
-    const result = llmResponse.output();
+    const result = llmResponse.output;
     if (!result) {
       throw new Error("AI did not return a valid suggestedResolution");
     }
