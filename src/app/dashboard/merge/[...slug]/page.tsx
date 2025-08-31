@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useActionState } from "react"
-import { getPullRequest, getFileContent, getFileDiff } from "../../repositories/actions";
+import { getPullRequest, getFileContent } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,16 +46,20 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
             if (!repoFullName || !prNumber) return;
 
             setLoading(true);
+            setError(null);
             try {
+                // First, get the Pull Request details
                 const prData = await getPullRequest(repoFullName, prNumber);
                 if (!prData) throw new Error("Pull Request not found.");
                 setPr(prData);
 
-                // Now that prData is confirmed to exist, we can use it directly
-                const sourceData = await getFileContent(repoFullName, prData.sourceBranch, filePath);
-                setSourceContent(sourceData.content);
+                // Now that we have the PR data, fetch content for both branches
+                const [sourceData, targetData] = await Promise.all([
+                    getFileContent(repoFullName, prData.sourceBranch, filePath),
+                    getFileContent(repoFullName, prData.targetBranch, filePath)
+                ]);
 
-                const targetData = await getFileContent(repoFullName, prData.targetBranch, filePath);
+                setSourceContent(sourceData.content);
                 setTargetContent(targetData.content);
 
             } catch (err: any) {
@@ -155,7 +159,8 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                         <ConflictResolver
                             pr={pr}
                             filePath={filePath}
-                            initialContent={sourceContent}
+                            targetContent={targetContent}
+                            sourceContent={sourceContent}
                         />
                     </form>
                 </CardContent>
