@@ -88,25 +88,43 @@ body {
 }
 
 @layer utilities {
-  .animate-float {
-    animation: float 20s ease-in-out infinite;
+  .pipeline-pulse {
+    animation: pipeline-pulse-anim 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .stage-glow {
+    animation: stage-glow-anim 8s ease-in-out infinite;
   }
 }
 
-@keyframes float {
-  0% {
-    transform: translateY(0px) translateX(0px) rotate(0deg);
+@keyframes pipeline-pulse-anim {
+  0%, 100% {
+    stroke-dashoffset: 600;
   }
   25% {
-    transform: translateY(-20px) translateX(15px) rotate(5deg);
+    stroke-dashoffset: 450;
   }
   50% {
-    transform: translateY(10px) translateX(-15px) rotate(-5deg);
+    stroke-dashoffset: 300;
   }
   75% {
-    transform: translateY(-15px) translateX(20px) rotate(3deg);
+    stroke-dashoffset: 150;
   }
-  100% {
-    transform: translateY(0px) translateX(0px) rotate(0deg);
+  95% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes stage-glow-anim {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  20%, 30% { /* Glow during its stage */
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  40% { /* Fade out after its stage */
+    opacity: 0.2;
+    transform: scale(1);
   }
 }
