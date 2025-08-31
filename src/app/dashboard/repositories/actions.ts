@@ -387,7 +387,8 @@ export async function mergePullRequest(
     // Poll for mergeability status
     let pr;
     for (let i = 0; i < 5; i++) { // Poll for up to 10 seconds
-        pr = (await fetchFromGitHub<any>(prUrl, accessToken)).data;
+        const { data: prData } = await fetchFromGitHub<any>(prUrl, accessToken, { cache: 'no-store' });
+        pr = prData;
         if (pr.mergeable_state !== 'unknown') {
             break;
         }
@@ -799,8 +800,36 @@ export async function cancelWorkflowRun(
   }
 }
 
+
+export async function checkWorkflowsExistence(
+  repoFullNames: string[]
+): Promise<Record<string, boolean>> {
+  const session = await getServerSession(authOptions);
+  if (!session || !(session as any).accessToken) {
+    throw new Error("Not authenticated");
+  }
+  const accessToken = (session as any).accessToken as string;
+
+  const results: Record<string, boolean> = {};
+
+  await Promise.all(
+    repoFullNames.map(async (repoFullName) => {
+      const url = `https://api.github.com/repos/${repoFullName}/contents/.github/workflows`;
+      try {
+        const { status } = await fetchFromGitHub(url, accessToken, { method: 'GET' });
+        results[repoFullName] = status === 200;
+      } catch (error) {
+        // A 404 error from fetchFromGitHub is thrown, which we can interpret as "no workflows"
+        results[repoFullName] = false;
+      }
+    })
+  );
+
+  return results;
+}
     
 
     
+
 
 

@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, useTransition } from "react"
@@ -10,12 +11,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader } from "lucide-react"
+import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader, FolderCog } from "lucide-react"
 import { useAppStore, type Repository } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import ConflictResolver from "../merge/conflict-resolver"
 import { Badge } from "@/components/ui/badge"
 import {
     Select,
@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label"
 import { addReleaseToHistory } from "@/ai/flows/release-history"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
+import { checkWorkflowsExistence } from "./actions"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
@@ -42,6 +43,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   const [isComparing, setIsComparing] = useState(false)
   const [isMerging, setIsMerging] = useState(false)
   const [comparisonDone, setComparisonDone] = useState(false)
+  const [workflowStatus, setWorkflowStatus] = useState<Record<string, boolean>>({});
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
@@ -56,32 +58,46 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
   }, [selectedRepos]);
 
 
-  const handleCompare = () => {
+  const handleCompare = async () => {
     setIsComparing(true)
-    setTimeout(() => {
-      setIsComparing(false)
-      setComparisonDone(true)
-    }, 1500)
+    setComparisonDone(false)
+    try {
+        const repoNames = selectedRepos.map(r => r.fullName);
+        const statuses = await checkWorkflowsExistence(repoNames);
+        setWorkflowStatus(statuses);
+    } catch(e: any) {
+        toast({
+            variant: "destructive",
+            title: "Error checking workflows",
+            description: e.message || "An unexpected error occurred."
+        })
+    } finally {
+        setIsComparing(false)
+        setComparisonDone(true)
+    }
   }
 
   const getSkippedRepoInfo = (repo: Repository) => {
     const repoBranches = repo.branches || [];
     const hasSource = repoBranches.includes(sourceBranch);
     const hasTarget = repoBranches.includes(targetBranch);
-    if (!hasSource && !hasTarget) return `Source & Target branch not found`;
-    if (!hasSource) return `Source branch not found`;
-    if (!hasTarget) return `Target branch not found`;
-    if (sourceBranch === targetBranch) return `Source and Target branches are the same`;
+    const hasWorkflows = workflowStatus[repo.fullName];
+
+    if (!hasWorkflows) return { reason: `No workflow files found`, icon: FolderCog };
+    if (!hasSource && !hasTarget) return { reason: `Source & Target branch not found`, icon: XCircle };
+    if (!hasSource) return { reason: `Source branch not found`, icon: XCircle };
+    if (!hasTarget) return { reason: `Target branch not found`, icon: XCircle };
+    if (sourceBranch === targetBranch) return { reason: `Source and Target branches are the same`, icon: XCircle };
     return null;
   }
 
-  const reposMissingBranch = comparisonDone ? selectedRepos.map(repo => ({
+  const reposMissingInfo = comparisonDone ? selectedRepos.map(repo => ({
       repo,
-      reason: getSkippedRepoInfo(repo)
-  })).filter(item => item.reason !== null) : [];
+      skipInfo: getSkippedRepoInfo(repo)
+  })).filter(item => item.skipInfo !== null) : [];
 
-  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingBranch.find(r => r.repo.id === repo.id)) : [];
-  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingBranch.find(r => r.repo.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
+  const reposWithConflicts = comparisonDone ? selectedRepos.filter(repo => repo.id === conflictRepo.id && !reposMissingInfo.find(r => r.repo.id === repo.id)) : [];
+  const cleanRepos = comparisonDone ? selectedRepos.filter(repo => !reposMissingInfo.find(r => r.repo.id === repo.id) && !reposWithConflicts.find(r => r.id === repo.id)) : [];
 
 
   const handleBulkMerge = async () => {
@@ -136,8 +152,6 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
 
     // No need to set isMerging to false as we are navigating away.
   }
-
-  const hasConflicts = (repoId: string) => reposWithConflicts.some(r => r.id === repoId);
 
   if (selectedRepos.length === 0) {
     return (
@@ -205,7 +219,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         </div>
                     </div>
                     <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
-                        {isComparing && <Loader className="mr-2 animate-spin"/>}
+                        {isComparing && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
                         {isComparing ? "Comparing..." : "Compare Branches"}
                     </Button>
                     </CardContent>
@@ -221,23 +235,26 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-4">
-                        {reposMissingBranch.length > 0 && (
+                        {reposMissingInfo.length > 0 && (
                           <>
                            <h3 className="text-lg font-semibold text-muted-foreground">Skipped Repositories</h3>
-                            {reposMissingBranch.map(({ repo, reason }) => (
+                            {reposMissingInfo.map(({ repo, skipInfo }) => {
+                                const Icon = skipInfo!.icon;
+                                return (
                                 <li key={repo.id} className="p-4 border rounded-lg bg-muted/50">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                    <h4 className="font-semibold">{repo.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                        <h4 className="font-semibold">{repo.name}</h4>
+                                        <p className="text-sm text-muted-foreground">{repo.owner.login}</p>
+                                        </div>
+                                        <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
+                                            <Icon className="size-4" />
+                                            {skipInfo!.reason}
+                                        </Badge>
                                     </div>
-                                    <Badge variant="outline" className="flex items-center gap-2 text-muted-foreground border-dashed">
-                                        <XCircle className="size-4" />
-                                        {reason}
-                                    </Badge>
-                                </div>
                                 </li>
-                            ))}
+                                )
+                            })}
                           </>
                         )}
                         
@@ -256,7 +273,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         ))}
 
                         {reposWithConflicts.map((repo) => (
-                             <li key={repo.id} className="p-4 border rounded-lg">
+                             <li key={repo.id} className="p-4 border rounded-lg bg-destructive/5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                     <h4 className="font-semibold">{repo.name}</h4>
@@ -268,13 +285,13 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                     </Badge>
                                 </div>
                                 <Separator className="my-4" />
-                                <ConflictResolver />
+                                <p className="text-center text-sm text-muted-foreground py-4">Conflict resolution for bulk merges is not yet supported. Please resolve conflicts in this PR individually.</p>
                                 </li>
                         ))}
                         </ul>
                         <div className="flex justify-end mt-6">
                         <Button size="lg" className="bg-accent hover:bg-accent/90" disabled={cleanRepos.length === 0 || reposWithConflicts.length > 0 || isMerging || isPending} onClick={handleBulkMerge}>
-                            {(isMerging || isPending) ? <Loader className="mr-2 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
+                            {(isMerging || isPending) ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
                             Merge All Clean Branches ({cleanRepos.length})
                         </Button>
                         </div>
