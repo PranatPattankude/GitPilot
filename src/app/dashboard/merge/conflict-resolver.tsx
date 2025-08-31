@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CardFooter } from '@/components/ui/card';
 import { GitMerge, Loader2, Wand2, CheckCircle } from 'lucide-react';
 import { type PullRequest } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
@@ -13,19 +12,20 @@ import { DiffEditor } from '@monaco-editor/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { intelligentConflictResolution } from '@/ai/flows/intelligent-conflict-resolution';
 import { useToast } from '@/hooks/use-toast';
+import { resolveConflictFile } from './actions';
 
-function SubmitButton() {
+function MarkAsResolvedButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} size="lg">
-      {pending ? (
+    <Button type="submit" variant="outline" disabled={pending}>
+       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Committing & Merging...
+          Resolving...
         </>
       ) : (
         <>
-          Commit and Merge <GitMerge className="ml-2 h-4 w-4" />
+          Mark as Resolved
         </>
       )}
     </Button>
@@ -37,35 +37,35 @@ interface ConflictResolverProps {
     filePath: string;
     sourceContent: string;
     targetContent: string;
+    onResolved: () => void;
 }
 
-export default function ConflictResolver({ pr, filePath, sourceContent, targetContent }: ConflictResolverProps) {
+export default function ConflictResolver({ pr, filePath, sourceContent, targetContent, onResolved }: ConflictResolverProps) {
     const [resolvedContent, setResolvedContent] = useState('');
     const [isAiResolving, setIsAiResolving] = useState(false);
-    const [isMarkedAsResolved, setIsMarkedAsResolved] = useState(false);
-    const editorRef = useRef<any>(null);
     const { toast } = useToast();
 
     const initialContent = useMemo(() => {
         return `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`;
     }, [targetContent, sourceContent, pr.targetBranch, pr.sourceBranch]);
 
+    const [state, formAction] = useActionState(resolveConflictFile, { success: false, message: '' });
+
     useEffect(() => {
         setResolvedContent(initialContent);
     }, [initialContent]);
-    
-    useEffect(() => {
-        // When content changes, user must re-confirm
-        setIsMarkedAsResolved(false);
-    }, [resolvedContent]);
 
-    function handleEditorDidMount(editor: any) {
-        editorRef.current = editor;
-    }
-    
-    function handleEditorChange(value: string | undefined) {
-        setResolvedContent(value || '');
-    }
+    useEffect(() => {
+        if (state.message) {
+            if (state.success) {
+                toast({ title: "Success", description: state.message });
+                onResolved();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: state.message });
+            }
+        }
+    }, [state, toast, onResolved]);
+
 
     const acceptTarget = () => {
         setResolvedContent(targetContent);
@@ -91,7 +91,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
     }
 
     return (
-      <>
+      <form action={formAction}>
         <div className="space-y-4">
             <input type="hidden" name="repoFullName" value={pr.repoFullName} />
             <input type="hidden" name="pullRequestNumber" value={pr.number} />
@@ -116,7 +116,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
             <div className="space-y-2">
                 <Label className="font-bold text-base">Resolution</Label>
                 <p className="text-sm text-muted-foreground">
-                    Use the buttons to accept a version, get an AI suggestion, or manually edit the code below to resolve the conflict. The final content will be committed.
+                    Use the buttons to accept a version, get an AI suggestion, or manually edit the code below to resolve the conflict. When ready, mark it as resolved.
                 </p>
                 <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={acceptTarget}>Accept Current</Button>
@@ -132,23 +132,20 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                     onChange={(e) => setResolvedContent(e.target.value)}
                     className="font-mono text-sm resize-y"
                     rows={15}
+                    disabled={state.success}
                 />
             </div>
+             <div className="flex justify-end items-center gap-4 pt-6">
+                {!state.success ? (
+                    <MarkAsResolvedButton />
+                ) : (
+                    <div className="flex items-center gap-2 text-sm font-medium text-accent">
+                        <CheckCircle className="size-5" />
+                        <span>File conflict resolved. You can now merge the pull request.</span>
+                    </div>
+                )}
+            </div>
         </div>
-        
-        <CardFooter className="p-0 pt-6 flex justify-end items-center gap-4">
-            {!isMarkedAsResolved ? (
-                <Button type="button" variant="outline" onClick={() => setIsMarkedAsResolved(true)}>
-                    Mark as Resolved
-                </Button>
-            ) : (
-                <div className="flex items-center gap-2 text-sm font-medium text-accent">
-                    <CheckCircle className="size-5" />
-                    <span>Marked as Resolved</span>
-                </div>
-            )}
-           {isMarkedAsResolved && <SubmitButton />}
-        </CardFooter>
-      </>
+      </form>
   );
 }

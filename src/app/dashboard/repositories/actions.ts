@@ -393,7 +393,12 @@ export async function mergePullRequest(
       return { success: false, error: "PR is blocked by required checks or branch protections." };
     }
     if (pr.mergeable_state === "unknown" || pr.mergeable_state === null) {
-      return { success: false, error: "Mergeability not yet determined. Try again in a few seconds." };
+      // It can take a few seconds for GitHub to compute mergeability
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const { data: prAfterDelay } = await fetchFromGitHub<any>(prUrl, accessToken);
+      if (prAfterDelay.mergeable_state !== 'clean') {
+         return { success: false, error: `Mergeability is '${prAfterDelay.mergeable_state}'. Please resolve issues or try again.` };
+      }
     }
 
     // Attempt merge
@@ -671,9 +676,11 @@ export async function getFileDiff(repoFullName: string, base: string, head: stri
 }
 
 
-export async function commitAndMerge(
-    { repoFullName, sourceBranch, pullRequestNumber, filePath, resolvedContent }:
-    { repoFullName: string; sourceBranch: string; pullRequestNumber: number; filePath: string; resolvedContent: string }
+export async function commitResolvedFile(
+    repoFullName: string,
+    sourceBranch: string,
+    filePath: string,
+    resolvedContent: string
 ): Promise<{ success: boolean; error?: string }> {
     const session = await getServerSession(authOptions);
     if (!session || !(session as any).accessToken) {
@@ -710,12 +717,8 @@ export async function commitAndMerge(
         if (commitStatus !== 200) {
              return { success: false, error: `Failed to commit changes: ${commitData?.message || 'Unknown error'}` };
         }
-
-        // 3. Attempt to merge the pull request
-        // A short delay might be needed for GitHub to re-check mergeability
-        await new Promise(resolve => setTimeout(resolve, 3000));
         
-        return await mergePullRequest(repoFullName, pullRequestNumber);
+        return { success: true };
 
     } catch (error: any) {
         console.error("Error in commitAndMerge:", error);

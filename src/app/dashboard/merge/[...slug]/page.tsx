@@ -1,18 +1,18 @@
 "use client"
 
-import { useEffect, useState, useActionState, useMemo } from "react"
-import { getPullRequest, getFileContent } from "../../repositories/actions";
+import { useEffect, useState, useActionState, useMemo, useTransition } from "react"
+import { getPullRequest, getFileContent, mergePullRequest as mergePrAction } from "../../repositories/actions";
 import { type PullRequest } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardDescription, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, GitBranch, ChevronsRight } from "lucide-react";
+import { AlertTriangle, GitBranch, ChevronsRight, GitMerge, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ConflictResolver from "../conflict-resolver";
-import { resolveConflict } from '../actions';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from "next/navigation";
 
 
 export default function MergeConflictPage({ params }: { params: { slug: string[] } }) {
@@ -21,6 +21,10 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const [sourceContent, setSourceContent] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isResolved, setIsResolved] = useState(false);
+    const [isMerging, startMergeTransition] = useTransition();
+    const { toast } = useToast();
+    const router = useRouter();
     
     const repoOwner = params.slug[0];
     const repoName = params.slug[1];
@@ -28,18 +32,6 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     const repoFullName = useMemo(() => `${repoOwner}/${repoName}`, [repoOwner, repoName]);
     const filePath = useMemo(() => params.slug.slice(3).join('/'), [params.slug]);
 
-    const [state, formAction] = useActionState(resolveConflict, { success: false, message: '' });
-    const { toast } = useToast();
-
-    useEffect(() => {
-        if (state.message) {
-            if (state.success) {
-                toast({ title: "Success", description: state.message });
-            } else {
-                toast({ variant: "destructive", title: "Error", description: state.message });
-            }
-        }
-    }, [state, toast]);
 
     useEffect(() => {
         async function fetchData() {
@@ -71,6 +63,19 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
 
         fetchData();
     }, [repoFullName, prNumber, filePath]);
+    
+    const handleFinalMerge = () => {
+        if (!pr) return;
+        startMergeTransition(async () => {
+            const result = await mergePrAction(pr.repoFullName, pr.number);
+            if (result.success) {
+                toast({ title: "Success!", description: "Pull request has been successfully merged." });
+                router.push("/dashboard/merge?status=resolved");
+            } else {
+                 toast({ variant: "destructive", title: "Merge Failed", description: result.error || "An unknown error occurred during the merge." });
+            }
+        });
+    }
 
     const header = (
         <header>
@@ -137,7 +142,6 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
     return (
          <div className="space-y-6">
             {header}
-            <form action={formAction}>
               <Card>
                   <CardHeader>
                       <div className="flex justify-between items-start">
@@ -161,10 +165,26 @@ export default function MergeConflictPage({ params }: { params: { slug: string[]
                               filePath={filePath}
                               targetContent={targetContent}
                               sourceContent={sourceContent}
+                              onResolved={() => setIsResolved(true)}
                           />
                   </CardContent>
+                  <CardFooter className="flex justify-end items-center gap-4">
+                     {isResolved && (
+                         <Button onClick={handleFinalMerge} disabled={isMerging} size="lg">
+                              {isMerging ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Merging...
+                                </>
+                              ) : (
+                                <>
+                                  Merge Pull Request <GitMerge className="ml-2 h-4 w-4" />
+                                </>
+                              )}
+                         </Button>
+                     )}
+                  </CardFooter>
               </Card>
-            </form>
         </div>
     )
 }
