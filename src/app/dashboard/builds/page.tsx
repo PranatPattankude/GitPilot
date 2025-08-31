@@ -134,6 +134,7 @@ export default function BuildsPage() {
     if (isInitialFetch) {
         setLoading(true);
     }
+    setError(null);
     try {
         const buildsData = await getAllRecentBuilds();
         const filteredBuilds = (buildsData as BuildWithRepo[]).filter(build => 
@@ -154,33 +155,17 @@ export default function BuildsPage() {
   }, [searchQuery]);
 
   React.useEffect(() => {
-    // Clear search when navigating to this page
     setSearchQuery('');
 
     if (!bulkBuild) {
-        fetchBuilds(true); // Initial fetch
+        fetchBuilds(true);
     } else {
         setLoading(false);
     }
     
     return () => setSearchQuery('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bulkBuild, fetchBuilds]);
+  }, [bulkBuild, fetchBuilds, setSearchQuery]);
 
-  React.useEffect(() => {
-    // Set up interval for polling
-    const interval = setInterval(() => {
-        const hasInProgressBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued');
-        const isBulkBuildInProgress = bulkBuild?.status === 'In Progress' || bulkBuild?.repos.some(r => r.status === 'In Progress' || r.status === 'Queued');
-        
-        if (hasInProgressBuilds || isBulkBuildInProgress) {
-            console.log("Polling for build status updates...");
-            fetchBuilds(false);
-        }
-    }, 15000); // Poll every 15 seconds
-
-    return () => clearInterval(interval); // Cleanup interval on component unmount
-  }, [singleBuilds, bulkBuild, fetchBuilds]);
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
@@ -437,5 +422,3 @@ export default function BuildsPage() {
     </>
   )
 }
-
-    
