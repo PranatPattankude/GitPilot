@@ -4,11 +4,11 @@
 import { Code2, GitCommit, TestTube, Rocket } from "lucide-react"
 
 const stages = [
-  { name: "Code", icon: Code2, delay: "0s" },
-  { name: "Build", icon: GitCommit, delay: "2s" },
-  { name: "Test", icon: TestTube, delay: "4s" },
-  { name: "Deploy", icon: Rocket, delay: "6s" },
-];
+  { name: "Code", icon: Code2, delay: "0s", pos: [50, 200] },
+  { name: "Build", icon: GitCommit, delay: "2s", pos: [250, 200] },
+  { name: "Test", icon: TestTube, delay: "4s", pos: [450, 200] },
+  { name: "Deploy", icon: Rocket, delay: "6s", pos: [550, 200] },
+]
 
 export function DevOpsCycleAnimation() {
   return (
@@ -26,7 +26,7 @@ export function DevOpsCycleAnimation() {
             <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
           </linearGradient>
         </defs>
-        
+
         <path
           d="M 50 200 C 150 100, 150 100, 250 200 S 350 300, 450 200 S 550 100, 550 200"
           stroke="currentColor"
@@ -46,22 +46,21 @@ export function DevOpsCycleAnimation() {
           className="pipeline-pulse"
         />
 
-        <g transform="translate(50 200)">
-          <circle r="30" fill="currentColor" className="stage-glow" style={{ animationDelay: stages[0].delay }} />
-          <stages[0].icon className="text-primary-foreground/80" x="-16" y="-16" width="32" height="32" />
-        </g>
-        <g transform="translate(250 200)">
-          <circle r="30" fill="currentColor" className="stage-glow" style={{ animationDelay: stages[1].delay }} />
-          <stages[1].icon className="text-primary-foreground/80" x="-16" y="-16" width="32" height="32" />
-        </g>
-         <g transform="translate(450 200)">
-          <circle r="30" fill="currentColor" className="stage-glow" style={{ animationDelay: stages[2].delay }} />
-          <stages[2].icon className="text-primary-foreground/80" x="-16" y="-16" width="32" height="32" />
-        </g>
-        <g transform="translate(550 200)">
-          <circle r="30" fill="currentColor" className="stage-glow" style={{ animationDelay: stages[3].delay }} />
-          <stages[3].icon className="text-primary-foreground/80" x="-16" y="-16" width="32" height="32" />
-        </g>
+        {stages.map(({ name, icon: Icon, delay, pos }) => (
+          <g key={name} transform={`translate(${pos[0]} ${pos[1]})`}>
+            <circle
+              r="30"
+              fill="currentColor"
+              className="stage-glow"
+              style={{ animationDelay: delay }}
+            />
+            <foreignObject x="-16" y="-16" width="32" height="32">
+              <div className="flex items-center justify-center w-full h-full">
+                <Icon className="text-primary-foreground/80" />
+              </div>
+            </foreignObject>
+          </g>
+        ))}
       </svg>
     </div>
   )
