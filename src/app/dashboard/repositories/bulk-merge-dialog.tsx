@@ -73,29 +73,31 @@ function BranchCombobox({
         <Command>
           <CommandInput placeholder="Search branch..." />
           <CommandEmpty>No branch found.</CommandEmpty>
-          <CommandList>
-            <CommandGroup>
-              {branches.map((branch) => (
-                <CommandItem
-                  key={branch}
-                  value={branch}
-                  onSelect={() => {
-                    onChange(branch === value ? "" : branch)
-                    setOpen(false)
-                  }}
-                  disabled={branch === disabledBranch}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === branch ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {branch}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
+          <ScrollArea className="h-48">
+            <CommandList>
+              <CommandGroup>
+                {branches.map((branch) => (
+                  <CommandItem
+                    key={branch}
+                    value={branch}
+                    onSelect={(currentValue) => {
+                      onChange(currentValue === value ? "" : currentValue)
+                      setOpen(false)
+                    }}
+                    disabled={branch === disabledBranch}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === branch ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {branch}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </ScrollArea>
         </Command>
       </PopoverContent>
     </Popover>

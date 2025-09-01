@@ -18,6 +18,7 @@ import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import { RefreshCw, ChevronsUpDown, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface RebuildDialogProps {
   repo: Repository
@@ -75,28 +76,30 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
                 <Command>
                   <CommandInput placeholder="Search branch..." />
                   <CommandEmpty>No branch found.</CommandEmpty>
-                  <CommandList>
-                    <CommandGroup>
-                      {(repo.branches || []).map((branch) => (
-                        <CommandItem
-                          key={branch}
-                          value={branch}
-                          onSelect={() => {
-                            setSelectedBranch(branch === selectedBranch ? "" : branch)
-                            setPopoverOpen(false)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedBranch === branch ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {branch}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
+                  <ScrollArea className="h-48">
+                    <CommandList>
+                      <CommandGroup>
+                        {(repo.branches || []).map((branch) => (
+                          <CommandItem
+                            key={branch}
+                            value={branch}
+                            onSelect={(currentValue) => {
+                              setSelectedBranch(currentValue === selectedBranch ? "" : currentValue)
+                              setPopoverOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedBranch === branch ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {branch}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </ScrollArea>
                 </Command>
               </PopoverContent>
             </Popover>
