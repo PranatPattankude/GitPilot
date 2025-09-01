@@ -12,17 +12,13 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
-import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info, Loader } from "lucide-react"
+import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info, Loader, ChevronsUpDown, Check } from "lucide-react"
 import { compareBranches } from "./actions"
+import { cn } from "@/lib/utils"
 
 interface MergeDialogProps {
   repo: Repository
@@ -31,6 +27,67 @@ interface MergeDialogProps {
 }
 
 type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes" | "error"
+
+function BranchCombobox({
+  branches,
+  value,
+  onChange,
+  disabledBranch,
+  placeholder,
+}: {
+  branches: string[]
+  value: string
+  onChange: (value: string) => void
+  disabledBranch?: string
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value || placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Search branch..." />
+          <CommandEmpty>No branch found.</CommandEmpty>
+          <CommandList>
+            <CommandGroup>
+              {branches.map((branch) => (
+                <CommandItem
+                  key={branch}
+                  value={branch}
+                  onSelect={(currentValue) => {
+                    onChange(currentValue === value ? "" : currentValue)
+                    setOpen(false)
+                  }}
+                  disabled={branch === disabledBranch}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === branch ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {branch}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
@@ -108,33 +165,23 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="source-branch">Source Branch</Label>
-              <Select value={sourceBranch} onValueChange={setSourceBranch}>
-                <SelectTrigger id="source-branch">
-                  <SelectValue placeholder="Select a branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(repo.branches || []).map((branch) => (
-                    <SelectItem key={branch} value={branch} disabled={branch === targetBranch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BranchCombobox
+                branches={repo.branches || []}
+                value={sourceBranch}
+                onChange={setSourceBranch}
+                disabledBranch={targetBranch}
+                placeholder="Select a branch"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="target-branch">Target Branch</Label>
-              <Select value={targetBranch} onValueChange={setTargetBranch}>
-                <SelectTrigger id="target-branch">
-                  <SelectValue placeholder="Select a branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(repo.branches || []).map((branch) => (
-                    <SelectItem key={branch} value={branch} disabled={branch === sourceBranch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+               <BranchCombobox
+                branches={repo.branches || []}
+                value={targetBranch}
+                onChange={setTargetBranch}
+                disabledBranch={sourceBranch}
+                placeholder="Select a branch"
+              />
             </div>
           </div>
           
