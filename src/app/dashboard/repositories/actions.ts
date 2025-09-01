@@ -85,6 +85,22 @@ function formatDuration(startTime: Date, endTime: Date): string {
     return `${minutes}m ${remainingSeconds}s`;
 }
 
+function mapGitHubStatus(run: any): Build['status'] {
+    if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting' || run.status === 'queued') {
+        return 'In Progress';
+    }
+    if (run.status === 'completed') {
+        if (run.conclusion === 'success') {
+            return 'Success';
+        }
+        if (run.conclusion === 'cancelled') {
+            return 'Cancelled';
+        }
+        return 'Failed'; // Covers failure, timed_out, etc.
+    }
+    return 'Failed'; // Default to failed for any other statuses.
+}
+
 async function getRecentBuilds(repoFullName: string, accessToken: string): Promise<Build[]> {
     try {
         let allRuns: any[] = [];
@@ -103,19 +119,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
         }
         
         return allRuns.map((run: any): Build => {
-            let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting' || run.status === 'queued') {
-                status = 'In Progress';
-            } else if (run.status === 'completed') {
-                if (run.conclusion === 'success') {
-                    status = 'Success';
-                } else {
-                    status = 'Failed';
-                }
-            } else {
-                status = 'Failed'; // Covers cancelled, failure, timed_out, etc.
-            }
-
+            const status = mapGitHubStatus(run);
             let duration = 'N/A';
             if (run.run_started_at) {
                 const startTime = new Date(run.run_started_at);
@@ -278,20 +282,8 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
         }
         
         return runsData.workflow_runs.map((run: any): Build => {
-            let status: Build['status'];
-            if (run.status === 'in_progress' || run.status === 'requested' || run.status === 'waiting' || run.status === 'queued') {
-                status = 'In Progress';
-            } else if (run.status === 'completed') {
-                if (run.conclusion === 'success') {
-                    status = 'Success';
-                } else {
-                    status = 'Failed';
-                }
-            } else {
-                status = 'Failed';
-            }
-            
-             let duration = 'N/A';
+            const status = mapGitHubStatus(run);
+            let duration = 'N/A';
             if (run.run_started_at) {
                 const startTime = new Date(run.run_started_at);
                 const endTime = run.updated_at ? new Date(run.updated_at) : new Date();

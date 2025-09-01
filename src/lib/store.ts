@@ -5,7 +5,7 @@ import { create } from 'zustand'
 
 export type Build = {
   id: string;
-  status: 'In Progress' | 'Success' | 'Failed' | 'Queued';
+  status: 'In Progress' | 'Success' | 'Failed' | 'Queued' | 'Cancelled';
   timestamp: Date;
   branch: string;
   commit: string;

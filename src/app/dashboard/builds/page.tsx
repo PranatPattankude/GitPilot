@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast"
 const statusInfo = {
   Success: { icon: CheckCircle2, color: "text-accent" },
   Failed: { icon: XCircle, color: "text-destructive" },
+  Cancelled: { icon: Ban, color: "text-muted-foreground" },
   'In Progress': { icon: Loader, color: "text-primary", animation: "animate-spin" },
   Queued: { icon: Clock, color: "text-muted-foreground" },
 }
@@ -250,7 +251,7 @@ export default function BuildsPage() {
                     const Info = statusInfo[repo.status as keyof typeof statusInfo]
                     if (!Info) return null;
                     const { icon: Icon, color, animation } = Info
-                    const isFailed = repo.status === 'Failed';
+                    const isFailedOrCancelled = repo.status === 'Failed' || repo.status === 'Cancelled';
                     const isRunning = repo.status === 'In Progress' || repo.status === 'Queued';
                     const repoAsBuildWithRepo = { ...repo, repo: repo.name || '' } as BuildWithRepo;
 
@@ -285,7 +286,7 @@ export default function BuildsPage() {
                               <Icon className={`size-4 ${animation || ''}`} />
                               {repo.status}
                             </span>
-                            {(isFailed || isRunning) && (
+                            {(isFailedOrCancelled || isRunning) && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -294,7 +295,7 @@ export default function BuildsPage() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    {isFailed && (
+                                    {isFailedOrCancelled && (
                                       <>
                                          <RerunMenuItem build={repoAsBuildWithRepo} type="failed" onAction={() => fetchBuilds(true)} />
                                          <RerunMenuItem build={repoAsBuildWithRepo} type="all" onAction={() => fetchBuilds(true)} />
@@ -355,7 +356,7 @@ export default function BuildsPage() {
           const color = statusInfo[build.status as keyof typeof statusInfo]?.color
           const animation = statusInfo[build.status as keyof typeof statusInfo]?.animation || ""
           if (!SvgIcon) return null;
-          const isFailed = build.status === 'Failed';
+          const isFailedOrCancelled = build.status === 'Failed' || build.status === 'Cancelled';
           const isRunning = build.status === 'In Progress' || build.status === 'Queued';
 
 
@@ -366,7 +367,7 @@ export default function BuildsPage() {
                   <CardTitle className="text-lg truncate">{build.repo || 'Unknown Repo'}</CardTitle>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <SvgIcon className={`size-6 ${color} ${animation}`} />
-                     {(isFailed || isRunning) && (
+                     {(isFailedOrCancelled || isRunning) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -375,7 +376,7 @@ export default function BuildsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {isFailed && (
+                            {isFailedOrCancelled && (
                               <>
                                 <RerunMenuItem build={build} type="failed" onAction={() => fetchBuilds(true)} />
                                 <RerunMenuItem build={build} type="all" onAction={() => fetchBuilds(true)} />

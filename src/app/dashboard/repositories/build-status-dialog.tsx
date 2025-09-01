@@ -44,6 +44,7 @@ const statusInfo = {
   "Queued": { icon: Loader, color: "text-primary", animation: "animate-spin" },
   "Success": { icon: CheckCircle2, color: "text-accent" },
   "Failed": { icon: XCircle, color: "text-destructive" },
+  "Cancelled": { icon: Ban, color: "text-muted-foreground" },
 }
 
 const formatTimestamp = (date: Date) => {
@@ -202,13 +203,13 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
               
               const {icon: SvgIcon, color, animation} = info;
               
-              const isFailed = build.status === "Failed";
+              const isFailedOrCancelled = build.status === "Failed" || build.status === "Cancelled";
               const isSuccess = build.status === "Success";
               const isRunning = build.status === "In Progress" || build.status === "Queued";
 
               // Mocking progress for now as GitHub API doesn't provide steps
-              const progressValue = isSuccess ? 100 : isRunning ? 50 : isFailed ? 75 : 0;
-              const currentStep = isSuccess ? 4 : isRunning ? 2 : isFailed ? 3 : 1;
+              const progressValue = isSuccess ? 100 : isRunning ? 50 : isFailedOrCancelled ? 75 : 0;
+              const currentStep = isSuccess ? 4 : isRunning ? 2 : isFailedOrCancelled ? 3 : 1;
 
 
               return (
@@ -225,8 +226,8 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                     </div>
                      <div className="flex items-center gap-2">
                       <SvgIcon className={`size-5 ${color} ${animation || ''}`} />
-                      <Badge variant={isFailed ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
-                      {(isFailed || isRunning) && (
+                      <Badge variant={isFailedOrCancelled ? "destructive" : isSuccess ? "default" : "secondary"} className={isSuccess ? "bg-accent" : ""}>{build.status}</Badge>
+                      {(isFailedOrCancelled || isRunning) && (
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -235,7 +236,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {isFailed && (
+                              {isFailedOrCancelled && (
                                 <>
                                   <RerunMenuItem build={build} type="failed" onAction={() => fetchBuilds(true)} />
                                   <RerunMenuItem build={build} type="all" onAction={() => fetchBuilds(true)} />
@@ -268,7 +269,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
                         })}
                       </div>
                     </div>
-                    {isFailed && build.error && (
+                    {isFailedOrCancelled && build.error && (
                       <div className="mt-4 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="size-4 mt-0.5" />
