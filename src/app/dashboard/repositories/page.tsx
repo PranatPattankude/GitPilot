@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, createPullRequest, mergePullRequest } from "./actions"
+import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -195,12 +195,49 @@ export default function RepositoriesPage() {
     return mergeResult;
   };
 
-  const handleRebuild = (repoId: string, branch: string) => {
+  const handleRebuild = async (repoId: string, branch: string) => {
     const repo = localRepos.find(r => r.id === repoId);
-    if (repo) {
+    if (!repo) return;
+
+    // Find the most recent build for the selected branch
+    const latestBuildForBranch = repo.recentBuilds
+      .filter(build => build.branch === branch)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+    if (!latestBuildForBranch) {
       toast({
-        title: "Rebuild Initiated",
-        description: `A new build has been started for the ${branch} branch in ${repo.name}.`,
+        variant: "destructive",
+        title: "No Build Found",
+        description: `There are no recent builds for the "${branch}" branch to rerun.`,
+      });
+      return;
+    }
+
+    toast({
+      title: "Rebuild Initiated",
+      description: `Rerunning all jobs for the latest build on the "${branch}" branch in ${repo.name}.`,
+    });
+
+    try {
+      const result = await rerunAllJobs(repo.fullName, latestBuildForBranch.id);
+      if (result.success) {
+        toast({
+          title: "Rebuild Triggered Successfully",
+          description: "A new workflow run has started. You can monitor its progress on the Build Status page.",
+        });
+        router.push('/dashboard/builds');
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Rebuild Failed",
+          description: result.error || "Could not trigger the rebuild.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Rebuild Error",
+        description: error.message || "An unexpected error occurred.",
       });
     }
   };
