@@ -12,13 +12,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import type { Repository } from "@/lib/store"
@@ -88,8 +81,8 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
                         <CommandItem
                           key={branch}
                           value={branch}
-                          onSelect={(currentValue) => {
-                            setSelectedBranch(currentValue === selectedBranch ? "" : currentValue)
+                          onSelect={() => {
+                            setSelectedBranch(branch === selectedBranch ? "" : branch)
                             setPopoverOpen(false)
                           }}
                         >
