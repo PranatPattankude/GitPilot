@@ -124,7 +124,7 @@ function CancelMenuItem({ build, onAction }: { build: BuildWithRepo, onAction: (
 }
 
 export default function BuildsPage() {
-  const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild } = useAppStore();
+  const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild, addNotifications } = useAppStore();
   const [singleBuilds, setSingleBuilds] = React.useState<BuildWithRepo[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -138,6 +138,22 @@ export default function BuildsPage() {
     setError(null);
     try {
         const buildsData = await getAllRecentBuilds();
+        
+        // Detect new failed or cancelled builds for notifications
+        const failedOrCancelledBuilds = buildsData.filter(b => (b.status === 'Failed' || b.status === 'Cancelled'));
+        const previousProblematicBuildIds = new Set(singleBuilds.filter(b => (b.status === 'Failed' || b.status === 'Cancelled')).map(b => b.id));
+        const newProblematicBuilds = failedOrCancelledBuilds.filter(b => !previousProblematicBuildIds.has(b.id));
+
+        if (newProblematicBuilds.length > 0) {
+            const notifications = newProblematicBuilds.map(b => ({
+                type: 'build' as const,
+                message: `Build on branch "${b.branch}" ${b.status.toLowerCase()}.`,
+                repoFullName: b.repo || 'Unknown Repo',
+                url: `/dashboard/builds`
+            }));
+            addNotifications(notifications);
+        }
+
         setSingleBuilds(buildsData as BuildWithRepo[]);
     } catch (err: any) {
         setError(err.message || "Failed to fetch recent builds.");
@@ -146,7 +162,7 @@ export default function BuildsPage() {
             setLoading(false);
         }
     }
-  }, []);
+  }, [addNotifications, singleBuilds]);
 
   React.useEffect(() => {
     setSearchQuery('');
@@ -430,5 +446,3 @@ export default function BuildsPage() {
     </>
   )
 }
-
-    

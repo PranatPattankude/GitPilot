@@ -48,7 +48,7 @@ import { useRouter } from "next/navigation"
 
 export default function RepositoriesPage() {
   const { toast } = useToast()
-  const { searchQuery, setSearchQuery, selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos } = useAppStore()
+  const { searchQuery, setSearchQuery, selectedRepos, addRepo, removeRepo, setRepos: setGlobalRepos, clearRepos, addNotification } = useAppStore()
   const [localRepos, setLocalRepos] = useState<Repository[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +69,20 @@ export default function RepositoriesPage() {
     getRepositories()
       .then((repos) => {
         startTransition(() => {
+          // Notify about new repos
+          const oldRepoIds = new Set(localRepos.map(r => r.id));
+          const newRepos = repos.filter(r => !oldRepoIds.has(r.id));
+          if (!isInitialFetch && newRepos.length > 0) {
+            newRepos.forEach(repo => {
+              addNotification({
+                type: 'repo',
+                message: `New repository "${repo.name}" has been added.`,
+                repoFullName: repo.fullName,
+                url: repo.html_url,
+              })
+            })
+          }
+
           setLocalRepos(repos);
         });
       })
@@ -84,7 +98,7 @@ export default function RepositoriesPage() {
             });
          }
       });
-  }, []);
+  }, [localRepos, addNotification]);
 
   useEffect(() => {
     fetchRepos(true); // Initial fetch
@@ -141,6 +155,13 @@ export default function RepositoriesPage() {
       });
       return prResult;
     }
+    
+    addNotification({
+        type: 'pr',
+        message: `PR #${prResult.data.number} created: ${sourceBranch} → ${targetBranch}`,
+        repoFullName: repoFullName,
+        url: prResult.data.html_url,
+    });
 
     toast({
         title: "Pull Request Created",

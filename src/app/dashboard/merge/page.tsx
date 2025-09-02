@@ -29,7 +29,7 @@ function ConflictFile({ file, pr }: { file: ChangedFile, pr: PullRequest }) {
 }
 
 export default function MergePage() {
-  const { setSearchQuery, searchQuery } = useAppStore();
+  const { setSearchQuery, searchQuery, addNotifications } = useAppStore();
   const [conflicts, setConflicts] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,19 @@ export default function MergePage() {
         setLoading(true);
         setError(null);
         const conflictData = await getConflictingPullRequests();
+        
+        // Notify about new conflicts
+        const oldConflictIds = new Set(conflicts.map(c => c.id));
+        const newConflicts = conflictData.filter(c => !oldConflictIds.has(c.id));
+        if (newConflicts.length > 0) {
+            addNotifications(newConflicts.map(pr => ({
+                type: 'pr',
+                message: `PR #${pr.number} has merge conflicts.`,
+                repoFullName: pr.repoFullName,
+                url: `/dashboard/merge/${pr.repoFullName}/${pr.number}/${encodeURIComponent(pr.conflictingFiles?.[0]?.filename || '')}`
+            })));
+        }
+
         setConflicts(conflictData);
       } catch (err: any) {
         setError("Failed to fetch conflicting pull requests. " + String(err?.message || err || ''));
@@ -51,7 +64,8 @@ export default function MergePage() {
       }
     }
     fetchConflicts();
-  }, [setSearchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setSearchQuery, addNotifications]);
 
   const query = searchQuery.toLowerCase();
   const filteredConflicts = conflicts.filter(conflict =>

@@ -1,5 +1,4 @@
 
-
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -20,7 +19,7 @@ async function fetchFromGitHub<T>(
       Accept: "application/vnd.github.v3+json",
     },
     // Revalidate every hour
-    cache: 'no-store',
+    next: { revalidate: 0 }
   });
 
   const responseStatus = response.status;
@@ -173,7 +172,7 @@ export async function getRepositories(): Promise<Repository[]> {
 
   const accessToken = (session as any).accessToken as string;
   let allRepos: any[] = [];
-  let currentUrl: string | null = "https://api.github.com/user/repos?type=all&per_page=100";
+  let currentUrl: string | null = "https://api.github.com/user/repos?type=all&sort=pushed&per_page=100";
 
   try {
     while (currentUrl) {

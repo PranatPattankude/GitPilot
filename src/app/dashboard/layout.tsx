@@ -15,6 +15,9 @@ import {
   Search,
   Settings,
   LogOut,
+  AlertTriangle,
+  FilePlus2,
+  GitPullRequestIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -36,15 +39,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { GithubIcon } from "@/components/icons"
 import { ThemeToggle } from "./theme-toggle"
 import { Input } from "@/components/ui/input"
-import { useAppStore } from "@/lib/store"
+import { useAppStore, type AppNotification } from "@/lib/store"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatDistanceToNow } from "date-fns"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const sidebarItems = [
   {
@@ -172,6 +181,69 @@ function UserMenuSkeleton() {
   )
 }
 
+const notificationIcons = {
+  repo: FilePlus2,
+  build: AlertTriangle,
+  pr: GitPullRequestIcon,
+}
+
+function NotificationBell() {
+  const { notifications, clearNotifications } = useAppStore();
+  const notificationCount = notifications.length;
+  const displayCount = notificationCount > 9 ? "9+" : notificationCount;
+
+  const getIcon = (type: AppNotification['type']) => {
+    const Icon = notificationIcons[type];
+    const color = type === 'build' ? 'text-destructive' : type === 'pr' ? 'text-green-500' : 'text-blue-500';
+    return <Icon className={cn("size-4", color)} />
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative rounded-full">
+            <Bell className="h-5 w-5" />
+            <span className="sr-only">Notifications</span>
+            {notificationCount > 0 && (
+              <div className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                {displayCount}
+              </div>
+            )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex justify-between items-center">
+          <span>Notifications</span>
+          {notificationCount > 0 && (
+            <Button variant="link" size="sm" className="h-auto p-0" onClick={clearNotifications}>Clear all</Button>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {notificationCount > 0 ? (
+          <ScrollArea className="h-96">
+            {notifications.map(n => (
+              <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1 whitespace-normal">
+                <a href={n.url || '#'} target="_blank" rel="noopener noreferrer" className="w-full" onClick={(e) => !n.url && e.preventDefault()}>
+                  <div className="flex items-start gap-3">
+                    {getIcon(n.type)}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{n.repoFullName}</p>
+                      <p className="text-xs text-muted-foreground">{n.message}</p>
+                      <p className="text-xs text-muted-foreground/80 mt-1">{formatDistanceToNow(n.timestamp, { addSuffix: true })}</p>
+                    </div>
+                  </div>
+                </a>
+              </DropdownMenuItem>
+            ))}
+          </ScrollArea>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">You're all caught up!</p>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 
 export default function DashboardLayout({
   children,
@@ -237,13 +309,7 @@ export default function DashboardLayout({
           </div>
           <div className="flex items-center gap-4">
              <ThemeToggle />
-             <div className="relative">
-                <Button variant="ghost" size="icon" className="relative rounded-full">
-                    <Bell className="h-5 w-5" />
-                    <span className="sr-only">Notifications</span>
-                </Button>
-                <div className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">3</div>
-             </div>
+             <NotificationBell />
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
                 <GithubIcon className="size-5" />
                 <span className="sr-only">GitHub</span>

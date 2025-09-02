@@ -72,6 +72,15 @@ export type BulkBuild = {
   triggeredBy?: string;
 }
 
+export type AppNotification = {
+  id: string;
+  type: 'repo' | 'build' | 'pr';
+  message: string;
+  timestamp: Date;
+  repoFullName: string;
+  url?: string;
+}
+
 type AppState = {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -87,6 +96,10 @@ type AppState = {
   updateBulkBuildRepoStatus: (repoName: string, status: Build['status'], duration: string) => void;
   finishBulkBuild: (status: BulkBuild['status']) => void;
   clearBulkBuild: () => void;
+  notifications: AppNotification[];
+  addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp'>) => void;
+  addNotifications: (notifications: Omit<AppNotification, 'id' | 'timestamp'>[]) => void;
+  clearNotifications: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -130,4 +143,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
   },
   clearBulkBuild: () => set({ bulkBuild: null }),
+  notifications: [],
+  addNotification: (notification) => {
+    const newNotification: AppNotification = {
+        ...notification,
+        id: `${notification.repoFullName}-${notification.type}-${new Date().getTime()}`,
+        timestamp: new Date(),
+    };
+    set(state => ({ notifications: [newNotification, ...state.notifications] }));
+  },
+  addNotifications: (notifications) => {
+    const newNotifications: AppNotification[] = notifications.map(n => ({
+      ...n,
+      id: `${n.repoFullName}-${n.type}-${new Date().getTime()}-${Math.random()}`,
+      timestamp: new Date(),
+    }));
+    set(state => ({ notifications: [...newNotifications, ...state.notifications] }));
+  },
+  clearNotifications: () => set({ notifications: [] }),
 }))
