@@ -73,15 +73,15 @@ function BranchCombobox({
         <Command>
           <CommandInput placeholder="Search branch..." />
           <CommandEmpty>No branch found.</CommandEmpty>
-          <ScrollArea className="h-48">
+           <ScrollArea className="h-48">
             <CommandList>
               <CommandGroup>
                 {branches.map((branch) => (
                   <CommandItem
                     key={branch}
                     value={branch}
-                    onSelect={() => {
-                      onChange(branch === value ? "" : branch)
+                    onSelect={(currentValue) => {
+                      onChange(currentValue === value ? "" : currentValue)
                       setOpen(false)
                     }}
                     disabled={branch === disabledBranch}
