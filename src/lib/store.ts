@@ -34,8 +34,8 @@ export type Repository = {
   open_issues_count: number
   updated_at: string
   tags: string[]
-  recentBuilds: Build[]
-  branches: string[]
+  recentBuilds?: Build[]
+  branches?: string[]
   fullName: string
 }
 

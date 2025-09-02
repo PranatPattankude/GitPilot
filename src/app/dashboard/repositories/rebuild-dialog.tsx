@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,11 +15,12 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
-import { RefreshCw, ChevronsUpDown, CheckCircle } from "lucide-react"
+import { RefreshCw, ChevronsUpDown, CheckCircle, Loader } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { getRepoDetails } from "./actions"
 
 interface RebuildDialogProps {
   repo: Repository
@@ -53,7 +54,7 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
                                 <CommandItem
                                     key={branch}
                                     value={branch}
-                                    onAction={() => {
+                                    onSelect={() => {
                                         onChange(branch === value ? "" : branch)
                                         setOpen(false)
                                     }}
@@ -72,8 +73,29 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
 }
 
 export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogProps) {
-  const [selectedBranch, setSelectedBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
+  const [selectedBranch, setSelectedBranch] = useState("")
+  const [branches, setBranches] = useState<string[]>(repo.branches || []);
+  const [loadingDetails, setLoadingDetails] = useState(!repo.branches);
   const { toast } = useToast()
+
+  useEffect(() => {
+    async function fetchDetails() {
+        if (!repo.branches) {
+            try {
+                const details = await getRepoDetails(repo.fullName);
+                setBranches(details.branches);
+                setSelectedBranch(details.branches.includes('main') ? 'main' : details.branches[0] || "");
+            } catch (error) {
+                toast({ variant: "destructive", title: "Error", description: "Could not fetch repository branches." });
+            } finally {
+                setLoadingDetails(false);
+            }
+        } else {
+             setSelectedBranch(repo.branches.includes('main') ? 'main' : repo.branches[0] || "");
+        }
+    }
+    fetchDetails();
+  }, [repo, toast]);
 
   const handleRebuildClick = () => {
     if (!selectedBranch) {
@@ -98,24 +120,33 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
             Select a branch to trigger a new build for its latest commit.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="branch-select">Branch</Label>
-            <BranchCombobox 
-              value={selectedBranch}
-              onChange={setSelectedBranch}
-              branches={repo.branches || []}
-              placeholder="Select a branch..."
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleRebuildClick}>
-            <RefreshCw className="mr-2 size-4" />
-            Rebuild Branch
-          </Button>
-        </DialogFooter>
+        {loadingDetails ? (
+            <div className="py-4 space-y-4">
+                <Loader className="mx-auto size-8 animate-spin text-primary" />
+                <p className="text-center text-muted-foreground">Loading branches...</p>
+            </div>
+        ) : (
+            <>
+                <div className="py-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-select">Branch</Label>
+                    <BranchCombobox 
+                      value={selectedBranch}
+                      onChange={setSelectedBranch}
+                      branches={branches || []}
+                      placeholder="Select a branch..."
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                  <Button onClick={handleRebuildClick}>
+                    <RefreshCw className="mr-2 size-4" />
+                    Rebuild Branch
+                  </Button>
+                </DialogFooter>
+            </>
+        )}
       </DialogContent>
     </Dialog>
   )

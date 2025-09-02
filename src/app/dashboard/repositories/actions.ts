@@ -182,37 +182,28 @@ export async function getRepositories(): Promise<Repository[]> {
       currentUrl = nextUrl;
     }
 
-    const reposWithDetails = await Promise.all(
-        allRepos.map(async (repo) => {
-            const [recentBuilds, branches] = await Promise.all([
-                getRecentBuilds(repo.full_name, accessToken),
-                getBranchesForRepo(repo.full_name, accessToken)
-            ]);
+    const repos = allRepos.map((repo): Repository => {
+        return {
+            id: repo.id.toString(),
+            name: repo.name,
+            owner: {
+                login: repo.owner.login,
+                avatar_url: repo.owner.avatar_url,
+            },
+            html_url: repo.html_url,
+            description: repo.description,
+            private: repo.private,
+            language: repo.language,
+            stargazers_count: repo.stargazers_count,
+            forks_count: repo.forks_count,
+            open_issues_count: repo.open_issues_count,
+            updated_at: repo.updated_at,
+            tags: [], // Tags will be managed locally
+            fullName: repo.full_name,
+        };
+    });
 
-            return {
-                id: repo.id.toString(),
-                name: repo.name,
-                owner: {
-                    login: repo.owner.login,
-                    avatar_url: repo.owner.avatar_url,
-                },
-                html_url: repo.html_url,
-                description: repo.description,
-                private: repo.private,
-                language: repo.language,
-                stargazers_count: repo.stargazers_count,
-                forks_count: repo.forks_count,
-                open_issues_count: repo.open_issues_count,
-                updated_at: repo.updated_at,
-                tags: [],
-                recentBuilds, 
-                branches,
-                fullName: repo.full_name,
-            };
-        })
-    );
-
-    return reposWithDetails;
+    return repos;
 
   } catch (error) {
     console.error("Error fetching repositories:", error)
@@ -222,6 +213,26 @@ export async function getRepositories(): Promise<Repository[]> {
     throw new Error("Could not fetch repositories from GitHub.");
   }
 }
+
+export async function getRepoDetails(repoFullName: string): Promise<{ branches: string[], recentBuilds: Build[] }> {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session as any).accessToken) {
+        throw new Error("Not authenticated");
+    }
+    const accessToken = (session as any).accessToken as string;
+
+    try {
+        const [branches, recentBuilds] = await Promise.all([
+            getBranchesForRepo(repoFullName, accessToken),
+            getRecentBuilds(repoFullName, accessToken),
+        ]);
+        return { branches, recentBuilds };
+    } catch (error) {
+        console.error(`Failed to fetch details for ${repoFullName}:`, error);
+        throw new Error(`Could not fetch details for ${repoFullName}.`);
+    }
+}
+
 
 export async function getAllRecentBuilds(): Promise<Build[]> {
     const session = await getServerSession(authOptions)

@@ -130,8 +130,8 @@ function CancelMenuItem({ build, onAction }: { build: Build, onAction: () => voi
 
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
-  const [builds, setBuilds] = React.useState<Build[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [builds, setBuilds] = React.useState<Build[]>(repo.recentBuilds || []);
+  const [loading, setLoading] = React.useState(!repo.recentBuilds);
   const [error, setError] = React.useState<string | null>(null);
 
   const fetchBuilds = React.useCallback((isInitialFetch = false) => {
@@ -150,8 +150,10 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
   }, [repo.fullName]);
 
   React.useEffect(() => {
-    fetchBuilds(true);
-  }, [fetchBuilds]);
+    if (!repo.recentBuilds) {
+        fetchBuilds(true);
+    }
+  }, [fetchBuilds, repo.recentBuilds]);
   
   React.useEffect(() => {
     const hasInProgressBuilds = builds.some(b => b.status === 'In Progress' || b.status === 'Queued');

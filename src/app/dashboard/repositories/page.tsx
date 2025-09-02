@@ -39,7 +39,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs } from "./actions"
+import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs, getRepoDetails } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -89,15 +89,8 @@ export default function RepositoriesPage() {
   useEffect(() => {
     fetchRepos(true); // Initial fetch
     
-    // Set up polling to refresh every 30 seconds
-    const intervalId = setInterval(() => {
-      console.log("Auto-refreshing repositories...");
-      fetchRepos(false);
-    }, 30000); 
-    
     // Cleanup on component unmount
     return () => {
-      clearInterval(intervalId); 
       setSearchQuery('');
       clearRepos();
     }
@@ -196,12 +189,24 @@ export default function RepositoriesPage() {
   };
 
   const handleRebuild = async (repoId: string, branch: string) => {
-    const repo = localRepos.find(r => r.id === repoId);
+    let repo = localRepos.find(r => r.id === repoId);
     if (!repo) return;
+
+    // Check if we have build info, if not, fetch it
+    if (!repo.recentBuilds) {
+        try {
+            const details = await getRepoDetails(repo.fullName);
+            repo = { ...repo, ...details };
+            setLocalRepos(prev => prev.map(r => r.id === repoId ? repo! : r));
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Error", description: `Could not fetch build details: ${error.message}` });
+            return;
+        }
+    }
 
     // Find the most recent build for the selected branch
     const latestBuildForBranch = repo.recentBuilds
-      .filter(build => build.branch === branch)
+      ?.filter(build => build.branch === branch)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
     if (!latestBuildForBranch) {
@@ -398,7 +403,7 @@ export default function RepositoriesPage() {
                 ) : (
                   filteredRepos.map((repo) => {
                     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    const recentBuilds = repo.recentBuilds.filter(b => new Date(b.timestamp) > twentyFourHoursAgo);
+                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) || [];
 
                     const buildsInProgress = recentBuilds.filter(b => b.status === 'In Progress').length;
                     const buildsSucceeded = recentBuilds.filter(b => b.status === 'Success').length;
@@ -462,7 +467,6 @@ export default function RepositoriesPage() {
                           size="sm"
                           className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
                           onClick={() => setViewingBuildsRepo(repo)}
-                          disabled={repo.recentBuilds.length === 0}
                         >
                           <div className="flex items-center gap-1 text-primary">
                             <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />

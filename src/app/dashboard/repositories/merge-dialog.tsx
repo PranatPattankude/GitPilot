@@ -18,7 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info, Loader, ChevronsUpDown } from "lucide-react"
-import { compareBranches } from "./actions"
+import { compareBranches, getRepoDetails } from "./actions"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -57,7 +57,7 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
                                     <CommandItem
                                         key={branch}
                                         value={branch}
-                                        onAction={() => {
+                                        onSelect={() => {
                                             onChange(branch === value ? "" : branch)
                                             setOpen(false)
                                         }}
@@ -77,11 +77,32 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
 
 export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [sourceBranch, setSourceBranch] = useState("")
-  const [targetBranch, setTargetBranch] = useState(repo.branches?.includes('main') ? 'main' : repo.branches?.[0] || "")
+  const [targetBranch, setTargetBranch] = useState("")
+  const [branches, setBranches] = useState<string[]>(repo.branches || []);
+  const [loadingDetails, setLoadingDetails] = useState(!repo.branches);
   const [comparisonStatus, setComparisonStatus] = useState<ComparisonStatus>("idle")
   const [comparisonError, setComparisonError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    async function fetchDetails() {
+        if (!repo.branches) {
+            try {
+                const details = await getRepoDetails(repo.fullName);
+                setBranches(details.branches);
+                setTargetBranch(details.branches.includes('main') ? 'main' : details.branches[0] || "");
+            } catch (error) {
+                toast({ variant: "destructive", title: "Error", description: "Could not fetch repository branches." });
+            } finally {
+                setLoadingDetails(false);
+            }
+        } else {
+             setTargetBranch(repo.branches.includes('main') ? 'main' : repo.branches[0] || "");
+        }
+    }
+    fetchDetails();
+  }, [repo, toast]);
 
   useEffect(() => {
     // Reset comparison status if branches change
@@ -147,71 +168,80 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
             Compare branches and then create a pull request. Clean merges can be automated.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="source-branch">Source Branch</Label>
-              <BranchCombobox
-                value={sourceBranch}
-                onChange={setSourceBranch}
-                branches={repo.branches.filter(b => b !== targetBranch)}
-                placeholder="Select source..."
-              />
+        {loadingDetails ? (
+            <div className="py-4 space-y-4">
+                <Loader className="mx-auto size-8 animate-spin text-primary" />
+                <p className="text-center text-muted-foreground">Loading branches...</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="target-branch">Target Branch</Label>
-              <BranchCombobox
-                value={targetBranch}
-                onChange={setTargetBranch}
-                branches={repo.branches.filter(b => b !== sourceBranch)}
-                placeholder="Select target..."
-              />
-            </div>
-          </div>
-          
-          {comparisonStatus === "can-merge" && (
-            <div className="p-3 rounded-md bg-accent/20 text-accent-foreground border border-accent/50 flex items-center gap-2 text-sm">
-                <CheckCircle className="size-4 text-accent" />
-                <p>Branches can be merged cleanly.</p>
-            </div>
-          )}
-
-          {comparisonStatus === "has-conflicts" && (
-             <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
-                <AlertTriangle className="size-4" />
-                <p>{comparisonError || "Merge conflicts detected. A draft PR will be created."}</p>
-            </div>
-          )}
-
-          {comparisonStatus === "no-changes" && (
-            <div className="p-3 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 flex items-center gap-2 text-sm">
-                <Info className="size-4" />
-                <p>No changes detected between the selected branches.</p>
-            </div>
-          )}
-
-          {comparisonStatus === "error" && (
-             <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
-                <AlertTriangle className="size-4" />
-                <p>{comparisonError || "An unexpected error occurred."}</p>
-            </div>
-          )}
-
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          {(comparisonStatus !== "can-merge" && comparisonStatus !== "has-conflicts") ? (
-            <Button onClick={handleCompare} disabled={comparisonStatus === 'comparing' || !sourceBranch || !targetBranch}>
-              {comparisonStatus === 'comparing' ? <Loader className="mr-2 size-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
-              {comparisonStatus === 'comparing' ? 'Comparing...' : 'Compare Branches'}
-            </Button>
-          ) : (
-            <Button onClick={handleMerge} disabled={isMerging} className={comparisonStatus === 'can-merge' ? 'bg-accent hover:bg-accent/90' : ''}>
-              {isMerging ? <Loader className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-              {isMerging ? 'Processing...' : comparisonStatus === 'has-conflicts' ? 'Create Draft PR' : 'Create & Merge PR'}
-            </Button>
-          )}
-        </DialogFooter>
+        ) : (
+            <>
+                <div className="py-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="source-branch">Source Branch</Label>
+                      <BranchCombobox
+                        value={sourceBranch}
+                        onChange={setSourceBranch}
+                        branches={branches.filter(b => b !== targetBranch)}
+                        placeholder="Select source..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="target-branch">Target Branch</Label>
+                      <BranchCombobox
+                        value={targetBranch}
+                        onChange={setTargetBranch}
+                        branches={branches.filter(b => b !== sourceBranch)}
+                        placeholder="Select target..."
+                      />
+                    </div>
+                  </div>
+                  
+                  {comparisonStatus === "can-merge" && (
+                    <div className="p-3 rounded-md bg-accent/20 text-accent-foreground border border-accent/50 flex items-center gap-2 text-sm">
+                        <CheckCircle className="size-4 text-accent" />
+                        <p>Branches can be merged cleanly.</p>
+                    </div>
+                  )}
+        
+                  {comparisonStatus === "has-conflicts" && (
+                     <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
+                        <AlertTriangle className="size-4" />
+                        <p>{comparisonError || "Merge conflicts detected. A draft PR will be created."}</p>
+                    </div>
+                  )}
+        
+                  {comparisonStatus === "no-changes" && (
+                    <div className="p-3 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20 flex items-center gap-2 text-sm">
+                        <Info className="size-4" />
+                        <p>No changes detected between the selected branches.</p>
+                    </div>
+                  )}
+        
+                  {comparisonStatus === "error" && (
+                     <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
+                        <AlertTriangle className="size-4" />
+                        <p>{comparisonError || "An unexpected error occurred."}</p>
+                    </div>
+                  )}
+        
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                  {(comparisonStatus !== "can-merge" && comparisonStatus !== "has-conflicts") ? (
+                    <Button onClick={handleCompare} disabled={comparisonStatus === 'comparing' || !sourceBranch || !targetBranch}>
+                      {comparisonStatus === 'comparing' ? <Loader className="mr-2 size-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
+                      {comparisonStatus === 'comparing' ? 'Comparing...' : 'Compare Branches'}
+                    </Button>
+                  ) : (
+                    <Button onClick={handleMerge} disabled={isMerging} className={comparisonStatus === 'can-merge' ? 'bg-accent hover:bg-accent/90' : ''}>
+                      {isMerging ? <Loader className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
+                      {isMerging ? 'Processing...' : comparisonStatus === 'has-conflicts' ? 'Create Draft PR' : 'Create & Merge PR'}
+                    </Button>
+                  )}
+                </DialogFooter>
+            </>
+        )}
       </DialogContent>
     </Dialog>
   )
