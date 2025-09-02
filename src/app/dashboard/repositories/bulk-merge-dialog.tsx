@@ -59,8 +59,8 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
                     <CommandInput placeholder="Search branch..." />
-                    <CommandEmpty>No branch found.</CommandEmpty>
                     <CommandList>
+                      <CommandEmpty>No branch found.</CommandEmpty>
                       <ScrollArea className="h-48">
                         <CommandGroup>
                             {branches.map((branch) => (
@@ -368,5 +368,3 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
      </Dialog>
   )
 }
-
-    
