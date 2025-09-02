@@ -57,8 +57,8 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
                                     <CommandItem
                                         key={branch}
                                         value={branch}
-                                        onSelect={(currentValue) => {
-                                            onChange(currentValue === value ? "" : currentValue)
+                                        onSelect={() => {
+                                            onChange(branch === value ? "" : branch)
                                             setOpen(false)
                                         }}
                                     >
