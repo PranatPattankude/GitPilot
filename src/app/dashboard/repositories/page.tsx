@@ -69,18 +69,20 @@ export default function RepositoriesPage() {
     getRepositories()
       .then((repos) => {
         startTransition(() => {
-          // Notify about new repos
-          const oldRepoIds = new Set(localRepos.map(r => r.id));
-          const newRepos = repos.filter(r => !oldRepoIds.has(r.id));
-          if (!isInitialFetch && newRepos.length > 0) {
-            newRepos.forEach(repo => {
-              addNotification({
-                type: 'repo',
-                message: `New repository "${repo.name}" has been added.`,
-                repoFullName: repo.fullName,
-                url: repo.html_url,
+          // Notify about new repos, but don't hold up render
+          if (!isInitialFetch) {
+            const oldRepoIds = new Set(localRepos.map(r => r.id));
+            const newRepos = repos.filter(r => !oldRepoIds.has(r.id));
+            if (newRepos.length > 0) {
+              newRepos.forEach(repo => {
+                addNotification({
+                  type: 'repo',
+                  message: `New repository "${repo.name}" has been added.`,
+                  repoFullName: repo.fullName,
+                  url: repo.html_url,
+                })
               })
-            })
+            }
           }
 
           setLocalRepos(repos);
@@ -109,7 +111,7 @@ export default function RepositoriesPage() {
       clearRepos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchRepos]);
+  }, []);
 
   const allTags = useMemo(() => {
     return Array.from(new Set(localRepos.flatMap(repo => repo.tags))).sort()

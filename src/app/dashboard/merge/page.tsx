@@ -44,7 +44,7 @@ export default function MergePage() {
         setError(null);
         const conflictData = await getConflictingPullRequests();
         
-        // Notify about new conflicts
+        // Notify about new conflicts, but don't hold up the render
         const oldConflictIds = new Set(conflicts.map(c => c.id));
         const newConflicts = conflictData.filter(c => !oldConflictIds.has(c.id));
         if (newConflicts.length > 0) {
@@ -65,7 +65,7 @@ export default function MergePage() {
     }
     fetchConflicts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSearchQuery, addNotifications]);
+  }, []);
 
   const query = searchQuery.toLowerCase();
   const filteredConflicts = conflicts.filter(conflict =>

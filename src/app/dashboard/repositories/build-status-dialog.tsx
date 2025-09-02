@@ -290,5 +290,3 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
-
-    

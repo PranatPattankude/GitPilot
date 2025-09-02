@@ -140,21 +140,25 @@ export default function BuildsPage() {
         const buildsData = await getAllRecentBuilds();
         
         // Detect new failed or cancelled builds for notifications
-        const failedOrCancelledBuilds = buildsData.filter(b => (b.status === 'Failed' || b.status === 'Cancelled'));
-        const previousProblematicBuildIds = new Set(singleBuilds.filter(b => (b.status === 'Failed' || b.status === 'Cancelled')).map(b => b.id));
-        const newProblematicBuilds = failedOrCancelledBuilds.filter(b => !previousProblematicBuildIds.has(b.id));
+        if (!isInitialFetch) {
+          const previousProblematicBuildIds = new Set(singleBuilds.filter(b => (b.status === 'Failed' || b.status === 'Cancelled')).map(b => b.id));
+          const newProblematicBuilds = buildsData.filter(b => 
+              (b.status === 'Failed' || b.status === 'Cancelled') && !previousProblematicBuildIds.has(b.id)
+          );
 
-        if (newProblematicBuilds.length > 0) {
-            const notifications = newProblematicBuilds.map(b => ({
-                type: 'build' as const,
-                message: `Build on branch "${b.branch}" ${b.status.toLowerCase()}.`,
-                repoFullName: b.repo || 'Unknown Repo',
-                url: `/dashboard/builds`
-            }));
-            addNotifications(notifications);
+          if (newProblematicBuilds.length > 0) {
+              const notifications = newProblematicBuilds.map(b => ({
+                  type: 'build' as const,
+                  message: `Build on branch "${b.branch}" ${b.status.toLowerCase()}.`,
+                  repoFullName: b.repo || 'Unknown Repo',
+                  url: `/dashboard/builds`
+              }));
+              addNotifications(notifications);
+          }
         }
-
+        
         setSingleBuilds(buildsData as BuildWithRepo[]);
+
     } catch (err: any) {
         setError(err.message || "Failed to fetch recent builds.");
     } finally {
@@ -170,7 +174,7 @@ export default function BuildsPage() {
     
     // Cleanup on unmount
     return () => setSearchQuery('');
-  }, [fetchBuilds, setSearchQuery]);
+  }, []); // Eslint will complain but we want this to run only once on mount
   
   React.useEffect(() => {
     // If there's a finished bulk build, clear it after a delay
