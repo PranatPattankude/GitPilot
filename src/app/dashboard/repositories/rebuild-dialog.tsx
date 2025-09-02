@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState } from "react"
@@ -12,21 +13,62 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import type { Repository } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, ChevronsUpDown, CheckCircle } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface RebuildDialogProps {
   repo: Repository
   onOpenChange: (open: boolean) => void
   onRebuild: (repoId: string, branch: string) => void
+}
+
+function BranchCombobox({ value, onChange, branches, placeholder }: { value: string, onChange: (value: string) => void, branches: string[], placeholder: string }) {
+    const [open, setOpen] = useState(false)
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                >
+                    {value ? value : placeholder}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                    <CommandInput placeholder="Search branch..." />
+                    <CommandEmpty>No branch found.</CommandEmpty>
+                    <CommandList>
+                      <ScrollArea className="h-48">
+                        <CommandGroup>
+                            {(branches || []).map((branch) => (
+                                <CommandItem
+                                    key={branch}
+                                    value={branch}
+                                    onSelect={(currentValue) => {
+                                        onChange(currentValue === value ? "" : currentValue)
+                                        setOpen(false)
+                                    }}
+                                >
+                                    <CheckCircle className={cn("mr-2 h-4 w-4", value === branch ? "opacity-100" : "opacity-0")} />
+                                    {branch}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </ScrollArea>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
 }
 
 export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogProps) {
@@ -59,18 +101,12 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
         <div className="py-4 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="branch-select">Branch</Label>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger id="branch-select">
-                <SelectValue placeholder="Select a branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {(repo.branches || []).map((branch) => (
-                  <SelectItem key={branch} value={branch}>
-                    {branch}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BranchCombobox 
+              value={selectedBranch}
+              onChange={setSelectedBranch}
+              branches={repo.branches || []}
+              placeholder="Select a branch..."
+            />
           </div>
         </div>
         <DialogFooter>
@@ -84,3 +120,5 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
     </Dialog>
   )
 }
+
+    

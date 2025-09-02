@@ -122,7 +122,6 @@ const CommandItem = React.forwardRef<
       className
     )}
     {...props}
-    onPointerDown={(e) => e.preventDefault()}
   />
 ))
 
@@ -155,3 +154,5 @@ export {
   CommandShortcut,
   CommandSeparator,
 }
+
+    
