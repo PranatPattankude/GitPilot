@@ -11,7 +11,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader, FolderCog, Info, CheckCircle, ExternalLink, RefreshCw, ChevronsUpDown, Check } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { GitMerge, GitPullRequest, AlertTriangle, XCircle, Loader, FolderCog, Info, CheckCircle, ExternalLink } from "lucide-react"
 import { useAppStore, type Repository } from "@/lib/store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,9 +30,6 @@ import { useSession } from "next-auth/react"
 import { checkWorkflowsExistence, compareBranches, createPullRequest, mergeCleanPullRequests } from "./actions"
 import Link from "next/link"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { cn } from "@/lib/utils"
 
 interface BulkMergeDialogProps {
   onOpenChange: (open: boolean) => void
@@ -39,69 +43,6 @@ type RepoComparisonStatus = {
         number: number;
         url: string;
     };
-}
-
-function BranchCombobox({
-  branches,
-  value,
-  onChange,
-  disabledBranch,
-  placeholder,
-}: {
-  branches: string[]
-  value: string
-  onChange: (value: string) => void
-  disabledBranch?: string
-  placeholder: string
-}) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {value || placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput placeholder="Search branch..." />
-          <CommandEmpty>No branch found.</CommandEmpty>
-           <ScrollArea className="h-48">
-            <CommandList>
-              <CommandGroup>
-                {branches.map((branch) => (
-                  <CommandItem
-                    key={branch}
-                    value={branch}
-                    onSelect={(currentValue) => {
-                      onChange(currentValue === value ? "" : currentValue)
-                      setOpen(false)
-                    }}
-                    disabled={branch === disabledBranch}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === branch ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {branch}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </ScrollArea>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
@@ -306,23 +247,29 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                         <div className="space-y-2">
                             <Label htmlFor="source-branch">Source Branch</Label>
-                            <BranchCombobox
-                                branches={availableBranches}
-                                value={sourceBranch}
-                                onChange={setSourceBranch}
-                                disabledBranch={targetBranch}
-                                placeholder="Select a source branch"
-                            />
+                            <Select value={sourceBranch} onValueChange={setSourceBranch}>
+                                <SelectTrigger id="source-branch">
+                                    <SelectValue placeholder="Select a source branch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableBranches.filter(b => b !== targetBranch).map(branch => (
+                                        <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="target-branch">Target Branch</Label>
-                            <BranchCombobox
-                                branches={availableBranches}
-                                value={targetBranch}
-                                onChange={setTargetBranch}
-                                disabledBranch={sourceBranch}
-                                placeholder="Select a target branch"
-                            />
+                             <Select value={targetBranch} onValueChange={setTargetBranch}>
+                                <SelectTrigger id="target-branch">
+                                    <SelectValue placeholder="Select a target branch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableBranches.filter(b => b !== sourceBranch).map(branch => (
+                                        <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
