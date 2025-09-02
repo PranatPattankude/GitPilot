@@ -83,8 +83,8 @@ export function RebuildDialog({ repo, onOpenChange, onRebuild }: RebuildDialogPr
                           <CommandItem
                             key={branch}
                             value={branch}
-                            onSelect={(currentValue) => {
-                              setSelectedBranch(currentValue === selectedBranch ? "" : currentValue)
+                            onSelect={() => {
+                              setSelectedBranch(branch === selectedBranch ? "" : branch)
                               setPopoverOpen(false)
                             }}
                           >
