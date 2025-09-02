@@ -52,7 +52,8 @@ export default function MergePage() {
                 type: 'pr',
                 message: `PR #${pr.number} has merge conflicts.`,
                 repoFullName: pr.repoFullName,
-                url: `/dashboard/merge/${pr.repoFullName}/${pr.number}/${encodeURIComponent(pr.conflictingFiles?.[0]?.filename || '')}`
+                url: `/dashboard/merge/${pr.repoFullName}/${pr.number}/${encodeURIComponent(pr.conflictingFiles?.[0]?.filename || '')}`,
+                timestamp: pr.created_at,
             })));
         }
 

@@ -33,6 +33,7 @@ export type Repository = {
   forks_count: number
   open_issues_count: number
   updated_at: string
+  created_at: string
   tags: string[]
   recentBuilds?: Build[]
   branches?: string[]
@@ -59,6 +60,7 @@ export type PullRequest = {
     targetBranch: string;
     mergeable_state: string;
     conflictingFiles?: ChangedFile[];
+    created_at: Date;
 }
 
 export type BulkBuild = {
@@ -97,8 +99,8 @@ type AppState = {
   finishBulkBuild: (status: BulkBuild['status']) => void;
   clearBulkBuild: () => void;
   notifications: AppNotification[];
-  addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp'>) => void;
-  addNotifications: (notifications: Omit<AppNotification, 'id' | 'timestamp'>[]) => void;
+  addNotification: (notification: Omit<AppNotification, 'id'>) => void;
+  addNotifications: (notifications: Omit<AppNotification, 'id'>[]) => void;
   clearNotifications: () => void;
 }
 
@@ -147,16 +149,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   addNotification: (notification) => {
     const newNotification: AppNotification = {
         ...notification,
-        id: `${notification.repoFullName}-${notification.type}-${new Date().getTime()}`,
-        timestamp: new Date(),
+        id: `${notification.repoFullName}-${notification.type}-${notification.timestamp.getTime()}`,
     };
     set(state => ({ notifications: [newNotification, ...state.notifications] }));
   },
   addNotifications: (notifications) => {
     const newNotifications: AppNotification[] = notifications.map(n => ({
       ...n,
-      id: `${n.repoFullName}-${n.type}-${new Date().getTime()}-${Math.random()}`,
-      timestamp: new Date(),
+      id: `${n.repoFullName}-${n.type}-${n.timestamp.getTime()}-${Math.random()}`,
     }));
     set(state => ({ notifications: [...newNotifications, ...state.notifications] }));
   },

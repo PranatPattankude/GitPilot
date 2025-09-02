@@ -80,6 +80,7 @@ export default function RepositoriesPage() {
                   message: `New repository "${repo.name}" has been added.`,
                   repoFullName: repo.fullName,
                   url: repo.html_url,
+                  timestamp: new Date(repo.created_at),
                 })
               })
             }
@@ -163,6 +164,7 @@ export default function RepositoriesPage() {
         message: `PR #${prResult.data.number} created: ${sourceBranch} → ${targetBranch}`,
         repoFullName: repoFullName,
         url: prResult.data.html_url,
+        timestamp: new Date(prResult.data.created_at),
     });
 
     toast({

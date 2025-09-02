@@ -151,7 +151,8 @@ export default function BuildsPage() {
                   type: 'build' as const,
                   message: `Build on branch "${b.branch}" ${b.status.toLowerCase()}.`,
                   repoFullName: b.repo || 'Unknown Repo',
-                  url: `/dashboard/builds`
+                  url: `/dashboard/builds`,
+                  timestamp: b.timestamp,
               }));
               addNotifications(notifications);
           }

@@ -197,6 +197,7 @@ export async function getRepositories(): Promise<Repository[]> {
             forks_count: repo.forks_count,
             open_issues_count: repo.open_issues_count,
             updated_at: repo.updated_at,
+            created_at: repo.created_at,
             tags: [], // Tags will be managed locally
             fullName: repo.full_name,
         };
@@ -636,6 +637,7 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
                     targetBranch: pr.base.ref,
                     mergeable_state: pr.mergeable_state,
                     conflictingFiles: files,
+                    created_at: new Date(pr.created_at),
                 };
             })
         );
@@ -675,6 +677,7 @@ export async function getPullRequest(repoFullName: string, prNumber: number): Pr
         sourceBranch: pr.head.ref,
         targetBranch: pr.base.ref,
         mergeable_state: pr.mergeable_state,
+        created_at: new Date(pr.created_at),
     };
 }
 
