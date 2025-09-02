@@ -113,19 +113,31 @@ CommandSeparator.displayName = CommandPrimitive.Separator.displayName
 
 const CommandItem = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item> & {
+    onAction?: () => void
+  }
+>(({ className, onAction, children, ...props }, ref) => (
   <CommandPrimitive.Item
+    asChild
     ref={ref}
-    className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-      className
-    )}
+    onSelect={onAction}
     {...props}
-  />
+  >
+    <button
+      type="button"
+      onClick={onAction}
+      onPointerDown={(e) => e.preventDefault()}
+      className={cn(
+        "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left outline-none hover:bg-accent hover:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground disabled:pointer-events-none disabled:opacity-50",
+        className
+      )}
+    >
+      {children}
+    </button>
+  </CommandPrimitive.Item>
 ))
+CommandItem.displayName = "CommandItem"
 
-CommandItem.displayName = CommandPrimitive.Item.displayName
 
 const CommandShortcut = ({
   className,
