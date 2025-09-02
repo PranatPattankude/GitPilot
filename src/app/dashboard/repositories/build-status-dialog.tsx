@@ -22,7 +22,7 @@ import { GitCommit, Package, TestTube, CheckCircle2, Loader, XCircle, AlertTrian
 import type { Repository, Build } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { formatDistanceToNow } from 'date-fns'
-import { getBuildsForRepo, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun } from "./actions"
+import { getBuildsForRepo, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun, getRepoDetails } from "./actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -130,8 +130,8 @@ function CancelMenuItem({ build, onAction }: { build: Build, onAction: () => voi
 
 
 export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps) {
-  const [builds, setBuilds] = React.useState<Build[]>(repo.recentBuilds || []);
-  const [loading, setLoading] = React.useState(!repo.recentBuilds);
+  const [builds, setBuilds] = React.useState<Build[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   const fetchBuilds = React.useCallback((isInitialFetch = false) => {
@@ -150,10 +150,8 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
   }, [repo.fullName]);
 
   React.useEffect(() => {
-    if (!repo.recentBuilds) {
-        fetchBuilds(true);
-    }
-  }, [fetchBuilds, repo.recentBuilds]);
+    fetchBuilds(true);
+  }, [fetchBuilds]);
   
   React.useEffect(() => {
     const hasInProgressBuilds = builds.some(b => b.status === 'In Progress' || b.status === 'Queued');
@@ -161,7 +159,7 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
       const interval = setInterval(() => {
         console.log(`Refreshing in-progress builds for ${repo.name}...`);
         fetchBuilds(false);
-      }, 40000); // Refresh every 40 seconds
+      }, 60000); // Refresh every 60 seconds
       return () => clearInterval(interval);
     }
   }, [builds, repo.name, fetchBuilds]);
@@ -292,3 +290,5 @@ export function BuildStatusDialog({ repo, onOpenChange }: BuildStatusDialogProps
     </Dialog>
   )
 }
+
+    
