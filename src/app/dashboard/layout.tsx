@@ -80,6 +80,12 @@ const sidebarItems = [
     label: "Build Status",
     searchPlaceholder: "Search builds...",
   },
+  {
+    href: "/dashboard/observability",
+    icon: Shield,
+    label: "Observability",
+    searchPlaceholder: "Search by namespace...",
+  },
 ]
 
 function SidebarNav() {
@@ -229,7 +235,7 @@ function NotificationBell() {
                     <div className="flex-1">
                       <p className="text-sm font-medium">{n.repoFullName}</p>
                       <p className="text-xs text-muted-foreground">{n.message}</p>
-                      <p className="text-xs text-muted-foreground/80 mt-1">{formatDistanceToNow(n.timestamp, { addSuffix: true })}</p>
+                      <p className="text-xs text-muted-foreground/80 mt-1">{formatDistanceToNow(new Date(n.timestamp), { addSuffix: true })}</p>
                     </div>
                   </div>
                 </a>
@@ -325,3 +331,5 @@ export default function DashboardLayout({
     </SidebarProvider>
   )
 }
+
+    
