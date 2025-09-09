@@ -11,7 +11,6 @@ import {
   Package,
   Rocket,
   Wand2,
-  Shield,
   Search,
   Settings,
   LogOut,
@@ -46,7 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { GithubIcon } from "@/components/icons"
+import { GithubIcon, Shield } from "@/components/icons"
 import { ThemeToggle } from "./theme-toggle"
 import { Input } from "@/components/ui/input"
 import { useAppStore, type AppNotification } from "@/lib/store"
@@ -79,12 +78,6 @@ const sidebarItems = [
     icon: Rocket,
     label: "Build Status",
     searchPlaceholder: "Search builds...",
-  },
-  {
-    href: "/dashboard/observability",
-    icon: Shield,
-    label: "Observability",
-    searchPlaceholder: "Search by namespace...",
   },
 ]
 
@@ -331,5 +324,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   )
 }
-
-    

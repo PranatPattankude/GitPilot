@@ -116,5 +116,3 @@ export function Shield(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-    
