@@ -128,11 +128,6 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                 updateStatus({ status: 'skipped-no-branches', error: 'Source or target branch not found' });
                 return;
             }
-
-            if (!workflowStatus[repo.fullName]) {
-                updateStatus({ status: 'skipped-no-workflows', error: 'No active CI/CD workflows found' });
-                return;
-            }
             
             const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
             updateStatus({ status: compareResult.status, error: compareResult.error });
