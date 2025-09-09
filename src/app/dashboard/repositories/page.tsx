@@ -32,7 +32,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
-import { useEffect, useState, useMemo, startTransition, useCallback } from "react"
+import { useEffect, useState, useMemo, useTransition, useCallback } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw, Lock, Globe } from "lucide-react"
@@ -45,7 +45,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs, getRepoDetails } from "./actions"
+import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs, getRepoDetails, getAllRecentBuilds } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -64,6 +64,7 @@ export default function RepositoriesPage() {
   const [rebuildingRepo, setRebuildingRepo] = useState<Repository | null>(null)
   const [viewingBuildsRepo, setViewingBuildsRepo] = useState<Repository | null>(null)
   const [isBulkMerging, setIsBulkMerging] = useState(false)
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
 
@@ -75,6 +76,29 @@ export default function RepositoriesPage() {
     getRepositories()
       .then((repos) => {
         startTransition(() => {
+          setLocalRepos(repos);
+          
+          // Non-blocking call to fetch all builds and enrich repos
+          getAllRecentBuilds().then(allBuilds => {
+              const buildsByRepo = allBuilds.reduce((acc, build) => {
+                  if (!build.repo) return acc;
+                  if (!acc[build.repo]) {
+                      acc[build.repo] = [];
+                  }
+                  acc[build.repo].push(build);
+                  return acc;
+              }, {} as Record<string, any[]>);
+
+              setLocalRepos(currentRepos => 
+                  currentRepos.map(repo => ({
+                      ...repo,
+                      recentBuilds: buildsByRepo[repo.fullName] || [],
+                  }))
+              );
+          }).catch(buildError => {
+             console.warn("Could not fetch recent builds for all repos:", buildError.message);
+          });
+          
           // Notify about new repos, but don't hold up render
           if (!isInitialFetch) {
             const oldRepoIds = new Set(localRepos.map(r => r.id));
@@ -91,8 +115,6 @@ export default function RepositoriesPage() {
               })
             }
           }
-
-          setLocalRepos(repos);
         });
       })
       .catch((err) => {
@@ -125,10 +147,13 @@ export default function RepositoriesPage() {
   }, [localRepos])
 
   const handleSelectRepo = (repo: Repository) => {
+    const repoWithDetails = localRepos.find(r => r.id === repo.id);
+    if (!repoWithDetails) return;
+
     if (selectedRepos.some((r) => r.id === repo.id)) {
       removeRepo(repo.id)
     } else {
-      addRepo(repo)
+      addRepo(repoWithDetails)
     }
   }
 
@@ -152,6 +177,70 @@ export default function RepositoriesPage() {
         description: `Tags have been updated locally. In a real app, this would be saved to a database.`,
       });
   };
+  
+   const handleOpenMergeDialog = async (repo: Repository) => {
+        if (!repo.branches) {
+            const repoToUpdate = localRepos.find(r => r.id === repo.id);
+            if (repoToUpdate) {
+                toast({ title: 'Loading repository details...' });
+                const details = await getRepoDetails(repo.fullName);
+                const updatedRepo = { ...repoToUpdate, ...details };
+                setLocalRepos(prev => prev.map(r => r.id === repo.id ? updatedRepo : r));
+                setMergingRepo(updatedRepo);
+                return;
+            }
+        }
+        setMergingRepo(repo);
+   };
+   
+   const handleOpenRebuildDialog = async (repo: Repository) => {
+        if (!repo.branches) {
+            const repoToUpdate = localRepos.find(r => r.id === repo.id);
+            if (repoToUpdate) {
+                toast({ title: 'Loading repository details...' });
+                const details = await getRepoDetails(repo.fullName);
+                const updatedRepo = { ...repoToUpdate, ...details };
+                setLocalRepos(prev => prev.map(r => r.id === repo.id ? updatedRepo : r));
+                setRebuildingRepo(updatedRepo);
+                return;
+            }
+        }
+        setRebuildingRepo(repo);
+   };
+   
+    const handleOpenBuildsDialog = async (repo: Repository) => {
+        if (!repo.recentBuilds) {
+            const repoToUpdate = localRepos.find(r => r.id === repo.id);
+            if (repoToUpdate) {
+                toast({ title: 'Loading repository details...' });
+                const details = await getRepoDetails(repo.fullName);
+                const updatedRepo = { ...repoToUpdate, ...details };
+                setLocalRepos(prev => prev.map(r => r.id === repo.id ? updatedRepo : r));
+                setViewingBuildsRepo(updatedRepo);
+                return;
+            }
+        }
+        setViewingBuildsRepo(repo);
+   };
+   
+   const handleOpenBulkMergeDialog = async () => {
+        const reposToLoad = selectedRepos.filter(r => !r.branches);
+        if (reposToLoad.length > 0) {
+            toast({ title: "Loading details for selected repositories..." });
+            const detailsPromises = reposToLoad.map(r => getRepoDetails(r.fullName));
+            const details = await Promise.all(detailsPromises);
+            
+            startTransition(() => {
+                const updatedRepos = selectedRepos.map(repo => {
+                    const detail = details.find((d, i) => reposToLoad[i].fullName === repo.fullName);
+                    return detail ? { ...repo, ...detail } : repo;
+                });
+                setGlobalRepos(updatedRepos);
+            });
+            toast({ title: "Details loaded!", description: "You can now proceed with the bulk merge." });
+        }
+        setIsBulkMerging(true);
+   }
 
   const handleMerge = async (repoFullName: string, sourceBranch: string, targetBranch: string, isDraft: boolean) => {
     const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch, isDraft);
@@ -435,7 +524,7 @@ export default function RepositoriesPage() {
                 ) : (
                   filteredRepos.map((repo) => {
                     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) ?? null;
+                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo);
 
                     const buildsInProgress = recentBuilds?.filter(b => b.status === 'In Progress' || b.status === 'Queued').length ?? 0;
                     const buildsSucceeded = recentBuilds?.filter(b => b.status === 'Success').length ?? 0;
@@ -494,33 +583,39 @@ export default function RepositoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                 <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
-                                  onClick={() => setViewingBuildsRepo(repo)}
-                                  disabled={!recentBuilds}
-                                >
-                                  <div className="flex items-center gap-1 text-primary">
-                                    <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
-                                    <span>{buildsInProgress}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-accent">
-                                    <CheckCircle2 className="size-3" />
-                                    <span>{buildsSucceeded}</span>
-                                  </div>
-                                    <div className="flex items-center gap-1 text-destructive">
-                                    <XCircle className="size-3" />
-                                    <span>{buildsFailed}</span>
-                                  </div>
-                                </Button>
-                            </TooltipTrigger>
-                             <TooltipContent>
-                                <p>In Progress / Succeeded / Failed</p>
-                            </TooltipContent>
-                        </Tooltip>
+                         {!repo.recentBuilds ? (
+                             <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                                <Loader className="size-3 animate-spin" />
+                                <span>Loading...</span>
+                            </div>
+                         ) : (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                     <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
+                                      onClick={() => handleOpenBuildsDialog(repo)}
+                                    >
+                                      <div className="flex items-center gap-1 text-primary">
+                                        <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
+                                        <span>{buildsInProgress}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-accent">
+                                        <CheckCircle2 className="size-3" />
+                                        <span>{buildsSucceeded}</span>
+                                      </div>
+                                        <div className="flex items-center gap-1 text-destructive">
+                                        <XCircle className="size-3" />
+                                        <span>{buildsFailed}</span>
+                                      </div>
+                                    </Button>
+                                </TooltipTrigger>
+                                 <TooltipContent>
+                                    <p>In Progress / Succeeded / Failed</p>
+                                </TooltipContent>
+                            </Tooltip>
+                         )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                           {repo.tags.length > 0 ? (
@@ -566,11 +661,11 @@ export default function RepositoriesPage() {
                               <Pencil className="mr-2 h-4 w-4" />
                               <span>Edit Tags</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setMergingRepo(repo)}>
+                            <DropdownMenuItem onSelect={() => handleOpenMergeDialog(repo)}>
                               <GitMerge className="mr-2 h-4 w-4" />
                               <span>Create and Merge PR</span>
                             </DropdownMenuItem>
-                             <DropdownMenuItem onSelect={() => setRebuildingRepo(repo)}>
+                             <DropdownMenuItem onSelect={() => handleOpenRebuildDialog(repo)}>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               <span>Rebuild</span>
                             </DropdownMenuItem>
@@ -608,7 +703,7 @@ export default function RepositoriesPage() {
       </Card>
       {selectedRepos.length > 0 && !loading && (
         <div className="fixed bottom-6 right-6 z-10">
-           <Button onClick={() => setIsBulkMerging(true)} size="lg" className="shadow-lg">
+           <Button onClick={handleOpenBulkMergeDialog} size="lg" className="shadow-lg">
             Proceed to Merge ({selectedRepos.length})
           </Button>
         </div>
