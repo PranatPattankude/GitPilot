@@ -231,15 +231,14 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                 const buildId = new Date().getTime();
                 const prNumbers = reposWithWorkflows.map(r => `${r.repo.fullName}:${r.pullRequest!.number}`).join(',');
                 const query = new URLSearchParams({
-                    bulk_id: buildId.toString(),
                     source: sourceBranch,
                     target: targetBranch,
                     user: user,
                     prs: prNumbers
                 });
-                router.push(`/dashboard/builds?${query.toString()}`);
+                router.push(`/dashboard/builds/${buildId}?${query.toString()}`);
             } else {
-                router.refresh(); 
+                router.push('/dashboard/repositories?merged=true');
             }
         });
 
