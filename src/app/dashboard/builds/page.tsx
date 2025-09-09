@@ -131,6 +131,7 @@ export default function BuildsPage() {
   const [viewingLogsBuild, setViewingLogsBuild] = React.useState<BuildWithRepo | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
 
  const fetchBuilds = React.useCallback(async (isInitialFetch = false) => {
     if (isInitialFetch) {
