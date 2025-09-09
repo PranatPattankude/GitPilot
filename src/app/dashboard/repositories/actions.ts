@@ -137,6 +137,7 @@ async function getRecentBuilds(repoFullName: string, accessToken: string): Promi
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
                 repo: repoFullName,
                 duration,
+                prNumber: run.pull_requests[0]?.number
             };
         });
     } catch (error) {
@@ -311,6 +312,7 @@ export async function getBuildsForRepo(repoFullName: string): Promise<Build[]> {
                 triggeredBy: run.triggering_actor?.login,
                 error: run.conclusion === 'failure' ? 'Build failed' : null,
                 duration,
+                prNumber: run.pull_requests[0]?.number
             };
         });
     } catch (error) {
@@ -330,10 +332,11 @@ export async function createPullRequest(
     return { success: false, error: "Not authenticated" };
   }
   const accessToken = (session as any).accessToken as string;
+  const head = sourceBranch.includes(':') ? sourceBranch : `${repoFullName.split('/')[0]}:${sourceBranch}`;
 
   try {
      // First, check if a PR already exists
-    const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${sourceBranch.split(':')[1]}&base=${targetBranch}&state=open`;
+    const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${head.split(':')[1]}&base=${targetBranch}&state=open`;
     const { data: existingPrs } = await fetchFromGitHub<any[]>(prsUrl, accessToken);
     if (existingPrs && existingPrs.length > 0) {
       return { success: true, data: existingPrs[0] };
@@ -347,7 +350,7 @@ export async function createPullRequest(
       },
       body: JSON.stringify({
         title: `Merge ${sourceBranch} into ${targetBranch}`,
-        head: sourceBranch,
+        head: head,
         base: targetBranch,
         body: `Automated PR created by GitPilot to merge ${sourceBranch} into ${targetBranch}.`,
         draft: isDraft,
@@ -441,7 +444,7 @@ export async function compareBranches(
 ): Promise<{ 
     status: "has-conflicts" | "no-changes" | "can-merge" | "error"; 
     error?: string; 
-    pr?: { number: number; url: string, files: ChangedFile[] } 
+    pr?: { number: number; url: string; files: ChangedFile[] } 
 }> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
@@ -494,6 +497,7 @@ export async function compareBranches(
         // Close the temporary draft PR as it's not needed for a clean merge
         await fetchFromGitHub(prUrl, accessToken, {
             method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ state: 'closed' })
         });
         return { status: "can-merge" };
@@ -511,6 +515,7 @@ export async function compareBranches(
     // Close the draft PR if the state is something else (e.g., blocked)
     await fetchFromGitHub(prUrl, accessToken, {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ state: 'closed' })
     });
     return { status: "error", error: `Could not determine merge status. State: ${prData.mergeable_state}` };
@@ -661,6 +666,7 @@ export async function getConflictingPullRequests(): Promise<PullRequest[]> {
                     mergeable_state: pr.mergeable_state,
                     conflictingFiles: files,
                     created_at: new Date(pr.created_at),
+                    head: { sha: pr.head.sha },
                 };
             })
         );
@@ -685,9 +691,9 @@ export async function getPullRequest(repoFullName: string, prNumber: number): Pr
     const accessToken = (session as any).accessToken as string;
 
     const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}`;
-    const { data: pr } = await fetchFromGitHub<any>(url, accessToken);
+    const { data: pr, status } = await fetchFromGitHub<any>(url, accessToken);
 
-    if (!pr) {
+    if (status === 404 || !pr) {
         return null;
     }
 
@@ -701,6 +707,9 @@ export async function getPullRequest(repoFullName: string, prNumber: number): Pr
         targetBranch: pr.base.ref,
         mergeable_state: pr.mergeable_state,
         created_at: new Date(pr.created_at),
+        merged: pr.merged,
+        state: pr.state,
+        head: { sha: pr.head.sha }
     };
 }
 
@@ -911,5 +920,3 @@ export async function mergeCleanPullRequests(
     mergePullRequest(pr.repoFullName, pr.prNumber);
   }
 }
-
-    

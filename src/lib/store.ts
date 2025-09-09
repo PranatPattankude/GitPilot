@@ -61,6 +61,9 @@ export type PullRequest = {
     mergeable_state: string;
     conflictingFiles?: ChangedFile[];
     created_at: Date;
+    merged?: boolean;
+    state?: string;
+    head: { sha: string };
 }
 
 export type BulkBuild = {
@@ -71,7 +74,7 @@ export type BulkBuild = {
   status: 'In Progress' | 'Success' | 'Failed';
   duration: string;
   timestamp: Date;
-  triggeredBy?: string;
+  user?: string;
 }
 
 export type AppNotification = {
@@ -94,9 +97,7 @@ type AppState = {
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
   bulkBuild: BulkBuild | null;
-  startBulkBuild: (build: BulkBuild) => void;
-  updateBulkBuildRepoStatus: (repoName: string, status: Build['status'], duration: string) => void;
-  finishBulkBuild: (status: BulkBuild['status']) => void;
+  setBulkBuild: (build: BulkBuild | null) => void;
   clearBulkBuild: () => void;
   notifications: AppNotification[];
   addNotification: (notification: Omit<AppNotification, 'id'>) => void;
@@ -115,35 +116,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
   bulkBuild: null,
-  startBulkBuild: (build) => set({ bulkBuild: build }),
-  updateBulkBuildRepoStatus: (repoName, status, duration) => {
-    const currentBuild = get().bulkBuild;
-    if (currentBuild) {
-      set({
-        bulkBuild: {
-          ...currentBuild,
-          repos: currentBuild.repos.map(repo => 
-            repo.name === repoName ? { ...repo, status, duration, timestamp: new Date() } : repo
-          ),
-        },
-      });
-    }
-  },
-  finishBulkBuild: (status) => {
-      const currentBuild = get().bulkBuild;
-      if (currentBuild) {
-          const startTime = currentBuild.timestamp.getTime();
-          const endTime = new Date().getTime();
-          const durationSeconds = Math.round((endTime - startTime) / 1000);
-          set({
-              bulkBuild: {
-                  ...currentBuild,
-                  status,
-                  duration: `${durationSeconds}s`
-              }
-          });
-      }
-  },
+  setBulkBuild: (build) => set({ bulkBuild: build }),
   clearBulkBuild: () => set({ bulkBuild: null }),
   notifications: [],
   addNotification: (notification) => {

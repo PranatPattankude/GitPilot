@@ -21,10 +21,10 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { format, formatDistanceToNow } from 'date-fns'
-import { useAppStore, type Build } from "@/lib/store"
+import { useAppStore, type Build, type BulkBuild } from "@/lib/store"
 import React from "react"
-import { useRouter } from "next/navigation"
-import { getAllRecentBuilds, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun } from "../repositories/actions"
+import { useRouter, useSearchParams } from "next/navigation"
+import { getAllRecentBuilds, rerunAllJobs, rerunFailedJobs, cancelWorkflowRun, getPullRequest } from "../repositories/actions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BuildLogsDialog } from "./build-logs-dialog"
@@ -124,12 +124,13 @@ function CancelMenuItem({ build, onAction }: { build: BuildWithRepo, onAction: (
 }
 
 export default function BuildsPage() {
-  const { searchQuery, setSearchQuery, bulkBuild, clearBulkBuild, addNotifications } = useAppStore();
+  const { searchQuery, setSearchQuery, bulkBuild, setBulkBuild, addNotifications } = useAppStore();
   const [singleBuilds, setSingleBuilds] = React.useState<BuildWithRepo[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [viewingLogsBuild, setViewingLogsBuild] = React.useState<BuildWithRepo | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
  const fetchBuilds = React.useCallback(async (isInitialFetch = false) => {
     if (isInitialFetch) {
@@ -139,7 +140,6 @@ export default function BuildsPage() {
     try {
         const buildsData = await getAllRecentBuilds();
         
-        // Detect new failed or cancelled builds for notifications
         if (!isInitialFetch) {
           const previousProblematicBuildIds = new Set(singleBuilds.filter(b => (b.status === 'Failed' || b.status === 'Cancelled')).map(b => b.id));
           const newProblematicBuilds = buildsData.filter(b => 
@@ -169,36 +169,102 @@ export default function BuildsPage() {
     }
   }, [addNotifications, singleBuilds]);
 
+
+  const fetchBulkBuildStatus = React.useCallback(async (currentBuild: BulkBuild) => {
+      const prIdentifiers = currentBuild.repos.map(r => ({ repoFullName: r.repo!, prNumber: r.prNumber! }));
+      
+      const prPromises = prIdentifiers.map(p => getPullRequest(p.repoFullName, p.prNumber));
+      const allBuildPromises = currentBuild.repos.map(r => getAllRecentBuilds().then(builds => builds.find(b => b.prNumber === r.prNumber)));
+
+      try {
+          const [prResults, buildResults] = await Promise.all([Promise.all(prPromises), Promise.all(allBuildPromises)]);
+
+          const updatedRepos = currentBuild.repos.map(repo => {
+              const livePr = prResults.find(pr => pr?.number === repo.prNumber);
+              const liveBuild = buildResults.find(b => b?.prNumber === repo.prNumber);
+              
+              if (liveBuild) {
+                  return { ...repo, ...liveBuild, repo: repo.repo! };
+              }
+              // If no build found yet, fallback to PR status
+              if (livePr) {
+                   let status: Build['status'] = 'Queued';
+                   if (livePr.merged) status = 'Success';
+                   else if (livePr.state === 'closed' && !livePr.merged) status = 'Cancelled';
+                   else if (livePr.mergeable_state === 'dirty') status = 'Failed';
+                   else if (livePr.mergeable_state !== 'unknown') status = 'In Progress';
+                  
+                   return { ...repo, status, commit: livePr.head.sha.substring(0,7), repo: repo.repo! };
+              }
+              return repo;
+          });
+          
+          const allFinished = updatedRepos.every(r => r.status === 'Success' || r.status === 'Failed' || r.status === 'Cancelled');
+
+          setBulkBuild({ 
+            ...currentBuild, 
+            repos: updatedRepos,
+            status: allFinished ? 'Success' : 'In Progress'
+          });
+
+      } catch (e: any) {
+          console.error("Error fetching bulk build status", e);
+          toast({ variant: 'destructive', title: 'Error', description: `Could not refresh build status: ${e.message}`});
+      }
+  }, [setBulkBuild, toast]);
+
+
+  // Effect for handling initial load and rehydration from URL
   React.useEffect(() => {
     setSearchQuery('');
-    fetchBuilds(true);
+    const bulkId = searchParams.get('bulk_id');
+    if (bulkId && !bulkBuild) {
+        // Rehydrate from URL
+        const newBulkBuild: BulkBuild = {
+            id: bulkId,
+            sourceBranch: searchParams.get('source') || '',
+            targetBranch: searchParams.get('target') || '',
+            user: searchParams.get('user') || '',
+            status: 'In Progress',
+            timestamp: new Date(parseInt(bulkId, 10)),
+            duration: '0s',
+            repos: (searchParams.get('prs')?.split(',') || []).map(prString => {
+                const [repoFullName, prNumber] = prString.split(':');
+                return {
+                    id: prNumber,
+                    prNumber: parseInt(prNumber, 10),
+                    repo: repoFullName,
+                    name: repoFullName,
+                    status: 'Queued',
+                    timestamp: new Date(),
+                    branch: searchParams.get('source') || '',
+                    commit: '...'.padStart(7,'.')
+                };
+            })
+        };
+        setBulkBuild(newBulkBuild);
+    } else {
+       fetchBuilds(true);
+    }
     
-    // Cleanup on unmount
     return () => setSearchQuery('');
   }, []); // Eslint will complain but we want this to run only once on mount
   
+  
+  // Effect for polling
   React.useEffect(() => {
-    // If there's a finished bulk build, clear it after a delay
-    // to allow the user to see the result.
-    if (bulkBuild && bulkBuild.status !== 'In Progress' && !bulkBuild.repos.some(r => r.status === 'In Progress')) {
-      const timer = setTimeout(() => {
-        clearBulkBuild();
-      }, 30000); // Clear after 30 seconds
-      return () => clearTimeout(timer);
-    }
+    const hasInProgressSingleBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued');
+    const isBulkBuildInProgress = bulkBuild && bulkBuild.status === 'In Progress';
 
-    // Set up polling if there are any builds in progress
-    const hasInProgressBuilds = singleBuilds.some(b => b.status === 'In Progress' || b.status === 'Queued') 
-        || (bulkBuild && bulkBuild.repos.some(r => r.status === 'In Progress' || r.status === 'Queued'));
-
-    if (hasInProgressBuilds) {
+    if (hasInProgressSingleBuilds || isBulkBuildInProgress) {
         const interval = setInterval(() => {
             console.log("Refreshing in-progress builds...");
-            fetchBuilds(false);
-        }, 60000); // Refresh every 60 seconds
+            if (hasInProgressSingleBuilds) fetchBuilds(false);
+            if (isBulkBuildInProgress) fetchBulkBuildStatus(bulkBuild);
+        }, 15000); // Refresh every 15 seconds
         return () => clearInterval(interval);
     }
-  }, [singleBuilds, bulkBuild, fetchBuilds, clearBulkBuild]);
+  }, [singleBuilds, bulkBuild, fetchBuilds, fetchBulkBuildStatus]);
   
   const filteredSingleBuilds = singleBuilds.filter(build => 
       !searchQuery ||
@@ -208,12 +274,6 @@ export default function BuildsPage() {
       build.triggeredBy?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handlePullRequestClick = (pr: any) => {
-    if (pr.url) {
-      window.open(pr.url, '_blank');
-    }
-  };
-
   return (
     <>
       <header className="flex items-center justify-between">
@@ -221,7 +281,7 @@ export default function BuildsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Build Status</h1>
             <p className="text-muted-foreground mt-1">Live status of your CI/CD pipelines.</p>
         </div>
-        <Button variant="outline" onClick={() => fetchBuilds(true)} disabled={loading}>
+        <Button variant="outline" onClick={() => bulkBuild ? fetchBulkBuildStatus(bulkBuild) : fetchBuilds(true)} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
         </Button>
@@ -251,19 +311,15 @@ export default function BuildsPage() {
                       <Calendar className="size-4" />
                       <span>Triggered {formatTimestamp(bulkBuild.timestamp)}</span>
                   </div>
-                   {bulkBuild.triggeredBy && (
+                   {bulkBuild.user && (
                     <div className="flex items-center gap-1.5">
                         <User className="size-4" />
-                        <span>by {bulkBuild.triggeredBy}</span>
+                        <span>by {bulkBuild.user}</span>
                     </div>
                   )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Clock className="size-4 text-muted-foreground" />
-                <span>Total duration: {bulkBuild.duration}</span>
-              </div>
               <Separator />
               <h4 className="font-medium">Repository Statuses</h4>
               <ScrollArea className="h-48">
@@ -297,7 +353,7 @@ export default function BuildsPage() {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <Clock className="size-3" />
-                                  <span className="text-xs">{repo.duration}</span>
+                                  <span className="text-xs">{repo.duration || '...'}</span>
                                 </div>
                               </div>
                             </div>
@@ -307,7 +363,7 @@ export default function BuildsPage() {
                               <Icon className={`size-4 ${animation || ''}`} />
                               {repo.status}
                             </span>
-                            {(isFailedOrCancelled || isRunning) && (
+                            {(isFailedOrCancelled || isRunning) && repo.id && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -336,8 +392,9 @@ export default function BuildsPage() {
               </ScrollArea>
             </CardContent>
             <CardFooter className="gap-2">
+               <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/repositories')}>Back to Repositories</Button>
                {bulkBuild.status !== "In Progress" && (
-                 <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard/repositories")}>Back to Repositories</Button>
+                 <Button variant="secondary" size="sm" onClick={() => router.replace('/dashboard/builds')}>Clear Bulk Build</Button>
                )}
             </CardFooter>
           </Card>
