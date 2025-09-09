@@ -31,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw, Lock, Globe } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { EditTagsDialog } from "./edit-tags-dialog"
+import { EditTagsDialog from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
 import { BuildStatusDialog } from "./build-status-dialog"
 import { useToast } from "@/hooks/use-toast"
@@ -428,7 +428,7 @@ export default function RepositoriesPage() {
                 ) : (
                   filteredRepos.map((repo) => {
                     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) || [];
+                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) ?? [];
 
                     const buildsInProgress = recentBuilds.filter(b => b.status === 'In Progress').length;
                     const buildsSucceeded = recentBuilds.filter(b => b.status === 'Success').length;
@@ -640,3 +640,5 @@ export default function RepositoriesPage() {
     </>
   )
 }
+
+    
