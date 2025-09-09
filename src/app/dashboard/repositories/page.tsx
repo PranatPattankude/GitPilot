@@ -45,7 +45,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { BulkMergeDialog } from "./bulk-merge-dialog"
 import { RebuildDialog } from "./rebuild-dialog"
-import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs, getRepoDetails, getAllRecentBuilds } from "./actions"
+import { getRepositories, createPullRequest, mergePullRequest, rerunAllJobs, getRepoDetails, getAllRecentBuilds, checkWorkflowsExistence } from "./actions"
 import { formatDistanceToNow } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { GithubIcon } from "@/components/icons"
@@ -264,7 +264,7 @@ export default function RepositoriesPage() {
 
     toast({
         title: "Pull Request Created",
-        description: `Successfully created PR #${prResult.data.number}. Now attempting to merge...`,
+        description: `Successfully created PR #${prResult.data.number}.`,
     });
     
     if (isDraft) {
@@ -295,7 +295,15 @@ export default function RepositoriesPage() {
           </a>
         ),
       });
-      router.push('/dashboard/builds');
+
+      // Check for workflows and decide where to redirect
+      const workflowStatus = await checkWorkflowsExistence([repoFullName]);
+      if (workflowStatus[repoFullName]) {
+        router.push('/dashboard/builds');
+      } else {
+        fetchRepos(); // Just refresh the repo list if no workflows
+      }
+
     } else {
        toast({
         variant: "destructive",
@@ -304,7 +312,7 @@ export default function RepositoriesPage() {
       });
     }
     
-    fetchRepos(); // Refresh data
+    if (!mergeResult.success) fetchRepos(); // Refresh data on failure
     return mergeResult;
   };
 

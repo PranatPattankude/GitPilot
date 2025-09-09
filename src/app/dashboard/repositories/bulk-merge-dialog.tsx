@@ -34,6 +34,7 @@ interface BulkMergeDialogProps {
 type RepoComparisonStatus = {
     repo: Repository;
     status: 'pending' | 'no-changes' | 'has-conflicts' | 'can-merge' | 'skipped-no-workflows' | 'skipped-no-branches' | 'error';
+    hasWorkflows: boolean;
     error?: string;
     pullRequest?: {
         number: number;
@@ -86,7 +87,7 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
 }
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
-  const { selectedRepos, startBulkBuild } = useAppStore()
+  const { selectedRepos, startBulkBuild, clearRepos } = useAppStore()
   const [sourceBranch, setSourceBranch] = useState("develop")
   const [targetBranch, setTargetBranch] = useState("main")
   const [comparisonStatuses, setComparisonStatuses] = useState<RepoComparisonStatus[]>([]);
@@ -108,17 +109,18 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
 
   const handleCompare = async () => {
     setIsComparing(true);
-    setComparisonStatuses(selectedRepos.map(repo => ({ repo, status: 'pending' })));
+    setComparisonStatuses(selectedRepos.map(repo => ({ repo, status: 'pending', hasWorkflows: false })));
 
     try {
         const repoFullNames = selectedRepos.map(r => r.fullName);
         const workflowStatus = await checkWorkflowsExistence(repoFullNames);
 
         await Promise.all(selectedRepos.map(async (repo, index) => {
+            const hasWorkflows = workflowStatus[repo.fullName] || false;
             const updateStatus = (newStatus: Partial<RepoComparisonStatus>) => {
                 setComparisonStatuses(prev => {
                     const newStatuses = [...prev];
-                    newStatuses[index] = { ...newStatuses[index], ...newStatus };
+                    newStatuses[index] = { ...newStatuses[index], ...newStatus, hasWorkflows };
                     return newStatuses;
                 });
             };
@@ -175,17 +177,22 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
         prUrl: s.pullRequest?.url,
         prNumber: s.pullRequest?.number,
     }));
-
-    startBulkBuild({
-        id: new Date().getTime().toString(),
-        sourceBranch,
-        targetBranch,
-        repos: reposForBuildPage as any,
-        status: 'In Progress',
-        duration: '0s',
-        timestamp: new Date(),
-        triggeredBy: user,
-    });
+    
+    // Check if any of the clean repos have workflows to decide on redirection
+    const shouldRedirect = cleanReposForMerge.some(s => s.hasWorkflows);
+    
+    if (shouldRedirect) {
+        startBulkBuild({
+            id: new Date().getTime().toString(),
+            sourceBranch,
+            targetBranch,
+            repos: reposForBuildPage as any,
+            status: 'In Progress',
+            duration: '0s',
+            timestamp: new Date(),
+            triggeredBy: user,
+        });
+    }
     
     try {
       const pullRequestsToMerge = cleanReposForMerge
@@ -199,17 +206,30 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
           repos: cleanReposForMerge.map(r => r.repo.name),
           branch: `${sourceBranch} → ${targetBranch}`,
           user: user,
-          status: 'In Progress'
+          status: shouldRedirect ? 'In Progress' : 'Success'
       });
 
-      toast({
-          title: "Bulk Merge Started",
-          description: `Merging ${cleanReposForMerge.length} repositories. You are being redirected to the build status page.`,
-      });
+      if (shouldRedirect) {
+          toast({
+              title: "Bulk Merge Started",
+              description: `Merging ${cleanReposForMerge.length} repositories. You are being redirected to the build status page.`,
+          });
+      } else {
+          toast({
+              title: "Bulk Merge Successful",
+              description: `Successfully merged ${cleanReposForMerge.length} repositories. No active workflows were found for these repos.`,
+          });
+      }
       
       startTransition(() => {
           onOpenChange(false);
-          router.push('/dashboard/builds');
+          clearRepos();
+          if (shouldRedirect) {
+            router.push('/dashboard/builds');
+          } else {
+            // Manually trigger a refresh of the repository page data
+            router.refresh(); 
+          }
       });
 
     } catch (e: any) {
@@ -220,6 +240,10 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             description: e.message || "Could not complete bulk merge. Check console for details.",
         });
         setIsMerging(false);
+        // Clear build state on error
+        if (shouldRedirect) {
+            clearRepos();
+        }
     }
   };
 
