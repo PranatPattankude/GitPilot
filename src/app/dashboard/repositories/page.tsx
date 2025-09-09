@@ -29,7 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
 import { useEffect, useState, useMemo, useTransition, useCallback } from "react"
@@ -295,6 +294,13 @@ export default function RepositoriesPage() {
           </a>
         ),
       });
+      addNotification({
+        type: 'pr',
+        message: `Successfully merged PR #${prResult.data.number}!`,
+        repoFullName: repoFullName,
+        url: prResult.data.html_url,
+        timestamp: new Date(),
+      });
 
       // Check for workflows and decide where to redirect
       const workflowStatus = await checkWorkflowsExistence([repoFullName]);
@@ -357,6 +363,13 @@ export default function RepositoriesPage() {
         toast({
           title: "Rebuild Triggered Successfully",
           description: "A new workflow run has started. You can monitor its progress on the Build Status page.",
+        });
+        addNotification({
+          type: 'build',
+          message: `Rebuild triggered for branch "${branch}".`,
+          repoFullName: repo.fullName,
+          url: '/dashboard/builds',
+          timestamp: new Date(),
         });
         router.push('/dashboard/builds');
       } else {
@@ -474,12 +487,15 @@ export default function RepositoriesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px] px-4">
-                    <Checkbox 
-                      onCheckedChange={handleSelectAll} 
-                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                      aria-label="Select all"
-                      disabled={loading || !!error}
-                    />
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenBulkMergeDialog}
+                        disabled={selectedRepos.length === 0}
+                        className="h-8 w-16"
+                    >
+                        Merge
+                    </Button>
                   </TableHead>
                   <TableHead>Repository</TableHead>
                   <TableHead className="hidden md:table-cell">Language</TableHead>
@@ -541,11 +557,24 @@ export default function RepositoriesPage() {
                     return (
                     <TableRow key={repo.id}>
                       <TableCell className="px-4">
-                        <Checkbox
-                          checked={selectedRepos.some((r) => r.id === repo.id)}
-                          onCheckedChange={() => handleSelectRepo(repo)}
-                          aria-label={`Select ${repo.name}`}
-                        />
+                         <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8"
+                                    onClick={() => handleSelectRepo(repo)}
+                                    aria-label={`Select ${repo.name}`}
+                                >
+                                    <div className={`size-4 rounded-sm border border-primary flex items-center justify-center ${selectedRepos.some(r => r.id === repo.id) ? 'bg-primary' : ''}`}>
+                                        {selectedRepos.some(r => r.id === repo.id) && <CheckCircle2 className="size-3 text-primary-foreground" />}
+                                    </div>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                               <p>Select for Bulk Merge</p>
+                            </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -709,13 +738,6 @@ export default function RepositoriesPage() {
           </div>
         </CardContent>
       </Card>
-      {selectedRepos.length > 0 && !loading && (
-        <div className="fixed bottom-6 right-6 z-10">
-           <Button onClick={handleOpenBulkMergeDialog} size="lg" className="shadow-lg">
-            Proceed to Merge ({selectedRepos.length})
-          </Button>
-        </div>
-      )}
       {editingRepo && (
         <EditTagsDialog 
           repo={editingRepo}

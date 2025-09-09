@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { intelligentConflictResolution } from '@/ai/flows/intelligent-conflict-resolution';
 import { useToast } from '@/hooks/use-toast';
 import { resolveConflictFile } from './actions';
+import { useAppStore } from '@/lib/store';
 
 function getMonacoLanguage(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase();
@@ -81,6 +82,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
     const [isAiResolving, setIsAiResolving] = useState(false);
     const [isMarkedAsResolved, setIsMarkedAsResolved] = useState(false);
     const { toast } = useToast();
+    const { addNotification } = useAppStore();
 
     const initialContent = useMemo(() => {
         return `<<<<<<< ${pr.targetBranch}\n${targetContent}\n=======\n${sourceContent}\n>>>>>>> ${pr.sourceBranch}`;
@@ -98,12 +100,19 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
                 toast({ title: "Success", description: state.message });
                 setIsMarkedAsResolved(true);
                 onResolved();
+                addNotification({
+                    type: 'pr',
+                    message: `Conflict in "${filePath}" resolved for PR #${pr.number}.`,
+                    repoFullName: pr.repoFullName,
+                    url: pr.url,
+                    timestamp: new Date(),
+                });
             } else {
                 toast({ variant: "destructive", title: "Error", description: state.message });
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state.message]);
+    }, [state]);
 
 
     const acceptTarget = () => {
@@ -135,6 +144,7 @@ export default function ConflictResolver({ pr, filePath, sourceContent, targetCo
         <div className="space-y-4">
             <input type="hidden" name="repoFullName" value={pr.repoFullName} />
             <input type="hidden" name="pullRequestNumber" value={pr.number} />
+            <input type="hidden" name="pullRequestUrl" value={pr.url} />
             <input type="hidden" name="sourceBranch" value={pr.sourceBranch} />
             <input type="hidden" name="filePath" value={filePath} />
             

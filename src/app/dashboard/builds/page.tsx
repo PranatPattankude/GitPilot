@@ -137,22 +137,24 @@ export default function BuildsPage() {
     try {
         const buildsData = await getAllRecentBuilds();
         
-        if (!isInitialFetch) {
-          const previousProblematicBuildIds = new Set(singleBuilds.filter(b => (b.status === 'Failed' || b.status === 'Cancelled')).map(b => b.id));
-          const newProblematicBuilds = buildsData.filter(b => 
-              (b.status === 'Failed' || b.status === 'Cancelled') && !previousProblematicBuildIds.has(b.id)
-          );
+        if (!isInitialFetch && buildsData.length > 0) {
+            const previousBuildsMap = new Map(singleBuilds.map(b => [b.id, b]));
+            const changedBuilds = buildsData.filter(newBuild => {
+                const oldBuild = previousBuildsMap.get(newBuild.id);
+                // Notify if it's a new build or if the status has changed from an in-progress state
+                return !oldBuild || (oldBuild.status !== newBuild.status && (oldBuild.status === 'In Progress' || oldBuild.status === 'Queued'));
+            });
 
-          if (newProblematicBuilds.length > 0) {
-              const notifications = newProblematicBuilds.map(b => ({
+            if (changedBuilds.length > 0) {
+              const notifications = changedBuilds.map(b => ({
                   type: 'build' as const,
-                  message: `Build on branch "${b.branch}" ${b.status.toLowerCase()}.`,
+                  message: `Build on branch "${b.branch}" is now ${b.status.toLowerCase()}.`,
                   repoFullName: b.repo || 'Unknown Repo',
                   url: `/dashboard/builds`,
-                  timestamp: b.timestamp,
+                  timestamp: new Date(),
               }));
               addNotifications(notifications);
-          }
+            }
         }
         
         setSingleBuilds(buildsData as BuildWithRepo[]);

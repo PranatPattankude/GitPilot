@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { commitResolvedFile, mergePullRequest } from "../repositories/actions";
+import { useAppStore } from "@/lib/store";
 
 
 const FormSchema = z.object({
@@ -11,6 +12,7 @@ const FormSchema = z.object({
   filePath: z.string(),
   resolvedContent: z.string(),
   pullRequestNumber: z.coerce.number(),
+  pullRequestUrl: z.string().url(),
 });
 
 type State = {
@@ -26,6 +28,7 @@ export async function resolveConflictFile(prevState: State, formData: FormData):
         filePath: formData.get("filePath"),
         resolvedContent: formData.get("resolvedContent"),
         pullRequestNumber: formData.get("pullRequestNumber"),
+        pullRequestUrl: formData.get("pullRequestUrl"),
     });
 
     if (!parsed.success) {
@@ -44,6 +47,8 @@ export async function resolveConflictFile(prevState: State, formData: FormData):
              return { success: false, message: commitResult.error || "Failed to commit the resolved file." };
         }
         
+        // This is a server action, but we can't call hooks directly.
+        // We will notify on the client side after the form state updates.
         return { success: true, message: "File conflict has been successfully resolved and committed." };
 
     } catch (e: any) {

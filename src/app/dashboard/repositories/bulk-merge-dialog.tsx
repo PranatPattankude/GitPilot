@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useMemo, useTransition } from "react"
@@ -86,7 +85,7 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
 }
 
 export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
-  const { selectedRepos, clearRepos } = useAppStore()
+  const { selectedRepos, clearRepos, addNotification, addNotifications } = useAppStore()
   const [sourceBranch, setSourceBranch] = useState("develop")
   const [targetBranch, setTargetBranch] = useState("main")
   const [comparisonStatuses, setComparisonStatuses] = useState<RepoComparisonStatus[]>([]);
@@ -124,7 +123,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             
             const repoBranches = repo.branches || [];
             if (!repoBranches.includes(sourceBranch) || !repoBranches.includes(targetBranch)) {
-                updateStatus({ status: 'skipped-no-branches', error: `One or both branches missing. Repo has: ${repoBranches.slice(0,3).join(', ')}...` });
+                updateStatus({ status: 'skipped-no-branches', error: `One or both branches missing.` });
                 return;
             }
             
@@ -173,13 +172,24 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     const prCreationResults = await Promise.all(cleanReposForMerge.map(async (repoStatus) => {
         const prResult = await createPullRequest(repoStatus.repo.fullName, sourceBranch, targetBranch, false);
         if (prResult.success && prResult.data) {
-            return { ...repoStatus, pullRequest: { number: prResult.data.number, url: prResult.data.html_url } };
+            return { ...repoStatus, pullRequest: { number: prResult.data.number, url: prResult.data.html_url, ...prResult.data } };
         }
         toast({ variant: "destructive", title: `Failed to create PR for ${repoStatus.repo.name}`, description: prResult.error });
         return { ...repoStatus, status: 'error', error: prResult.error };
     }));
     
     const successfulPrs = prCreationResults.filter(r => r.status === 'can-merge' && r.pullRequest);
+
+    if (successfulPrs.length > 0) {
+        addNotifications(successfulPrs.map(r => ({
+            type: 'pr',
+            message: `PR #${r.pullRequest!.number} created for merge.`,
+            repoFullName: r.repo.fullName,
+            url: r.pullRequest!.url,
+            timestamp: new Date(r.pullRequest!.created_at),
+        })));
+    }
+
 
     if (successfulPrs.length === 0) {
         toast({ title: "Merge Process Halted", description: "Could not create any pull requests to merge." });
@@ -196,9 +206,16 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             status: 'Success' // Assuming direct merge or background CI
         });
 
-        const allPrsToMerge = successfulPrs.map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number }));
+        const allPrsToMerge = successfulPrs.map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number, url: s.pullRequest!.url }));
         if (allPrsToMerge.length > 0) {
             mergeCleanPullRequests(allPrsToMerge);
+            addNotifications(allPrsToMerge.map(pr => ({
+                type: 'pr',
+                message: `Successfully merged PR #${pr.prNumber}!`,
+                repoFullName: pr.repoFullName,
+                url: pr.url,
+                timestamp: new Date(),
+            })));
         }
 
         toast({
