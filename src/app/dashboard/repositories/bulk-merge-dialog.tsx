@@ -131,13 +131,18 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                 return;
             }
             
+            if (sourceBranch === targetBranch) {
+                updateStatus({ status: 'error', error: "Source and target branches cannot be the same." });
+                return;
+            }
+            
             const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
             updateStatus({ status: compareResult.status, error: compareResult.error });
             
             // Only create a PR if the repo is ready for merging.
             // Repos with conflicts will be marked and skipped.
             if (compareResult.status === 'can-merge') {
-                const prResult = await createPullRequest(repo.fullName, sourceBranch, targetBranch, false);
+                const prResult = await createPullRequest(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, false);
                 if (prResult.success && prResult.data) {
                     updateStatus({ pullRequest: { number: prResult.data.number, url: prResult.data.html_url } });
                 } else {

@@ -332,7 +332,7 @@ export async function createPullRequest(
 
   try {
      // First, check if a PR already exists
-    const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${sourceBranch}&base=${targetBranch}&state=open`;
+    const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${sourceBranch.split(':')[1]}&base=${targetBranch}&state=open`;
     const { data: existingPrs } = await fetchFromGitHub<any[]>(prsUrl, accessToken);
     if (existingPrs && existingPrs.length > 0) {
       return { success: true, data: existingPrs[0], error: "A pull request for these branches already exists." };
@@ -448,55 +448,57 @@ export async function compareBranches(
     const compareUrl = `https://api.github.com/repos/${repoFullName}/compare/${targetBranch}...${sourceBranch}`;
     const { data, status } = await fetchFromGitHub<any>(compareUrl, accessToken);
     
-    if (status >= 400 && status < 500) {
-        const errorMessage = data?.message || "One of the branches was not found.";
+    if (status >= 400) {
+        const errorMessage = data?.message || "An error occurred during branch comparison.";
         if (errorMessage.includes("No common ancestor")) {
             return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
         }
-        return { status: "has-conflicts", error: "One or both branches were not found." };
+        return { status: "has-conflicts", error: `Could not compare branches: ${errorMessage}` };
     }
     
-    if (data.status === 'identical') {
+    if (data.status === 'identical' || data.total_commits === 0) {
       return { status: "no-changes" };
     }
-    
-    if (data.status === 'behind') {
-      return { status: "can-merge" };
-    }
-    
-    if (data.status === 'ahead') {
-      return { status: "can-merge" };
-    }
 
-    // If we're here, the branches have diverged. We need to check for conflicts
-    // by creating a PR and checking its mergeable state.
+    // At this point, branches have diverged or one is ahead. We check mergeability by creating a draft PR.
     // The most reliable way is to try to merge the branches. GitHub's API for this
     // will tell us if there are conflicts.
-    const mergeCheckUrl = `https://api.github.com/repos/${repoFullName}/merges`;
-    const { status: mergeCheckStatus } = await fetchFromGitHub(mergeCheckUrl, accessToken, {
-        method: 'POST',
-        body: JSON.stringify({
-            base: targetBranch,
-            head: sourceBranch,
-        }),
-    });
+    const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch, true);
 
-    if (mergeCheckStatus === 201) { // 201 Created means merge is possible.
-      // This merge was just a dry-run, so we don't do anything with the result.
-      return { status: "can-merge" };
+    if (!prResult.success || !prResult.data) {
+        if (prResult.error?.includes("identical")) {
+            return { status: "no-changes" };
+        }
+        return { status: "error", error: prResult.error || "Could not determine merge status." };
+    }
+
+    const prUrl = `https://api.github.com/repos/${repoFullName}/pulls/${prResult.data.number}`;
+    let prData;
+    // Poll for mergeability status
+    for (let i = 0; i < 5; i++) { // Poll for up to 10 seconds
+        const { data } = await fetchFromGitHub<any>(prUrl, accessToken, { cache: 'no-store' });
+        prData = data;
+        if (prData.mergeable_state && prData.mergeable_state !== 'unknown') {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
-    if (mergeCheckStatus === 204) { // 204 No Content means branches are identical.
-      return { status: "no-changes" };
+    // Close the temporary draft PR
+    await fetchFromGitHub(prUrl, accessToken, {
+        method: 'PATCH',
+        body: JSON.stringify({ state: 'closed' })
+    });
+    
+    if (prData.mergeable_state === 'clean' || prData.mergeable_state === 'unstable') {
+        return { status: "can-merge" };
     }
     
-    if (mergeCheckStatus === 409) { // 409 Conflict means... well, conflicts.
-      return { status: "has-conflicts", error: "Branches have conflicts that must be resolved." };
+    if (prData.mergeable_state === 'dirty') {
+        return { status: "has-conflicts", error: "Branches have conflicts that must be resolved." };
     }
     
-    // Any other status is an error.
-    return { status: "error", error: "Could not determine merge status." };
-    
+    return { status: "error", error: `Could not determine merge status. State: ${prData.mergeable_state}` };
 
   } catch (error: any) {
     console.error(`Failed to compare branches for ${repoFullName}:`, error);

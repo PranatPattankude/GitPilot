@@ -141,10 +141,10 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
           }
 
           if (compareResult.status === "can-merge") {
-              await onMerge(repo.fullName, sourceBranch, targetBranch, false);
+              await onMerge(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, false);
               onOpenChange(false);
           } else if (compareResult.status === "has-conflicts") {
-              await onMerge(repo.fullName, sourceBranch, targetBranch, true);
+              await onMerge(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, true);
               onOpenChange(false);
           }
 
@@ -237,5 +237,3 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     </Dialog>
   )
 }
-
-    
