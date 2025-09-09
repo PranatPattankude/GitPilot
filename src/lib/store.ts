@@ -96,9 +96,6 @@ type AppState = {
   clearRepos: () => void
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
-  bulkBuild: BulkBuild | null;
-  setBulkBuild: (build: BulkBuild | null) => void;
-  clearBulkBuild: () => void;
   notifications: AppNotification[];
   addNotification: (notification: Omit<AppNotification, 'id'>) => void;
   addNotifications: (notifications: Omit<AppNotification, 'id'>[]) => void;
@@ -115,9 +112,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearRepos: () => set({ selectedRepos: [] }),
   isLoading: false,
   setIsLoading: (isLoading) => set({ isLoading }),
-  bulkBuild: null,
-  setBulkBuild: (build) => set({ bulkBuild: build }),
-  clearBulkBuild: () => set({ bulkBuild: null }),
   notifications: [],
   addNotification: (notification) => {
     const newNotification: AppNotification = {

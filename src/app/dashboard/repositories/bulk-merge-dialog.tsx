@@ -187,59 +187,29 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
         return;
     }
     
-    const successfulRepoNames = successfulPrs.map(r => r.repo.fullName);
-    const workflowStatus = await checkWorkflowsExistence(successfulRepoNames);
-
-    const reposWithWorkflows = successfulPrs.filter(r => workflowStatus[r.repo.fullName]);
-    const reposWithoutWorkflows = successfulPrs.filter(r => !workflowStatus[r.repo.fullName]);
-    
     try {
-        if (reposWithWorkflows.length > 0) {
-             await addReleaseToHistory({
-                type: 'bulk',
-                repos: reposWithWorkflows.map(r => r.repo.name),
-                branch: `${sourceBranch} → ${targetBranch}`,
-                user: user,
-                status: 'In Progress'
-            });
-        }
-        
-        if (reposWithoutWorkflows.length > 0) {
-            await addReleaseToHistory({
-                type: 'bulk',
-                repos: reposWithoutWorkflows.map(r => r.repo.name),
-                branch: `${sourceBranch} → ${targetBranch}`,
-                user: user,
-                status: 'Success'
-            });
-            toast({
-                title: "Merge Successful",
-                description: `Successfully merged ${reposWithoutWorkflows.length} repositories without workflows.`,
-            });
-        }
-        
-        // This can run in the background
+        await addReleaseToHistory({
+            type: 'bulk',
+            repos: successfulPrs.map(r => r.repo.name),
+            branch: `${sourceBranch} → ${targetBranch}`,
+            user: user,
+            status: 'Success' // Assuming direct merge or background CI
+        });
+
         const allPrsToMerge = successfulPrs.map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number }));
         if (allPrsToMerge.length > 0) {
             mergeCleanPullRequests(allPrsToMerge);
         }
 
+        toast({
+            title: `Merge successful for ${successfulPrs.length} repositories`,
+            description: 'Pull requests were created and are being merged in the background.',
+        });
+
         startTransition(() => {
             onOpenChange(false);
             clearRepos();
-            if (reposWithWorkflows.length > 0) {
-                const buildId = new Date().getTime();
-                const prNumbers = reposWithWorkflows.map(r => `${r.repo.fullName}:${r.pullRequest!.number}`).join(',');
-                const query = new URLSearchParams({
-                    source: sourceBranch,
-                    target: targetBranch,
-                    user: user,
-                    prs: prNumbers
-                });
-                router.push(`/dashboard/builds/${buildId}?${query.toString()}`);
-            } else {
-                router.push('/dashboard/repositories?merged=true');
-            }
+            router.push('/dashboard/repositories?merged=true');
         });
 
     } catch (e: any) {
