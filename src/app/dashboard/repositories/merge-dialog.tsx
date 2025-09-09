@@ -3,6 +3,7 @@
 "use client"
 
 import { useState, useEffect, useTransition } from "react"
+import Link from "next/link"
 import {
   Dialog,
   DialogContent,
@@ -15,10 +16,10 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import type { Repository } from "@/lib/store"
+import type { Repository, ChangedFile } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import { GitMerge, GitPullRequest, CheckCircle, AlertTriangle, Info, Loader, ChevronsUpDown } from "lucide-react"
-import { compareBranches, getRepoDetails } from "./actions"
+import { compareBranches, getRepoDetails, mergePullRequest } from "./actions"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -30,6 +31,7 @@ interface MergeDialogProps {
 }
 
 type ComparisonStatus = "idle" | "comparing" | "can-merge" | "has-conflicts" | "no-changes" | "error"
+type PRInfo = { number: number; url: string; files: ChangedFile[] } | null
 
 function BranchCombobox({ value, onChange, branches, placeholder }: { value: string, onChange: (value: string) => void, branches: string[], placeholder: string }) {
     const [open, setOpen] = useState(false)
@@ -82,6 +84,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const [loadingDetails, setLoadingDetails] = useState(!repo.branches);
   const [comparisonStatus, setComparisonStatus] = useState<ComparisonStatus>("idle")
   const [comparisonError, setComparisonError] = useState<string | null>(null)
+  const [pullRequestInfo, setPullRequestInfo] = useState<PRInfo>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isComparing, setIsComparing] = useState(false);
   const { toast } = useToast()
@@ -109,6 +112,7 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
     // Reset comparison status if branches change
     setComparisonStatus("idle")
     setComparisonError(null)
+    setPullRequestInfo(null)
   }, [sourceBranch, targetBranch])
   
    const handleCompare = async () => {
@@ -132,12 +136,16 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
       setIsComparing(true);
       setComparisonStatus("comparing");
       setComparisonError(null);
+      setPullRequestInfo(null);
       
       try {
         const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
         setComparisonStatus(compareResult.status);
         if (compareResult.error) {
             setComparisonError(compareResult.error);
+        }
+        if (compareResult.pr) {
+            setPullRequestInfo(compareResult.pr);
         }
       } catch (e: any) {
           setComparisonStatus("error");
@@ -150,15 +158,29 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
   const handleMerge = async () => {
       setIsProcessing(true);
       try {
-        const isDraft = comparisonStatus === 'has-conflicts';
-        await onMerge(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, isDraft);
-        onOpenChange(false);
+        if (comparisonStatus === 'has-conflicts') {
+            toast({
+                title: "Draft PR Created",
+                description: "A draft PR has been created. Please resolve the conflicts.",
+            });
+            onOpenChange(false);
+            return;
+        }
+
+        const prResult = await onMerge(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, false);
+        
+        if (prResult.success) {
+            onOpenChange(false);
+        }
+
       } catch (e: any) {
           toast({ variant: "destructive", title: "Error", description: "Merge failed: " + e.message });
       } finally {
           setIsProcessing(false);
       }
   }
+  
+  const firstConflictingFile = pullRequestInfo?.files?.[0]?.filename;
 
 
   return (
@@ -220,9 +242,18 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                     )}
             
                     {comparisonStatus === "has-conflicts" && !isComparing && (
-                         <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2 text-sm">
-                            <AlertTriangle className="size-4" />
-                            <p>{comparisonError || "Merge conflicts detected. A draft PR will be created."}</p>
+                         <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex flex-col items-start gap-2 text-sm">
+                           <div className="flex items-center gap-2">
+                                <AlertTriangle className="size-4" />
+                                <p>{comparisonError || "Merge conflicts detected."}</p>
+                           </div>
+                           {pullRequestInfo && firstConflictingFile && (
+                            <Button asChild variant="link" size="sm" className="h-auto p-0 text-destructive font-bold">
+                                <Link href={`/dashboard/merge/${repo.fullName}/${pullRequestInfo.number}/${encodeURIComponent(firstConflictingFile)}`}>
+                                    Resolve Conflicts
+                                </Link>
+                            </Button>
+                           )}
                         </div>
                     )}
             
@@ -249,9 +280,9 @@ export function MergeDialog({ repo, onOpenChange, onMerge }: MergeDialogProps) {
                         {isComparing ? 'Comparing...' : 'Compare Branches'}
                       </Button>
                   ): (
-                     <Button onClick={handleMerge} disabled={isProcessing || comparisonStatus === 'no-changes' || comparisonStatus === 'error'}>
+                     <Button onClick={handleMerge} disabled={isProcessing || comparisonStatus === 'no-changes' || comparisonStatus === 'error' || comparisonStatus === 'has-conflicts'}>
                         {isProcessing ? <Loader className="mr-2 size-4 animate-spin" /> : <GitPullRequest className="mr-2 size-4" />}
-                        {isProcessing ? 'Processing...' : comparisonStatus === 'has-conflicts' ? 'Create Draft PR' : 'Create & Merge PR'}
+                        {isProcessing ? 'Merging...' : 'Create & Merge PR'}
                       </Button>
                   )}
                 </DialogFooter>

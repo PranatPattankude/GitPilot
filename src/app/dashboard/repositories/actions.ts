@@ -1,4 +1,5 @@
 
+
 "use server"
 
 import { getServerSession } from "next-auth/next"
@@ -335,7 +336,7 @@ export async function createPullRequest(
     const prsUrl = `https://api.github.com/repos/${repoFullName}/pulls?head=${sourceBranch.split(':')[1]}&base=${targetBranch}&state=open`;
     const { data: existingPrs } = await fetchFromGitHub<any[]>(prsUrl, accessToken);
     if (existingPrs && existingPrs.length > 0) {
-      return { success: true, data: existingPrs[0], error: "A pull request for these branches already exists." };
+      return { success: true, data: existingPrs[0] };
     }
     
     const url = `https://api.github.com/repos/${repoFullName}/pulls`;
@@ -437,10 +438,14 @@ export async function compareBranches(
   repoFullName: string,
   sourceBranch: string,
   targetBranch: string
-): Promise<{ status: "has-conflicts" | "no-changes" | "can-merge"; error?: string }> {
+): Promise<{ 
+    status: "has-conflicts" | "no-changes" | "can-merge" | "error"; 
+    error?: string; 
+    pr?: { number: number; url: string, files: ChangedFile[] } 
+}> {
   const session = await getServerSession(authOptions);
   if (!session || !(session as any).accessToken) {
-    return { status: "has-conflicts", error: "Not authenticated" };
+    return { status: "error", error: "Not authenticated" };
   }
   const accessToken = (session as any).accessToken as string;
 
@@ -451,25 +456,26 @@ export async function compareBranches(
     if (status >= 400) {
         const errorMessage = data?.message || "An error occurred during branch comparison.";
         if (errorMessage.includes("No common ancestor")) {
-            return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
+            return { status: "error", error: "Branches have no common history and cannot be compared." };
         }
-        return { status: "has-conflicts", error: `Could not compare branches: ${errorMessage}` };
+        if (errorMessage.includes("Not Found")) {
+            return { status: "error", error: "One or both branches were not found." };
+        }
+        return { status: "error", error: `Could not compare branches: ${errorMessage}` };
     }
     
     if (data.status === 'identical' || data.total_commits === 0) {
       return { status: "no-changes" };
     }
 
-    // At this point, branches have diverged or one is ahead. We check mergeability by creating a draft PR.
-    // The most reliable way is to try to merge the branches. GitHub's API for this
-    // will tell us if there are conflicts.
+    // At this point, branches have diverged. We check mergeability by creating a draft PR.
     const prResult = await createPullRequest(repoFullName, sourceBranch, targetBranch, true);
 
     if (!prResult.success || !prResult.data) {
         if (prResult.error?.includes("identical")) {
             return { status: "no-changes" };
         }
-        return { status: "error", error: prResult.error || "Could not determine merge status." };
+        return { status: "error", error: prResult.error || "Could not create a temporary PR to check for mergeability." };
     }
 
     const prUrl = `https://api.github.com/repos/${repoFullName}/pulls/${prResult.data.number}`;
@@ -484,31 +490,40 @@ export async function compareBranches(
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
-    // Close the temporary draft PR
-    await fetchFromGitHub(prUrl, accessToken, {
-        method: 'PATCH',
-        body: JSON.stringify({ state: 'closed' })
-    });
-    
     if (prData.mergeable_state === 'clean' || prData.mergeable_state === 'unstable') {
+        // Close the temporary draft PR as it's not needed for a clean merge
+        await fetchFromGitHub(prUrl, accessToken, {
+            method: 'PATCH',
+            body: JSON.stringify({ state: 'closed' })
+        });
         return { status: "can-merge" };
     }
     
     if (prData.mergeable_state === 'dirty') {
-        return { status: "has-conflicts", error: "Branches have conflicts that must be resolved." };
+        const files = await getPullRequestFiles(repoFullName, prData.number, accessToken);
+        return { 
+            status: "has-conflicts", 
+            error: "Branches have conflicts that must be resolved.",
+            pr: { number: prData.number, url: prData.html_url, files }
+        };
     }
     
+    // Close the draft PR if the state is something else (e.g., blocked)
+    await fetchFromGitHub(prUrl, accessToken, {
+        method: 'PATCH',
+        body: JSON.stringify({ state: 'closed' })
+    });
     return { status: "error", error: `Could not determine merge status. State: ${prData.mergeable_state}` };
 
   } catch (error: any) {
     console.error(`Failed to compare branches for ${repoFullName}:`, error);
      if (error.message && error.message.includes("No common ancestor")) {
-        return { status: "has-conflicts", error: "Branches have no common history and cannot be compared." };
+        return { status: "error", error: "Branches have no common history and cannot be compared." };
     }
     if (error.message && error.message.includes("Not Found")) {
-      return { status: "has-conflicts", error: "One of the branches was not found. It may not exist in this repository." };
+      return { status: "error", error: "One of the branches was not found. It may not exist in this repository." };
     }
-    return { status: "has-conflicts", error: `Failed to compare branches: ${error.message}` };
+    return { status: "error", error: `Failed to compare branches: ${error.message}` };
   }
 }
 
@@ -578,10 +593,19 @@ async function getPullRequestsForRepo(repoFullName: string, accessToken: string)
 }
 
 async function getPullRequestFiles(repoFullName: string, prNumber: number, accessToken: string): Promise<ChangedFile[]> {
-    const url = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}/files`;
-    const { data } = await fetchFromGitHub<any[]>(url, accessToken);
-    if (!data) return [];
-    return data.map((f: any) => ({
+    let allFiles: any[] = [];
+    let currentUrl: string | null = `https://api.github.com/repos/${repoFullName}/pulls/${prNumber}/files?per_page=100`;
+
+    while (currentUrl) {
+        const { data, nextUrl } = await fetchFromGitHub<any[]>(currentUrl, accessToken);
+        if (data) {
+            allFiles = allFiles.concat(data);
+        }
+        currentUrl = nextUrl;
+    }
+    
+    if (!allFiles) return [];
+    return allFiles.map((f: any) => ({
         sha: f.sha,
         filename: f.filename,
         status: f.status,
@@ -691,6 +715,10 @@ export async function getFileContent(repoFullName: string, branch: string, path:
     const url = `https://api.github.com/repos/${repoFullName}/contents/${path}?ref=${branch}`;
     const { data } = await fetchFromGitHub<any>(url, accessToken);
     if (!data || !data.content) {
+        // If the file doesn't exist, return empty content and a null sha
+        if (data.message === "Not Found") {
+            return { content: "", sha: "" };
+        }
         throw new Error(`Could not fetch content for file: ${path}`);
     }
     // Content is base64 encoded
@@ -738,11 +766,12 @@ export async function commitResolvedFile(
         const fileInfoUrl = `https://api.github.com/repos/${repoFullName}/contents/${filePath}?ref=${sourceBranch}`;
         const { data: fileInfo, status: fileInfoStatus } = await fetchFromGitHub<any>(fileInfoUrl, accessToken);
         
-        if (fileInfoStatus !== 200 || !fileInfo.sha) {
-            return { success: false, error: `Could not get file information for "${filePath}". Does it exist on the "${sourceBranch}" branch?` };
+        let fileSha = "";
+        if (fileInfoStatus === 200 && fileInfo.sha) {
+            fileSha = fileInfo.sha;
+        } else if (fileInfoStatus !== 404) {
+             return { success: false, error: `Could not get file information for "${filePath}". Status: ${fileInfoStatus}` };
         }
-        
-        const fileSha = fileInfo.sha;
         
         // 2. Commit the change to the source branch
         const commitUrl = `https://api.github.com/repos/${repoFullName}/contents/${filePath}`;
@@ -754,12 +783,12 @@ export async function commitResolvedFile(
             body: JSON.stringify({
                 message: commitMessage,
                 content: Buffer.from(resolvedContent).toString('base64'),
-                sha: fileSha,
+                sha: fileSha || undefined, // Send SHA only if file exists
                 branch: sourceBranch,
             }),
         });
 
-        if (commitStatus !== 200) {
+        if (commitStatus !== 200 && commitStatus !== 201) {
              return { success: false, error: `Failed to commit changes: ${commitData?.message || 'Unknown error'}` };
         }
         
