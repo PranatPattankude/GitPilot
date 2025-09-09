@@ -23,6 +23,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useAppStore, type Repository } from "@/lib/store"
@@ -366,6 +372,7 @@ export default function RepositoriesPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
+            <TooltipProvider>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -428,11 +435,11 @@ export default function RepositoriesPage() {
                 ) : (
                   filteredRepos.map((repo) => {
                     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) ?? [];
+                    const recentBuilds = repo.recentBuilds?.filter(b => new Date(b.timestamp) > twentyFourHoursAgo) ?? null;
 
-                    const buildsInProgress = recentBuilds.filter(b => b.status === 'In Progress').length;
-                    const buildsSucceeded = recentBuilds.filter(b => b.status === 'Success').length;
-                    const buildsFailed = recentBuilds.filter(b => b.status === 'Failed').length;
+                    const buildsInProgress = recentBuilds?.filter(b => b.status === 'In Progress' || b.status === 'Queued').length ?? 0;
+                    const buildsSucceeded = recentBuilds?.filter(b => b.status === 'Success').length ?? 0;
+                    const buildsFailed = recentBuilds?.filter(b => b.status === 'Failed' || b.status === 'Cancelled').length ?? 0;
                     
                     return (
                     <TableRow key={repo.id}>
@@ -487,25 +494,33 @@ export default function RepositoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                         <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
-                          onClick={() => setViewingBuildsRepo(repo)}
-                        >
-                          <div className="flex items-center gap-1 text-primary">
-                            <Loader className={`size-3 ${buildsInProgress > 0 && (repo.recentBuilds?.length ?? 0 > 0) ? 'animate-spin' : ''}`} />
-                            <span>{buildsInProgress}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-accent">
-                            <CheckCircle2 className="size-3" />
-                            <span>{buildsSucceeded}</span>
-                          </div>
-                            <div className="flex items-center gap-1 text-destructive">
-                            <XCircle className="size-3" />
-                            <span>{buildsFailed}</span>
-                          </div>
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                 <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-auto px-2 py-1 flex items-center gap-2 text-xs"
+                                  onClick={() => setViewingBuildsRepo(repo)}
+                                  disabled={!recentBuilds}
+                                >
+                                  <div className="flex items-center gap-1 text-primary">
+                                    <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
+                                    <span>{buildsInProgress}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-accent">
+                                    <CheckCircle2 className="size-3" />
+                                    <span>{buildsSucceeded}</span>
+                                  </div>
+                                    <div className="flex items-center gap-1 text-destructive">
+                                    <XCircle className="size-3" />
+                                    <span>{buildsFailed}</span>
+                                  </div>
+                                </Button>
+                            </TooltipTrigger>
+                             <TooltipContent>
+                                <p>In Progress / Succeeded / Failed</p>
+                            </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                           {repo.tags.length > 0 ? (
@@ -587,6 +602,7 @@ export default function RepositoriesPage() {
                 )}
               </TableBody>
             </Table>
+            </TooltipProvider>
           </div>
         </CardContent>
       </Card>
