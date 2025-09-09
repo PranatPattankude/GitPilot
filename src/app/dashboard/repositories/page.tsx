@@ -31,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { MoreHorizontal, Search, Calendar, Star, GitFork, AlertCircle, GitPullRequest, Users, Pencil, GitMerge, Rocket, CheckCircle2, XCircle, Loader, ListFilter, Tag, RefreshCw, Lock, Globe } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { EditTagsDialog from "./edit-tags-dialog"
+import { EditTagsDialog } from "./edit-tags-dialog"
 import { MergeDialog } from "./merge-dialog"
 import { BuildStatusDialog } from "./build-status-dialog"
 import { useToast } from "@/hooks/use-toast"
@@ -494,7 +494,7 @@ export default function RepositoriesPage() {
                           onClick={() => setViewingBuildsRepo(repo)}
                         >
                           <div className="flex items-center gap-1 text-primary">
-                            <Loader className={`size-3 ${buildsInProgress > 0 ? 'animate-spin' : ''}`} />
+                            <Loader className={`size-3 ${buildsInProgress > 0 && (repo.recentBuilds?.length ?? 0 > 0) ? 'animate-spin' : ''}`} />
                             <span>{buildsInProgress}</span>
                           </div>
                           <div className="flex items-center gap-1 text-accent">
@@ -640,5 +640,3 @@ export default function RepositoriesPage() {
     </>
   )
 }
-
-    
