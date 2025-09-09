@@ -68,7 +68,7 @@ function BranchCombobox({ value, onChange, branches, placeholder }: { value: str
                                 <CommandItem
                                     key={branch}
                                     value={branch}
-                                    onAction={() => {
+                                    onSelect={() => {
                                         onChange(branch === value ? "" : branch)
                                         setOpen(false)
                                     }}
@@ -137,17 +137,17 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             }
             
             const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
-            updateStatus({ status: compareResult.status, error: compareResult.error });
             
-            // Only create a PR if the repo is ready for merging.
-            // Repos with conflicts will be marked and skipped.
-            if (compareResult.status === 'can-merge') {
-                const prResult = await createPullRequest(repo.fullName, `${repo.owner.login}:${sourceBranch}`, targetBranch, false);
-                if (prResult.success && prResult.data) {
-                    updateStatus({ pullRequest: { number: prResult.data.number, url: prResult.data.html_url } });
-                } else {
-                     updateStatus({ status: 'error', error: prResult.error || 'Failed to create Pull Request' });
-                }
+            if (compareResult.status === "has-conflicts" && compareResult.pr) {
+                 updateStatus({ 
+                    status: 'has-conflicts', 
+                    error: compareResult.error,
+                    pullRequest: { number: compareResult.pr.number, url: compareResult.pr.url }
+                });
+            } else if (compareResult.status === 'can-merge') {
+                 updateStatus({ status: 'can-merge' });
+            } else {
+                updateStatus({ status: compareResult.status, error: compareResult.error });
             }
         }));
     } catch (e: any) {
@@ -166,91 +166,107 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
     const user = session?.user?.name || 'Unknown User';
 
     const cleanReposForMerge = comparisonStatuses.filter(s => s.status === 'can-merge');
-    
     if (cleanReposForMerge.length === 0) {
         toast({ title: "Nothing to Merge", description: "There are no repositories ready for a clean merge." });
         setIsMerging(false);
         return;
     }
     
-    const reposForBuildPage = cleanReposForMerge.map(s => ({
-        name: s.repo.name,
-        status: 'Queued',
-        commit: '...'.padStart(7, '.'), // Placeholder
-        duration: '-',
-        timestamp: new Date(),
-        prUrl: s.pullRequest?.url,
-        prNumber: s.pullRequest?.number,
+    // Create PRs for all clean repos first
+    const prCreationResults = await Promise.all(cleanReposForMerge.map(async (repoStatus) => {
+        const prResult = await createPullRequest(repoStatus.repo.fullName, `${repoStatus.repo.owner.login}:${sourceBranch}`, targetBranch, false);
+        if (prResult.success && prResult.data) {
+            return { ...repoStatus, pullRequest: { number: prResult.data.number, url: prResult.data.html_url } };
+        }
+        toast({ variant: "destructive", title: `Failed to create PR for ${repoStatus.repo.name}`, description: prResult.error });
+        return { ...repoStatus, status: 'error', error: prResult.error };
     }));
     
-    // Check if any of the clean repos have workflows to decide on redirection
-    const shouldRedirect = cleanReposForMerge.some(s => s.hasWorkflows);
+    const successfulPrs = prCreationResults.filter(r => r.status === 'can-merge' && r.pullRequest);
+    const reposWithWorkflows = successfulPrs.filter(r => r.hasWorkflows);
+    const reposWithoutWorkflows = successfulPrs.filter(r => !r.hasWorkflows);
     
-    if (shouldRedirect) {
-        startBulkBuild({
-            id: new Date().getTime().toString(),
-            sourceBranch,
-            targetBranch,
-            repos: reposForBuildPage as any,
-            status: 'In Progress',
-            duration: '0s',
-            timestamp: new Date(),
-            triggeredBy: user,
-        });
-    }
+    const shouldRedirect = reposWithWorkflows.length > 0;
     
     try {
-      const pullRequestsToMerge = cleanReposForMerge
-        .filter(s => s.pullRequest)
-        .map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number }));
+        if (shouldRedirect) {
+            const reposForBuildPage = reposWithWorkflows.map(s => ({
+                name: s.repo.name,
+                status: 'Queued',
+                commit: '...'.padStart(7, '.'),
+                duration: '-',
+                timestamp: new Date(),
+                prUrl: s.pullRequest?.url,
+                prNumber: s.pullRequest?.number,
+                id: s.pullRequest!.number.toString(),
+            }));
 
-      await mergeCleanPullRequests(pullRequestsToMerge);
-      
-      await addReleaseToHistory({
-          type: 'bulk',
-          repos: cleanReposForMerge.map(r => r.repo.name),
-          branch: `${sourceBranch} → ${targetBranch}`,
-          user: user,
-          status: shouldRedirect ? 'In Progress' : 'Success'
-      });
+            startBulkBuild({
+                id: new Date().getTime().toString(),
+                sourceBranch,
+                targetBranch,
+                repos: reposForBuildPage as any,
+                status: 'In Progress',
+                duration: '0s',
+                timestamp: new Date(),
+                triggeredBy: user,
+            });
 
-      if (shouldRedirect) {
-          toast({
-              title: "Bulk Merge Started",
-              description: `Merging ${cleanReposForMerge.length} repositories. You are being redirected to the build status page.`,
-          });
-      } else {
-          toast({
-              title: "Bulk Merge Successful",
-              description: `Successfully merged ${cleanReposForMerge.length} repositories. No active workflows were found for these repos.`,
-          });
-      }
-      
-      startTransition(() => {
-          onOpenChange(false);
-          clearRepos();
-          if (shouldRedirect) {
-            router.push('/dashboard/builds');
-          } else {
-            // Manually trigger a refresh of the repository page data
-            router.refresh(); 
-          }
-      });
+            await addReleaseToHistory({
+                type: 'bulk',
+                repos: reposWithWorkflows.map(r => r.repo.name),
+                branch: `${sourceBranch} → ${targetBranch}`,
+                user: user,
+                status: 'In Progress'
+            });
+
+            toast({
+                title: "Bulk Merge Started",
+                description: `Merging ${reposWithWorkflows.length} repositories with workflows. Redirecting...`,
+            });
+        }
+        
+        if (reposWithoutWorkflows.length > 0) {
+            await addReleaseToHistory({
+                type: 'bulk',
+                repos: reposWithoutWorkflows.map(r => r.repo.name),
+                branch: `${sourceBranch} → ${targetBranch}`,
+                user: user,
+                status: 'Success'
+            });
+
+            toast({
+                title: "Bulk Merge Successful",
+                description: `Successfully merged ${reposWithoutWorkflows.length} repositories without workflows.`,
+            });
+        }
+        
+        const allPrsToMerge = successfulPrs.map(s => ({ repoFullName: s.repo.fullName, prNumber: s.pullRequest!.number }));
+        if (allPrsToMerge.length > 0) {
+            await mergeCleanPullRequests(allPrsToMerge);
+        }
+
+        startTransition(() => {
+            onOpenChange(false);
+            clearRepos();
+            if (shouldRedirect) {
+                router.push('/dashboard/builds');
+            } else {
+                router.refresh(); 
+            }
+        });
 
     } catch (e: any) {
-       console.error("Failed during bulk merge process", e);
+        console.error("Failed during bulk merge process", e);
         toast({
             variant: "destructive",
             title: "Error",
             description: e.message || "Could not complete bulk merge. Check console for details.",
         });
         setIsMerging(false);
-        // Clear build state on error
-        if (shouldRedirect) {
-            clearRepos();
-        }
     }
   };
+
 
   const getStatusInfo = (status: RepoComparisonStatus['status']) => {
     switch (status) {
@@ -260,8 +276,6 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
         return { icon: AlertTriangle, text: 'Conflicts Found', color: 'text-destructive', bg: 'bg-destructive/10' };
       case 'no-changes':
         return { icon: Info, text: 'No Changes', color: 'text-sky-500', bg: 'bg-sky-500/10' };
-      case 'skipped-no-workflows':
-        return { icon: FolderCog, text: 'Skipped (No Workflows)', color: 'text-muted-foreground', bg: 'bg-muted/50' };
       case 'skipped-no-branches':
         return { icon: XCircle, text: 'Skipped (Branch Missing)', color: 'text-muted-foreground', bg: 'bg-muted/50' };
       case 'error':
@@ -348,6 +362,9 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                 <ul className="space-y-3 pr-4">
                                 {comparisonStatuses.map(({ repo, status, error, pullRequest }) => {
                                     const { icon: Icon, text, color, bg, animation } = getStatusInfo(status);
+                                    const firstConflictingFile = null; // This logic is not needed for bulk merge
+                                    const encodedFilePath = firstConflictingFile ? encodeURIComponent(firstConflictingFile) : '';
+
                                     return (
                                         <li key={repo.id} className={`p-3 border rounded-lg ${bg}`}>
                                             <div className="flex items-center justify-between">
@@ -356,13 +373,12 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                                                     <p className="text-xs text-muted-foreground">{repo.owner.login}</p>
                                                 </div>
                                                 <div className="flex items-center gap-4">
-                                                   {pullRequest && (
-                                                        <Button variant="ghost" size="sm" asChild className="h-auto px-2 py-1 text-xs gap-1.5">
-                                                            <a href={pullRequest.url} target="_blank" rel="noopener noreferrer">
-                                                                View PR #{pullRequest.number}
-                                                                <ExternalLink className="size-3" />
-                                                            </a>
-                                                        </Button>
+                                                   {status === 'has-conflicts' && pullRequest && (
+                                                       <Button asChild variant="destructive" size="sm" className="h-auto px-2 py-1 text-xs gap-1.5">
+                                                           <Link href={`/dashboard/merge/${repo.fullName}/${pullRequest.number}/${encodedFilePath}`}>
+                                                                Resolve
+                                                           </Link>
+                                                       </Button>
                                                    )}
                                                     <Badge variant="outline" className={`flex items-center gap-2 text-sm ${color} border-current`}>
                                                         <Icon className={`size-4 ${animation || ''}`} />
