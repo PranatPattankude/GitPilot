@@ -120,24 +120,24 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
             const updateStatus = (newStatus: Partial<RepoComparisonStatus>) => {
                 setComparisonStatuses(prev => {
                     const newStatuses = [...prev];
-                    newStatuses[index] = { ...newStatuses[index], ...newStatus, hasWorkflows };
+                    newStatuses[index] = { ...newStatuses[index], ...newStatuses[index], ...newStatus, hasWorkflows };
                     return newStatuses;
                 });
             };
-
+            
             const repoBranches = repo.branches || [];
             if (!repoBranches.includes(sourceBranch) || !repoBranches.includes(targetBranch)) {
-                updateStatus({ status: 'skipped-no-branches', error: 'Source or target branch not found' });
+                updateStatus({ status: 'skipped-no-branches', error: `One or both branches missing. Repo has: ${repoBranches.slice(0,3).join(', ')}...` });
                 return;
             }
             
             const compareResult = await compareBranches(repo.fullName, sourceBranch, targetBranch);
             updateStatus({ status: compareResult.status, error: compareResult.error });
             
-            // If there are changes or conflicts, create a PR
-            if (compareResult.status === 'can-merge' || compareResult.status === 'has-conflicts') {
-                const isDraft = compareResult.status === 'has-conflicts';
-                const prResult = await createPullRequest(repo.fullName, sourceBranch, targetBranch, isDraft);
+            // Only create a PR if the repo is ready for merging.
+            // Repos with conflicts will be marked and skipped.
+            if (compareResult.status === 'can-merge') {
+                const prResult = await createPullRequest(repo.fullName, sourceBranch, targetBranch, false);
                 if (prResult.success && prResult.data) {
                     updateStatus({ pullRequest: { number: prResult.data.number, url: prResult.data.html_url } });
                 } else {
@@ -325,7 +325,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                     </div>
                     <Button onClick={handleCompare} disabled={isComparing || !sourceBranch || !targetBranch || sourceBranch === targetBranch}>
                         {isComparing && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
-                        {isComparing ? "Comparing..." : "2. Compare & Create PRs"}
+                        {isComparing ? "Comparing..." : "2. Compare Repositories"}
                     </Button>
                     </CardContent>
                 </Card>
@@ -335,7 +335,7 @@ export function BulkMergeDialog({ onOpenChange }: BulkMergeDialogProps) {
                         <CardHeader>
                             <CardTitle>3. Review and Merge</CardTitle>
                             <CardDescription>
-                            Review the status of each repository. Pull Requests are created automatically. You can then merge all clean PRs.
+                            Review the status of each repository. Repositories with conflicts or missing branches will be skipped. You can then merge all clean PRs.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
